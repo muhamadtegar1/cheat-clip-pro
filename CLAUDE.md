@@ -6,8 +6,18 @@ Repo ini fork dari `galihjuansaputra/cheat-clip-pro` (MIT).
 - Remote: `origin` = `muhamadtegar1/cheat-clip-pro` (fork), `upstream` = repo asli (hanya tarik manual).
 - Branch kerja: `custom`. Jangan commit ke `master`.
 
+## Alur task (skill di `.claude/skills/`)
+| Perintah | Siapa | Isi |
+| --- | --- | --- |
+| `/mulai <ID>` | pemilik | Baca baton + codemap, tulis draf kontrak, **berhenti** menunggu persetujuan, lalu implementasi |
+| `/tutup` | pemilik | Cek lingkup, build/smoke test/cek codemap, laporan, status REVIEW, commit + push, subagent `reviewer` |
+| `/review <ID>` | pemilik, di sesi baru | Review independen dari kontrak + diff commit `<ID>:` + test sendiri, tulis verdict |
+| `/done <ID>` | pemilik | Tandai DONE, perbarui baton dan log, commit + push |
+
+Blok Baton dicetak otomatis di awal sesi oleh hook `SessionStart` (`.claude/settings.json` → `scripts/baton.js`). Semua skill memakai `disable-model-invocation: true`, jadi hanya bisa dipanggil pemilik. Pesan commit task selalu diawali `<ID>:` karena reviewer mencari commit dengan pola itu.
+
 ## Sebelum mengerjakan apa pun
-1. Baca blok **Baton** di `TASKS.md`: fase aktif, task aktif, langkah berikut, blocker.
+1. Baca blok **Baton** di `TASKS.md` (juga tampil di awal sesi): fase aktif, task aktif, langkah berikut, blocker.
 2. Kerjakan **satu task** saja. Kontraknya ada di `docs/tasks/CHEAT-<ID>.md` (template: `docs/tasks/_TEMPLATE.md`). Kalau kontrak belum ada, tulis drafnya dulu.
 3. Buka `docs/codemap/index.md` dan catatan fitur yang relevan untuk menemukan file + rentang baris. Jangan grep panjang kalau codemap sudah menjawab.
 4. Sentuh **hanya** file/area yang disebut di kontrak. Tidak ada refactor, format ulang, atau perubahan dependensi di luar kontrak.
@@ -28,8 +38,9 @@ npm run dev
 ## Smoke test
 **Belum ada** (task 17 di `TASKS.md`, menunggu golden fixtures K3). Sampai task itu selesai, minimal:
 1. `npm run build` lulus.
-2. Untuk perubahan backend: impor modul atau uji endpoint terisolasi (FastAPI `TestClient` pada router terkait) agar tidak memicu auto-cleanup.
-3. Uji manual analisis dengan API key `mock`.
+2. `venv\Scripts\python.exe scripts\check_codemap.py` lulus (link codemap valid, rentang baris cocok dengan kode).
+3. Untuk perubahan backend: impor modul atau uji endpoint terisolasi (FastAPI `TestClient` pada router terkait) agar tidak memicu auto-cleanup.
+4. Uji manual analisis dengan API key `mock`.
 
 Setelah task 17 selesai, ganti bagian ini dengan satu perintah smoke test.
 
@@ -38,7 +49,7 @@ Setelah task 17 selesai, ganti bagian ini dengan satu perintah smoke test.
 - Satu kontrak = satu fitur kecil = satu commit kode, plus commit terpisah untuk `TASKS.md`.
 - Stage file satu per satu (`git add <file>`). **Jangan `git add .`**, dan jangan commit `package-lock.json` kecuali task memang mengubah dependensi.
 - Jalankan `git status` sebelum commit. Hanya file dalam scope kontrak yang boleh ikut.
-- Setiap perubahan kode wajib memperbarui catatan `docs/codemap/` yang terdampak (rentang baris, fungsi, risiko).
+- Setiap perubahan kode wajib memperbarui catatan `docs/codemap/` yang terdampak (rentang baris, fungsi, risiko), lalu `scripts/check_codemap.py` harus lulus.
 - Perubahan prompt AI wajib lulus golden fixtures (setelah task 17).
 - Review dilakukan di sesi Claude Code baru, hanya dari kontrak + `git diff` + hasil test. Task berisiko tinggi (#7, #12, #16) wajib `/review` di sesi yang benar-benar baru.
 - Setelah menyimpan `TASKS.md`, baca ulang untuk memastikan tidak tertimpa proses lain.
@@ -54,7 +65,8 @@ Setelah task 17 selesai, ganti bagian ini dengan satu perintah smoke test.
 7. **Komponen mati**: `src/components/ClipStudioModal.tsx` dan `BatchRenderProgressModal.tsx` tidak dipakai. UI aktif ada di `ClipStudioSection.tsx`.
 8. **Data sensitif di `localStorage`**: Gemini API key (`cheat_clip_gemini_api_key`) dan cookies YouTube. Target task #7.
 9. **Teks UI dua bahasa**: setiap string baru harus masuk `src/locales/id.ts` dan `src/locales/en.ts`.
-10. **Line ending campuran** (CRLF/LF). Peringatan `LF will be replaced by CRLF` dari git normal. Pertahankan line ending file yang diedit.
+10. **Menjalankan `claude -p "/skill ..."` dari Git Bash** membuat `/skill` diubah menjadi path Windows. Pakai `MSYS_NO_PATHCONV=1` atau PowerShell.
+11. **Line ending campuran** (CRLF/LF). Peringatan `LF will be replaced by CRLF` dari git normal. Pertahankan line ending file yang diedit.
 
 ## Peta
 - Tugas dan status: `TASKS.md`
