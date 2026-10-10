@@ -1,5 +1,5 @@
 # CHEAT-P3: CLAUDE.md + codemap per fitur
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Sesi Claude Code baru bisa langsung tahu cara menjalankan app, aturan kerja, jebakan yang diketahui, dan lokasi file + rentang baris tiap fitur tanpa grep panjang.
