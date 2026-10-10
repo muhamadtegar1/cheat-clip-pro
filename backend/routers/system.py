@@ -22,6 +22,15 @@ from backend.services.system_service import (
 
 router = APIRouter(tags=["System"])
 
+# Fork kustom: self-update (git pull + npm/pip install) dan restart via Web UI dimatikan
+# agar kustomisasi tidak tertimpa kode repo asli. Update dilakukan manual via git.
+# Ubah ke False untuk mengaktifkan kembali perilaku asli.
+SELF_UPDATE_DISABLED = True
+SELF_UPDATE_DISABLED_MESSAGE = (
+    "Self-update dinonaktifkan di fork kustom ini. "
+    "Update dilakukan manual via git (git fetch upstream lalu merge ke branch custom)."
+)
+
 
 def verify_admin_access(
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
@@ -95,6 +104,15 @@ def api_system_version():
 def api_check_update():
     """Fetches origin and checks if updates are available. Disabled in server environments for security."""
     info = get_current_git_info()
+    if SELF_UPDATE_DISABLED:
+        return {
+            **info,
+            "update_available": False,
+            "behind_count": 0,
+            "changelog": [],
+            "allow_update": False,
+            "message": SELF_UPDATE_DISABLED_MESSAGE
+        }
     if not is_update_allowed():
         return {
             **info,
@@ -148,6 +166,8 @@ def api_check_update():
 @router.post("/api/system/update")
 async def api_perform_update(authorized: bool = Depends(verify_admin_access)):
     """Pulls latest code, syncs dependencies if modified, and triggers background restart."""
+    if SELF_UPDATE_DISABLED:
+        raise HTTPException(status_code=403, detail=SELF_UPDATE_DISABLED_MESSAGE)
     if not is_update_allowed():
         raise HTTPException(
             status_code=403,
@@ -233,6 +253,8 @@ async def api_perform_update(authorized: bool = Depends(verify_admin_access)):
 @router.post("/api/system/restart")
 async def api_restart_app(authorized: bool = Depends(verify_admin_access)):
     """Triggers an immediate background restart without pulling code. Disabled in server environments for security."""
+    if SELF_UPDATE_DISABLED:
+        raise HTTPException(status_code=403, detail=SELF_UPDATE_DISABLED_MESSAGE)
     if not is_update_allowed():
         raise HTTPException(
             status_code=403,

@@ -20,6 +20,10 @@ declare global {
   }
 }
 
+// Fork kustom: tombol update disembunyikan, update dilakukan manual via git.
+// Pasangan dari SELF_UPDATE_DISABLED di backend/routers/system.py.
+const SELF_UPDATE_DISABLED = true;
+
 export default function App() {
   const { t } = useLanguage();
   const [url, setUrl] = useState('');
@@ -2335,7 +2339,7 @@ Transcript:
               <span>🧹 {isClearingGlobalTemp ? t.header.clearingTempBtn : t.header.clearTempBtn}</span>
             </button>
           )}
-          {allowAppUpdates && (
+          {allowAppUpdates && !SELF_UPDATE_DISABLED && (
             <button
               type="button"
               className="cookie-header-btn"
