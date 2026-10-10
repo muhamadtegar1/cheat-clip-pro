@@ -9,8 +9,8 @@
 
 ```text
 fase_aktif:      Fase 0 — Persiapan
-task_aktif:      P2
-status:          P2 REVIEW
+task_aktif:      —
+status:          P2 DONE
 langkah_berikut: 17 — smoke test + golden fixtures
 blocker:         K3 (video golden fixtures + momen terbaiknya) belum dijawab, dibutuhkan task 17
 ```
@@ -39,7 +39,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | -- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------ |
 | P0 | Amankan hasil render         | Pindahkan 3 MP4 + 3 ZIP dari `backend/exports` ke folder di luar Cheat. Auto-cleanup menghapus file > 1 jam, 15 detik setelah backend menyala                       | File aman di luar folder Cheat                                        | DONE   |
 | P1 | Fork + amankan update        | Fork ke GitHub sendiri, ganti remote `origin`, buat branch `custom`. Matikan/arahkan ulang tombol update UI dan `update.bat`                                        | `git remote -v` menunjuk ke fork. Update tidak menarik dari repo asli | DONE   |
-| P2 | Sistem kerja                 | Buat folder `docs/tasks/` + salin template kontrak dari file ini                                                                                                    | Template siap dipakai                                                 | REVIEW |
+| P2 | Sistem kerja                 | Buat folder `docs/tasks/` + salin template kontrak dari file ini                                                                                                    | Template siap dipakai                                                 | DONE   |
 | 17 | Smoke test + golden fixtures | Skrip uji: analyze `mock` → render 1 klip. 2–3 transkrip contoh dengan momen terbaik yang sudah diketahui. Mock ditambah skenario `RATE_LIMIT` dan `MALFORMED_JSON` | Satu perintah menjalankan semua cek, lulus pada kode asli             | TODO   |
 | P3 | CLAUDE.md + codemap per fitur | `CLAUDE.md` di root (dibaca otomatis Claude Code): cara menjalankan app + smoke test, aturan kerja (baca TASKS.md + kontrak, sentuh hanya area yang diizinkan), jebakan yang diketahui (auto-cleanup `exports`, 1080×1920 hardcoded, self-update `git pull`). `docs/codemap/` berisi ±12 catatan per fitur: file + fungsi kunci dengan rentang baris, input/output, risiko, dan link `[[...]]` antar catatan. Folder `docs/` bisa dibuka sebagai vault Obsidian. Level fitur, bukan per fungsi | Claude Code di sesi baru bisa menunjuk file + rentang baris untuk tiap fitur tanpa grep panjang. Graph Obsidian menampilkan semua catatan saling terhubung | TODO |
 | P3b | Otomasi alur Claude Code | 4 skill di `.claude/skills/` (dengan `disable-model-invocation: true`): `/mulai <ID>` (baca TASKS.md + kontrak, tulis draf kontrak bila belum ada lalu BERHENTI menunggu persetujuan), `/tutup` (smoke test, laporan, codemap, status REVIEW, commit, panggil subagent reviewer), `/review <ID>` (review penuh di sesi baru), `/done <ID>` (tandai DONE, log, commit). Subagent `.claude/agents/reviewer.md` dengan tools Read, Grep, Glob, Bash saja (tanpa Edit), bukti hanya dari kontrak + `git diff` + test yang ia jalankan sendiri. Skrip `scripts/baton.js` + hook `SessionStart` (matcher startup, clear, compact) di `.claude/settings.json` yang mencetak blok Baton | Sesi baru tanpa prompt pembuka sudah tahu baton. Satu task selesai dengan alur `/mulai` → setujui kontrak → `/tutup` → `/done` | TODO |
@@ -152,6 +152,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | P1 | REVIEW | Fork `muhamadtegar1/cheat-clip-pro`, origin = fork, upstream = repo asli, branch `custom`. Self-update dimatikan via `SELF_UPDATE_DISABLED` (backend `routers/system.py` + `App.tsx`), `update.bat` hanya menampilkan petunjuk manual. `package-lock.json` di-restore (perubahan dependensi transitif, di luar scope) |
 | 2026-10-11 | P1 | DONE | Ditetapkan DONE oleh pemilik proyek setelah dicek |
 | 2026-10-11 | P2 | REVIEW | Folder `docs/tasks/` dibuat, template kontrak + prompt review disalin ke `docs/tasks/_TEMPLATE.md` |
+| 2026-10-11 | P2 | DONE | Ditetapkan DONE oleh pemilik proyek setelah dicek |
 
 ***
 
