@@ -7,7 +7,8 @@ Cek yang dijalankan:
   1. POST /api/analyze dengan key `mock` pada video sintetis + SRT manual (tanpa Whisper).
   2. RATE_LIMIT: klien Gemini palsu selalu melempar 429, endpoint harus mengirim error status 429.
   3. MALFORMED_JSON: klien palsu mengembalikan JSON terpotong, parser toleran harus tetap menghasilkan klip.
-  4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar.
+  4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
+  5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -15,6 +16,7 @@ Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -250,12 +252,69 @@ def run_render_check(client, render_service, is_valid_mp4, exports_dir: Path, vi
             problems.append(f"resolusi {info['width']}x{info['height']}")
         if abs(info["duration"] - expected) > 1.0:
             problems.append(f"durasi {info['duration']:.2f}s (harap {expected:.1f}s)")
-        detail = "; ".join(problems) or f"1080x1920, {info['duration']:.2f}s, {time.time() - t0:.0f}s render"
+        detail = "; ".join(problems) or f"1080x1920, {info['duration']:.2f}s, {time.time() - t0:.0f}s render, di {exports_dir}"
         report(name, not problems, detail)
         return batch_id
     except Exception as e:
         report(name, False, repr(e))
         return None
+
+
+def run_cleanup_check(config) -> None:
+    """Cek 5: auto-cleanup menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL maupun kuota).
+    Folder backend diganti sementara ke folder sementara agar file asli tidak tersentuh."""
+    import backend.services.system_service as system_service
+
+    name = "auto-cleanup tidak menyentuh exports"
+    root = Path(tempfile.mkdtemp(prefix="cheatclip_cleanup_"))
+    temp, exports, base = root / "temp_clips", root / "exports", root / "backend"
+    uploads = temp / "uploads"
+    for d in (uploads, exports, base / "temp"):
+        d.mkdir(parents=True, exist_ok=True)
+
+    original = (config.TEMP_DIR, config.UPLOADS_DIR, config.EXPORTS_DIR, system_service._base_dir)
+    config.TEMP_DIR, config.UPLOADS_DIR, config.EXPORTS_DIR = temp, uploads, exports
+    system_service._base_dir = str(base)
+    try:
+        old = time.time() - 2 * 3600
+
+        def make(path: Path, size: int, mtime=None) -> Path:
+            path.write_bytes(b"\0" * size)
+            if mtime:
+                os.utime(path, (mtime, mtime))
+            return path
+
+        # Tahap TTL: file > 1 jam di cache terhapus, di exports tetap ada.
+        old_export = make(exports / "clip_1_batch_old.mp4", 100, old)
+        old_temp = make(temp / "batch_old_clip_0_raw.mp4", 100, old)
+        old_upload = make(uploads / "upload_old.mp4", 100, old)
+        old_cache_tmp = make(base / "temp" / "old.tmp", 100, old)
+        fresh_temp = make(temp / "fresh.ass", 100)
+        system_service.auto_cleanup_expired_files(max_age_seconds=3600, max_storage_bytes=10**9)
+        problems = []
+        if not old_export.exists():
+            problems.append("TTL menghapus MP4 di exports")
+        for p in (old_temp, old_upload, old_cache_tmp):
+            if p.exists():
+                problems.append(f"TTL tidak menghapus cache lama {p.name}")
+        if not fresh_temp.exists():
+            problems.append("TTL menghapus cache baru")
+
+        # Tahap kuota: exports besar tidak dihitung, jadi cache kecil di bawah kuota tidak dipurge.
+        big_export = make(exports / "clip_2_batch_big.mp4", 5000)
+        res = system_service.auto_cleanup_expired_files(max_age_seconds=10**9, max_storage_bytes=1000)
+        if not big_export.exists() or not old_export.exists():
+            problems.append("kuota menghapus MP4 di exports")
+        if not fresh_temp.exists():
+            problems.append("kuota menghapus cache padahal di bawah kuota")
+        if res.get("remaining_storage_bytes") != 100:
+            problems.append(f"exports ikut dihitung kuota ({res.get('remaining_storage_bytes')} byte)")
+        report(name, not problems, "; ".join(problems) or "cache lama terhapus, exports utuh, kuota hanya cache")
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        config.TEMP_DIR, config.UPLOADS_DIR, config.EXPORTS_DIR, system_service._base_dir = original
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
@@ -319,6 +378,7 @@ def main() -> int:
         batch_id = run_render_check(
             client, render_service, config.is_valid_mp4, config.EXPORTS_DIR, video_name, args.gpu
         )
+        run_cleanup_check(config)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

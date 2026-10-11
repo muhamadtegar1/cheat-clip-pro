@@ -153,16 +153,26 @@ def auto_cleanup_expired_files(
 ) -> dict:
     """
     Automated dual-mode cleanup engine:
-    1. Option 1 (Time-based TTL): Deletes temp/export/upload files older than max_age_seconds (default 1 hour).
-    2. Option 2 (Storage Quota Ceiling): If total storage exceeds max_storage_bytes (default 5 GB),
+    1. Option 1 (Time-based TTL): Deletes temp/upload cache files older than max_age_seconds (default 1 hour).
+    2. Option 2 (Storage Quota Ceiling): If total cache storage exceeds max_storage_bytes (default 5 GB),
        purges oldest files first (FIFO by mtime) down to target_reduction_ratio (default 80% = 4 GB).
-    Strictly preserves cookies and custom fonts.
+    Strictly preserves cookies and custom fonts. EXPORTS_DIR (permanent render output) is never touched.
     """
     import time
     base_dir = Path(_base_dir)
     from backend.config import EXPORTS_DIR, TEMP_DIR, UPLOADS_DIR
 
-    target_dirs = [TEMP_DIR, base_dir / "temp", UPLOADS_DIR, EXPORTS_DIR]
+    target_dirs = [TEMP_DIR, base_dir / "temp", UPLOADS_DIR]
+    exports_root = EXPORTS_DIR.resolve()
+
+    def is_permanent_output(p: Path) -> bool:
+        """Guard in case EXPORTS_DIR is configured inside a cache folder."""
+        try:
+            rp = p.resolve()
+            return rp == exports_root or exports_root in rp.parents
+        except Exception:
+            return True
+
     now = time.time()
     cutoff_time = now - max_age_seconds
 
@@ -176,7 +186,7 @@ def auto_cleanup_expired_files(
         if not target.exists() or not target.is_dir():
             continue
         for item in list(target.rglob("*")):
-            if item.is_file() and not is_protected_system_file(item):
+            if item.is_file() and not is_protected_system_file(item) and not is_permanent_output(item):
                 try:
                     mtime = item.stat().st_mtime
                     if mtime < cutoff_time:
@@ -195,7 +205,7 @@ def auto_cleanup_expired_files(
         if not target.exists() or not target.is_dir():
             continue
         for item in list(target.rglob("*")):
-            if item.is_file() and not is_protected_system_file(item):
+            if item.is_file() and not is_protected_system_file(item) and not is_permanent_output(item):
                 try:
                     stat = item.stat()
                     total_current_bytes += stat.st_size
@@ -227,7 +237,7 @@ def auto_cleanup_expired_files(
     for target in target_dirs:
         if target.exists() and target.is_dir():
             for item in sorted(list(target.rglob("*")), key=lambda p: len(p.parts), reverse=True):
-                if item.is_dir() and item != target and item.name != "frames" and not is_protected_system_file(item):
+                if item.is_dir() and item != target and item.name != "frames" and not is_protected_system_file(item) and not is_permanent_output(item):
                     try:
                         if not any(item.iterdir()):
                             item.rmdir()

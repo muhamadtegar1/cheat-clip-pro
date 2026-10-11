@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from backend.config import (
     ACTIVE_ENCODER_NAME,
     EXPORTS_DIR,
+    TEMP_DIR,
     detect_hardware_support,
     logger,
 )
@@ -205,7 +206,7 @@ def download_rendered_file(file_name: str, title: Optional[str] = None):
 def download_batch_zip(batch_id: str):
     clean_id = os.path.basename(batch_id)
     safe_name = f"cheat_clip_pro_{clean_id}.zip"
-    file_path = EXPORTS_DIR / safe_name
+    file_path = TEMP_DIR / safe_name  # ZIP is cache; MP4s stay in EXPORTS_DIR
     if not file_path.exists():
         # Attempt to package any completed clips for this batch on the fly
         job = RENDER_BATCHES.get(batch_id)

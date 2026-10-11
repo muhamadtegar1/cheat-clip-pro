@@ -20,7 +20,7 @@ logger = logging.getLogger("cheat-clip-pro.video-engine")
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMP_DIR = BASE_DIR / "temp_clips"
-EXPORTS_DIR = BASE_DIR / "exports"
+EXPORTS_DIR = Path(os.path.expanduser(os.environ.get("CHEAT_CLIP_EXPORTS_DIR", "").strip() or "~/CheatClip"))  # permanent output, never auto-cleaned
 FONTS_DIR = BASE_DIR / "fonts"
 COOKIES_PATH = BASE_DIR / "cookies.txt"
 ROOT_COOKIES_PATH = BASE_DIR.parent / "cookies.txt"
@@ -150,7 +150,12 @@ CASCADE_PATH = BASE_DIR / "haarcascade_frontalface_default.xml"
 CASCADES_DIR = BASE_DIR / "cascades"
 YUNET_MODEL_PATH = CASCADES_DIR / "face_detection_yunet.onnx"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
-EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as e:
+    logger.warning(f"Cannot create exports folder {EXPORTS_DIR} ({e}). Falling back to {BASE_DIR / 'exports'}")
+    EXPORTS_DIR = BASE_DIR / "exports"
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 FONTS_DIR.mkdir(parents=True, exist_ok=True)
 CASCADES_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR = TEMP_DIR / "uploads"

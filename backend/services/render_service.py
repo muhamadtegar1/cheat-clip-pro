@@ -255,7 +255,7 @@ def update_batch_summary_and_zip(batch_id: str, settings: RenderSettingsModel):
         completed_clips = [c for c in batch["clips"] if c.get("status") == "completed" and c.get("download_url")]
         if completed_clips:
             zip_filename = f"cheat_clip_pro_{batch_id}.zip"
-            zip_path = EXPORTS_DIR / zip_filename
+            zip_path = TEMP_DIR / zip_filename  # cache: duplicate of the MP4s, rebuilt on demand
             title_counts: Dict[str, int] = {}
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                 for c in completed_clips:

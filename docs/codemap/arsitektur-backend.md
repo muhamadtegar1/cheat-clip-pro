@@ -10,17 +10,17 @@ FastAPI dengan 6 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/main.py` | `background_storage_cleanup_worker` | L51-69 | Daemon cleanup: tunggu 15 detik, lalu tiap 30 menit. Lihat [[penyimpanan-dan-cleanup]] |
-| `backend/main.py` | `lifespan` | L73-83 | Menyalakan daemon cleanup saat startup |
-| `backend/main.py` | `add_security_headers` | L119-125 | Header keamanan di semua respons |
-| `backend/main.py` | daftar router | L129-134 | analyze, render, media, cookies, downloads, system |
-| `backend/main.py` | mount SPA `dist/` | L141-155 | Kalau `dist/index.html` ada, backend juga menyajikan frontend hasil build |
+| `backend/main.py` | `background_storage_cleanup_worker` | L51-70 | Daemon cleanup: tunggu 15 detik, lalu tiap 30 menit. Lihat [[penyimpanan-dan-cleanup]] |
+| `backend/main.py` | `lifespan` | L74-84 | Menyalakan daemon cleanup saat startup |
+| `backend/main.py` | `add_security_headers` | L120-126 | Header keamanan di semua respons |
+| `backend/main.py` | daftar router | L130-135 | analyze, render, media, cookies, downloads, system |
+| `backend/main.py` | mount SPA `dist/` | L142-156 | Kalau `dist/index.html` ada, backend juga menyajikan frontend hasil build |
 | `backend/config.py` | `prepend_to_system_path` | L23-35 | Menambah folder Python/Scripts ke PATH |
 | `backend/config.py` | muat `.env` | L44-48 | Urutan: `backend/.env`, `.env` root, lalu cwd |
 | `backend/config.py` | impor ulang dari video_engine | L57-114 | Sumber tunggal `TEMP_DIR`, `EXPORTS_DIR`, fungsi render, dll. |
-| `backend/video_engine.py` | konstanta folder | L21-26 | `temp_clips`, `exports`, `fonts`, `cookies.txt` |
-| `backend/video_engine.py` | `ensure_ffmpeg_in_path` | L175-237 | Mencari FFmpeg (winget/brew), dipanggil saat impor (L240) |
-| `backend/video_engine.py` | `get_preferred_video_encoder` | L326-341 | Dipanggil saat impor (L363), memilih encoder GPU/CPU. Lihat [[render-server]] |
+| `backend/video_engine.py` | konstanta folder | L21-26 | `temp_clips`, `EXPORTS_DIR` (env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip`), `fonts`, `cookies.txt` |
+| `backend/video_engine.py` | `ensure_ffmpeg_in_path` | L180-242 | Mencari FFmpeg (winget/brew), dipanggil saat impor (L245) |
+| `backend/video_engine.py` | `get_preferred_video_encoder` | L331-346 | Dipanggil saat impor (L368), memilih encoder GPU/CPU. Lihat [[render-server]] |
 | `backend/routers/__init__.py` | ekspor router | L1-15 | Nama router yang di-include `main.py` |
 | `scripts/start-backend.js` | peluncur uvicorn | L244-260 | Mencari venv, menjalankan `uvicorn backend.main:app --port 8000 --reload` |
 
@@ -40,7 +40,7 @@ FastAPI dengan 6 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 - Output: JSON, SSE (`backend/utils/sse.py` `_sse` L3-5), file media.
 
 ## Variabel `.env` yang dibaca
-`GEMINI_API_KEY`, `SUPADATA_API_KEY(S)`, `WEBSHARE_*`, `PROXY_URL`, `HTTP(S)_PROXY`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`, `ADMIN_API_KEY`/`CHEAT_CLIP_API_KEY`, `SERVER_MODE`, `ALLOW_SERVER_UPDATE`, `ALLOWED_ORIGINS`, `HOST`, `PORT`, `EMOJI_FONT_PATH`.
+`GEMINI_API_KEY`, `CHEAT_CLIP_EXPORTS_DIR`, `SUPADATA_API_KEY(S)`, `WEBSHARE_*`, `PROXY_URL`, `HTTP(S)_PROXY`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`, `ADMIN_API_KEY`/`CHEAT_CLIP_API_KEY`, `SERVER_MODE`, `ALLOW_SERVER_UPDATE`, `ALLOWED_ORIGINS`, `HOST`, `PORT`, `EMOJI_FONT_PATH`.
 
 ## Risiko
 - Mengimpor `backend.config` saja sudah menjalankan efek samping: membuat folder, mencari FFmpeg, dan menguji encoder GPU (memanggil FFmpeg beberapa kali).

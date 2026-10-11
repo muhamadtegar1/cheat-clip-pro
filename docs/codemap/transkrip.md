@@ -22,9 +22,9 @@ Langkah 3 dari `POST /api/analyze`. Menghasilkan `transcript_lines` berformat `[
 | `backend/services/youtube_service.py` | `prioritize_transcripts` | L86-118 | Urutkan trek: bahasa asli video dulu, manual sebelum otomatis |
 | `backend/services/youtube_service.py` | `normalize_transcript` | L35-83 | Seragamkan format semua tier |
 | `backend/services/youtube_service.py` | `download_youtube_audio_file` | L544-604 | Audio untuk fallback Whisper |
-| `backend/video_engine.py` | `transcribe_local_video_file` | L633-680 | Whisper untuk transkrip penuh |
-| `backend/video_engine.py` | `get_whisper_model` | L246-256 | Muat model Whisper `base` secara lazy |
-| `backend/video_engine.py` | `release_whisper_model` | L259-270 | Lepas model dari RAM |
+| `backend/video_engine.py` | `transcribe_local_video_file` | L638-685 | Whisper untuk transkrip penuh |
+| `backend/video_engine.py` | `get_whisper_model` | L251-261 | Muat model Whisper `base` secara lazy |
+| `backend/video_engine.py` | `release_whisper_model` | L264-275 | Lepas model dari RAM |
 | `backend/utils/text.py` | `parse_manual_subtitles` | L28-114 | Parser SRT/TXT dari user |
 | `backend/utils/text.py` | `detect_transcript_language` | L245-359 | Deteksi bahasa untuk aturan zero-translation di [[analisis-ai]] |
 | `backend/utils/text.py` | `parse_time_str` | L4-26 | Parse timestamp |

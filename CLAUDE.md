@@ -39,7 +39,7 @@ npm run dev
 ```bash
 venv\Scripts\python.exe scripts\smoke_test.py
 ```
-Butuh ±20 detik, tanpa jaringan dan tanpa backend yang menyala. Membuat video sintetis dengan FFmpeg, lalu menguji `POST /api/analyze` (key `mock`, skenario `RATE_LIMIT` dan `MALFORMED_JSON` lewat klien Gemini palsu) dan render 1 klip 1080×1920 lewat `POST /api/render-batch`. Exit code 0 = lulus. Skrip tidak mengimpor `backend.main`, jadi auto-cleanup tidak terpicu, dan file buatannya dihapus di akhir (`--keep` untuk menyimpan, `--gpu` untuk encoder `auto`).
+Butuh ±20 detik, tanpa jaringan dan tanpa backend yang menyala. Membuat video sintetis dengan FFmpeg, lalu menguji `POST /api/analyze` (key `mock`, skenario `RATE_LIMIT` dan `MALFORMED_JSON` lewat klien Gemini palsu) dan render 1 klip 1080×1920 lewat `POST /api/render-batch`, serta memastikan auto-cleanup tidak menyentuh `EXPORTS_DIR`. Exit code 0 = lulus. Skrip tidak mengimpor `backend.main`, jadi auto-cleanup tidak terpicu, dan file buatannya dihapus di akhir (`--keep` untuk menyimpan, `--gpu` untuk encoder `auto`).
 
 Selain smoke test, `npm run build` (bila menyentuh `src/`) dan `venv\Scripts\python.exe scripts\check_codemap.py` tetap wajib lulus.
 
@@ -52,10 +52,10 @@ Selain smoke test, `npm run build` (bila menyentuh `src/`) dan `venv\Scripts\pyt
 - Perubahan prompt AI wajib lulus golden fixtures (setelah task 17b).
 - Review dilakukan di sesi Claude Code baru, hanya dari kontrak + `git diff` + hasil test. Task berisiko tinggi (#7, #12, #16) wajib `/review` di sesi yang benar-benar baru.
 - Setelah menyimpan `TASKS.md`, baca ulang untuk memastikan tidak tertimpa proses lain.
-- Jangan sentuh `backend/exports`, `backend/temp_clips`, `venv`, `node_modules`.
+- Jangan sentuh `backend/exports`, `EXPORTS_DIR` (`~/CheatClip`), `backend/temp_clips`, `venv`, `node_modules`.
 
 ## Jebakan yang diketahui
-1. **Auto-cleanup menghapus hasil render.** 15 detik setelah backend menyala, lalu tiap 30 menit, semua file berumur > 1 jam di `backend/temp_clips`, `backend/temp`, `uploads`, dan **`backend/exports`** dihapus (plus kuota 5 GB). Menyalakan backend saja sudah memicunya. Detail: `docs/codemap/penyimpanan-dan-cleanup.md`. Target task #16.
+1. **Auto-cleanup hanya untuk cache.** 15 detik setelah backend menyala, lalu tiap 30 menit, file berumur > 1 jam di `backend/temp_clips` (termasuk `uploads` dan ZIP batch) dan `backend/temp` dihapus (plus kuota 5 GB). Hasil render dan unduhan raw disimpan permanen di `EXPORTS_DIR` (default `~/CheatClip`, env `CHEAT_CLIP_EXPORTS_DIR`) dan tidak pernah dibersihkan. Jangan arahkan output ke `~/Videos`: Windows Defender Controlled Folder Access memblokirnya. Detail: `docs/codemap/penyimpanan-dan-cleanup.md`.
 2. **Kanvas 1080×1920 ditulis langsung.** ±80 literal `1080`/`1920` di `backend/video_engine.py` (filtergraph, ASS, overlay judul). Rasio lain ditempatkan di dalam kanvas vertikal; hanya `16:9_landscape` yang 1920×1080. Pratinjau Clip Studio meniru angka yang sama. Detail: `docs/codemap/render-server.md`. Target task #10.
 3. **Self-update `git pull` dimatikan.** Flag `SELF_UPDATE_DISABLED` di `backend/routers/system.py` dan `src/App.tsx`. Jangan aktifkan lagi; update dari upstream dilakukan manual (`git fetch upstream`, merge ke `custom`). Detail: `docs/codemap/sistem-update.md`.
 4. **`uvicorn --reload` aktif.** Menyimpan file `.py` saat render/analisis berjalan me-restart backend. Semua state job (render, unduhan) ada di memori dan hilang.

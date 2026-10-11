@@ -31,7 +31,7 @@ Browser (React, Vite :5173)                Backend (FastAPI, uvicorn :8000)
 - [[face-tracking]]: deteksi wajah pembicara dan saliency untuk crop vertikal
 - [[unduhan-raw]]: unduh segmen/video asli lewat yt-dlp, format kualitas
 - [[cookies-dan-proxy]]: cookies YouTube, proxy Webshare, anti bot
-- [[penyimpanan-dan-cleanup]]: folder temp/exports, auto-cleanup 1 jam, kuota 5 GB
+- [[penyimpanan-dan-cleanup]]: folder cache dan output permanen, auto-cleanup 1 jam, kuota 5 GB
 - [[sistem-update]]: self-update (dimatikan di fork ini), restart, akses admin
 
 ### Frontend
@@ -40,6 +40,6 @@ Browser (React, Vite :5173)                Backend (FastAPI, uvicorn :8000)
 - [[render-browser]]: render di browser dengan FFmpeg WebAssembly
 
 ## Jebakan lintas fitur
-- Auto-cleanup menghapus isi `backend/exports` yang berumur lebih dari 1 jam. Lihat [[penyimpanan-dan-cleanup]].
+- Hasil render permanen di `EXPORTS_DIR` (default `~/CheatClip`). Auto-cleanup hanya membersihkan folder cache. Lihat [[penyimpanan-dan-cleanup]].
 - Kanvas 1080×1920 ditulis langsung (±80 literal) di `video_engine.py`. Lihat [[render-server]].
 - Self-update `git pull` dimatikan lewat `SELF_UPDATE_DISABLED`. Lihat [[sistem-update]].

@@ -4,16 +4,17 @@ file_utama: [backend/services/system_service.py, backend/main.py, backend/router
 ---
 # Penyimpanan dan cleanup
 
-Semua file kerja dan **hasil render** disimpan di folder yang sama-sama dibersihkan otomatis. Daemon cleanup berjalan 15 detik setelah backend menyala, lalu tiap 30 menit.
+File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `EXPORTS_DIR` (default `~/CheatClip`, di luar proyek, bisa diganti lewat env `CHEAT_CLIP_EXPORTS_DIR`) dan tidak pernah disentuh cleanup (task #16). Daemon cleanup berjalan 15 detik setelah backend menyala, lalu tiap 30 menit.
 
 ## Folder
 
 | Folder | Isi | Dibersihkan? |
 | --- | --- | --- |
-| `backend/temp_clips/` | segmen mentah, `.ass`, PNG judul, frame | Ya (TTL 1 jam + kuota) |
+| `backend/temp_clips/` | segmen mentah, `.ass`, PNG judul, frame, **ZIP batch** (cache, dibuat ulang saat diunduh) | Ya (TTL 1 jam + kuota) |
 | `backend/temp_clips/uploads/` | upload user, unduhan Drive, BGM, SFX, watermark | Ya |
 | `backend/temp/` | file sementara lain | Ya |
-| `backend/exports/` | **MP4 hasil render, ZIP batch, unduhan raw** | **Ya** |
+| `EXPORTS_DIR` (default `~/CheatClip`) | MP4 hasil render, unduhan raw | **Tidak** (permanen, tanpa kuota) |
+| `backend/exports/` | fallback `EXPORTS_DIR` bila folder default gagal dibuat | Tidak |
 | `backend/fonts/` | font bawaan + font upload | Tidak (dilindungi) |
 | `cookies.txt` (backend atau root) | cookies lama | Tidak (dilindungi) |
 
@@ -21,26 +22,30 @@ Semua file kerja dan **hasil render** disimpan di folder yang sama-sama dibersih
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/main.py` | `background_storage_cleanup_worker` | L51-69 | Tunggu 15 s, lalu loop tiap `CLEANUP_INTERVAL_SECONDS` (1800) |
-| `backend/services/system_service.py` | `auto_cleanup_expired_files` | L149-262 | Pass 1 TTL (`TEMP_MAX_AGE_SECONDS`, 3600), pass 2 kuota (`TEMP_STORAGE_QUOTA_GB`, 5 GB → turun ke 80%), hapus folder kosong |
-| `backend/services/system_service.py` | daftar folder target | L165 | `TEMP_DIR`, `backend/temp`, `UPLOADS_DIR`, `EXPORTS_DIR` |
+| `backend/main.py` | `background_storage_cleanup_worker` | L51-70 | Tunggu 15 s, lalu loop tiap `CLEANUP_INTERVAL_SECONDS` (1800) |
+| `backend/services/system_service.py` | `auto_cleanup_expired_files` | L149-272 | Pass 1 TTL (`TEMP_MAX_AGE_SECONDS`, 3600), pass 2 kuota (`TEMP_STORAGE_QUOTA_GB`, 5 GB → turun ke 80%), hapus folder kosong |
+| `backend/services/system_service.py` | daftar folder target | L165 | `TEMP_DIR`, `backend/temp`, `UPLOADS_DIR` (tanpa `EXPORTS_DIR`) |
+| `backend/services/system_service.py` | pengaman `is_permanent_output` | L166-173 | Lewati file di dalam `EXPORTS_DIR` walau folder itu diarahkan ke dalam folder cache |
 | `backend/services/system_service.py` | `is_protected_system_file` | L117-138 | Pengecualian: nama cookies dan isi `FONTS_DIR` |
 | `backend/services/system_service.py` | `clear_temp_files` | L44-114 | Hapus temp manual (`POST /api/clear-temp`) |
 | `backend/services/system_service.py` | `cleanup_expired_temp_files` | L141-146 | Pembungkus TTL dalam jam |
 | `backend/services/system_service.py` | `get_temp_storage_summary` | L27-41 | Ukuran storage untuk UI |
 | `backend/routers/system.py` | `clear_temp_folder` | L64-75 | `POST /api/clear-temp` (ditolak di mode server) |
 | `backend/routers/system.py` | `api_trigger_auto_cleanup` | L85-94 | `POST /api/auto-cleanup` manual |
-| `backend/video_engine.py` | konstanta folder | L21-26 | Definisi path |
-| `backend/video_engine.py` | pembuatan folder | L152-157 | `mkdir` saat impor |
+| `backend/video_engine.py` | konstanta folder | L21-26 | Definisi path. `EXPORTS_DIR` dari env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip` (L23) |
+| `backend/video_engine.py` | pembuatan folder | L152-162 | `mkdir` saat impor. Gagal membuat `EXPORTS_DIR` → fallback `backend/exports` + log peringatan |
 | `src/App.tsx` | `executeGlobalClearTemp` | L653-674 | Tombol Clear Temp di header |
 
 ## Input / output
-- Input: variabel `.env` `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`.
+- Input: variabel `.env` `CHEAT_CLIP_EXPORTS_DIR`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`.
 - Output: file terhapus, ringkasan `{ttl_deleted_files, quota_deleted_files, remaining_storage_mb, ...}` di log.
 
 ## Risiko
-- **Hasil render di `backend/exports` hilang setelah 1 jam.** Menjalankan backend saja (tanpa membuka UI) sudah memicu cleanup 15 detik kemudian. Unduh hasil segera atau pindahkan ke luar folder proyek. Target task #16: pisahkan output permanen dari cache.
-- Kuota 5 GB dihitung gabungan semua folder target. Render besar bisa ikut menghapus upload yang masih dipakai.
+- Folder permanen tidak punya batas ukuran. Pemilik membersihkannya sendiri.
+- Windows Defender Controlled Folder Access memblokir python.exe/ffmpeg.exe menulis ke `~/Videos`, karena itu default-nya `~/CheatClip`. Kalau `CHEAT_CLIP_EXPORTS_DIR` diarahkan ke folder terlindungi, backend jatuh ke `backend/exports`.
+- Menjalankan backend saja (tanpa membuka UI) memicu cleanup 15 detik kemudian, tetapi hanya untuk folder cache.
+- `scripts/smoke_test.py` cek 5 menguji bahwa cleanup tidak menyentuh `EXPORTS_DIR` (TTL dan kuota).
+- Kuota 5 GB dihitung gabungan folder cache (tanpa `EXPORTS_DIR`). Render besar bisa ikut menghapus upload yang masih dipakai.
 - Upload yang sudah terhapus membuat analisis ulang/render dari riwayat gagal ([[unduhan-raw]], [[sumber-video]]).
 
 ## Terkait

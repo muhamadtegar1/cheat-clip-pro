@@ -17,11 +17,11 @@ Aplikasi asli punya self-update: `git pull origin <branch>` lalu `npm install`/`
 | `backend/routers/system.py` | `api_check_update` | L104-163 | `GET /api/system/check-update`. Bila flag aktif: `update_available: false` tanpa `git fetch` |
 | `backend/routers/system.py` | `api_system_version` | L98-100 | `GET /api/system/version` (commit, branch, `allow_update`) |
 | `backend/routers/system.py` | `verify_admin_access` | L35-54 | Cek `X-API-Key` / Bearer bila `ADMIN_API_KEY` diset. Tanpa key = akses terbuka |
-| `backend/services/system_service.py` | `is_update_allowed` | L317-324 | `False` di Docker/server kecuali `ALLOW_SERVER_UPDATE` |
-| `backend/services/system_service.py` | `is_server_environment` | L299-314 | Deteksi Docker/cloud/`SERVER_MODE` |
-| `backend/services/system_service.py` | `get_current_git_info` | L327-358 | Info git lokal (hanya baca) |
-| `backend/services/system_service.py` | `run_git_command` | L281-296 | Jalankan git dengan timeout |
-| `backend/services/system_service.py` | `trigger_detached_restart` | L361-374 | Jalankan `restart_runner.py` terpisah |
+| `backend/services/system_service.py` | `is_update_allowed` | L327-334 | `False` di Docker/server kecuali `ALLOW_SERVER_UPDATE` |
+| `backend/services/system_service.py` | `is_server_environment` | L309-324 | Deteksi Docker/cloud/`SERVER_MODE` |
+| `backend/services/system_service.py` | `get_current_git_info` | L337-368 | Info git lokal (hanya baca) |
+| `backend/services/system_service.py` | `run_git_command` | L291-306 | Jalankan git dengan timeout |
+| `backend/services/system_service.py` | `trigger_detached_restart` | L371-384 | Jalankan `restart_runner.py` terpisah |
 | `backend/restart_runner.py` | `main` | L85-123 | Bebaskan port lalu nyalakan ulang app |
 | `src/App.tsx` | `SELF_UPDATE_DISABLED` | L25 | Flag frontend: sembunyikan tombol Update |
 | `src/App.tsx` | tombol Update di header | L2342-2365 | Tampil hanya bila `allowAppUpdates && !SELF_UPDATE_DISABLED` |

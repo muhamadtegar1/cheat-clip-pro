@@ -51,7 +51,8 @@ from backend.services.system_service import auto_cleanup_expired_files
 async def background_storage_cleanup_worker():
     """
     Background worker that runs every 30 minutes (configurable via CLEANUP_INTERVAL_SECONDS):
-    1. Option 1: TTL cleanup (files older than 1 hour / TEMP_MAX_AGE_SECONDS).
+    1. Option 1: TTL cleanup of cache folders (files older than 1 hour / TEMP_MAX_AGE_SECONDS).
+       Rendered output in EXPORTS_DIR is permanent and never cleaned.
     2. Option 2: 5GB Max Quota ceiling (FIFO purge oldest files down to 80% if quota exceeded).
     """
     # Initial pause on startup
