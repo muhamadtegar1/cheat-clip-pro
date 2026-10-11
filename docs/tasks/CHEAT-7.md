@@ -1,5 +1,5 @@
 # CHEAT-7: Amankan API key + endpoint admin
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Gemini API key tidak lagi disimpan di `localStorage` browser melainkan di `backend/.env` (dikelola backend, tidak pernah dikirim balik ke browser), dan endpoint admin hanya bisa dipakai dari komputer sendiri, dengan update/restart selalu butuh key admin.
