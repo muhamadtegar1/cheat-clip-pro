@@ -162,6 +162,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 17a | REVIEW | `scripts/smoke_test.py`: video sintetis FFmpeg, analyze `mock`, skenario `RATE_LIMIT` dan `MALFORMED_JSON` lewat klien Gemini palsu di skrip, render 1 klip 1080x1920. 5/5 lulus pada kode asli, tanpa perubahan `backend/` atau `src/` |
 | 2026-10-11 | 17a | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | 16 | REVIEW | Output permanen di `EXPORTS_DIR` (default `~/CheatClip`, env `CHEAT_CLIP_EXPORTS_DIR`, fallback `backend/exports`). Auto-cleanup hanya folder cache, ZIP batch jadi cache di `temp_clips`. Smoke test 6/6 dengan cek cleanup baru. Default bukan `~/Videos` karena Defender Controlled Folder Access |
+| 2026-10-11 | 16 | REVIEW | Review sesi baru: PASS |
 
 ***
 

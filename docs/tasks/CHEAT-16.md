@@ -71,5 +71,20 @@ CATATAN:
 - Task berisiko tinggi: wajib `/review 16` di sesi baru.
 
 ## Review (sesi baru)
-VERDICT: PASS | FIX_REQUIRED
+VERDICT: PASS
 ALASAN:
+- Lingkup: commit `ec9956b` hanya menyentuh `backend/video_engine.py`, `backend/services/system_service.py`, `backend/services/render_service.py`, `backend/routers/render.py`, `backend/main.py` (docstring saja), `scripts/smoke_test.py`, `CLAUDE.md`, `docs/codemap/*`, kontrak. Semua ada di Area. Tidak ada perubahan `src/`. `94f6948` hanya `TASKS.md`. Line ending dipertahankan (`video_engine.py` dan `system_service.py` tetap CRLF, `smoke_test.py` tetap LF seperti sebelumnya). Tidak ada rahasia ter-commit.
+- Default tanpa env: skrip impor `backend.config` di sesi review → `EXPORTS_DIR= C:\Users\TEGAR_ADYAKSA\CheatClip exists= True` (`video_engine.py:23`, mkdir `video_engine.py:153-158`).
+- Env var: `CHEAT_CLIP_EXPORTS_DIR=<scratchpad>\cc_env_out` → `EXPORTS_DIR` mengikuti dan folder dibuat. `.env` terbaca karena `load_dotenv` (`config.py:46-48`) berjalan sebelum impor `video_engine` (`config.py:58`). Path tidak valid `Q:\nope\CheatClip` → log `Cannot create exports folder ... Falling back to ...\backend\exports`, backend tetap bisa diimpor.
+- Render ke folder permanen: smoke test cek 4 `[PASS] render 1 klip: 1080x1920, 10.03s, 9s render, di C:\Users\TEGAR_ADYAKSA\CheatClip`. `GET /api/download-rendered/{file}` → 200 (TestClient, `render.py:188-202`).
+- ZIP batch: TestClient dengan `EXPORTS_DIR` di scratchpad. `update_batch_summary_and_zip` → `zip in TEMP: True zip in EXPORTS: False` (`render_service.py:258`). ZIP dihapus lalu `GET /api/download-batch-zip/{id}` → `200`, ZIP dibuat ulang di `TEMP_DIR` berisi `['Judul A.mp4']` (`render.py:209`). Batch tidak dikenal → 404.
+- Cleanup TTL/kuota: `system_service.py:165` target tanpa `EXPORTS_DIR`, pengaman `is_permanent_output` dipakai di TTL, kuota, dan pembersihan folder kosong. Smoke test cek 5 `[PASS] auto-cleanup tidak menyentuh exports: cache lama terhapus, exports utuh, kuota hanya cache` (MP4 2 jam di exports tetap ada, file lama di temp/uploads/backend/temp terhapus, `remaining_storage_bytes` = 100 hanya cache).
+- Uji negatif sendiri (in-memory, tanpa mengubah file repo): `EXPORTS_DIR` dikembalikan ke `target_dirs` dan pengaman dimatikan lewat `exec` sumber yang dimodifikasi → `[FAIL] auto-cleanup tidak menyentuh exports: TTL menghapus MP4 di exports; kuota menghapus MP4 di exports; ...`. Cek 5 benar-benar mendeteksi regresi.
+- Test: `venv\Scripts\python.exe scripts\smoke_test.py` → `6/6 cek lulus. SMOKE TEST LULUS`, exit 0. `scripts\check_codemap.py` → `SEMUA CEK LULUS`, exit 0. `npm run build` tidak perlu (`src/` tidak berubah). `git status` bersih setelah semua uji (hanya `docs/.obsidian/` yang memang sudah untracked).
+- Codemap: `penyimpanan-dan-cleanup.md` menjelaskan `EXPORTS_DIR`, fallback, pengaman, cek 5, dan peringatan Defender. Catatan lain hanya geser baris, dan cek codemap lulus.
+- Catatan non-blocking (tidak membuat FIX_REQUIRED):
+  - Keputusan kontrak menyebut path relatif dianggap relatif terhadap root repo, tetapi `video_engine.py:23` memakai `Path(...)` apa adanya, jadi relatif terhadap CWD. Lewat `npm run dev` CWD = root repo, jadi hasilnya sama. Bila backend dijalankan dari folder lain, hasilnya berbeda.
+  - Fallback `backend/exports` hanya terpicu bila `mkdir` gagal. Bila folder terlindungi Defender (mis. `~/Videos/CheatClip`) sudah ada, `mkdir(exist_ok=True)` lolos dan render gagal saat menulis, tanpa fallback.
+  - Bila `CHEAT_CLIP_EXPORTS_DIR` diarahkan ke induk folder cache (mis. root repo), `is_permanent_output` membuat cache tidak pernah dibersihkan. Konfigurasi aneh, cukup didokumentasikan.
+  - `EXPORTS_DIR` kini tumbuh tanpa batas, dan `_find_video_file_on_disk` (`media.py:138-147`) serta `download_service.py:57,118` memindainya per permintaan. Di luar scope sesuai kontrak, kandidat task lanjutan bila folder sudah besar.
+- Perlu dicek pemilik: jalankan `npm run dev`, render satu batch dari UI, pastikan MP4 muncul di `~/CheatClip`, tombol unduh klip dan ZIP berfungsi, dan file tetap ada setelah lebih dari 1 jam (atau setelah backend direstart dan cleanup berjalan).
