@@ -291,7 +291,7 @@ def check_encoder_support(encoder_name: str) -> bool:
 
 ENCODER_CONFIGS: Dict[str, Tuple[str, List[str]]] = {
     "nvenc": ("h264_nvenc", ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23"]),
-    "amf": ("h264_amf", ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cbr", "-b:v", "6M"]),
+    "amf": ("h264_amf", ["-c:v", "h264_amf", "-quality", "balanced", "-rc", "vbr_peak", "-b:v", "12M", "-maxrate", "16M", "-bufsize", "24M"]),
     "qsv": ("h264_qsv", ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "23", "-look_ahead", "0"]),
     "cpu": ("libx264", ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-threads", "2"]),
 }
@@ -693,7 +693,7 @@ def download_clip_segment(
     cookies_content: Optional[str] = None
 ) -> str:
     """
-    Downloads or slices the requested time slice in high definition (1080p).
+    Downloads or slices the requested time slice in high definition (up to 2160p).
     If video_url is a local file (uploaded video), uses direct FFmpeg slicing.
     Otherwise downloads using yt-dlp.
     """
@@ -808,7 +808,7 @@ def download_clip_segment(
             *base_cmd,
             "--download-sections", f"*{t_start_fmt}-{t_end_fmt}",
             "--force-keyframes-at-cuts",
-            "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+            "-f", "bestvideo[height<=2160]+bestaudio/best[height<=2160]/bestvideo+bestaudio/best",
             "-N", "4",
             "--socket-timeout", "20",
             "--fragment-retries", "5",
@@ -860,7 +860,7 @@ def download_clip_segment(
                 *base_cmd,
                 "--socket-timeout", "20",
                 "-g",
-                "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+                "-f", "bestvideo[height<=2160]+bestaudio/best[height<=2160]/bestvideo+bestaudio/best",
                 clean_url
             ]
             url_res = subprocess.run(url_cmd, capture_output=True, text=True, timeout=30)
@@ -1023,7 +1023,7 @@ def download_full_raw_video(
     cookies_content: Optional[str] = None
 ) -> str:
     """
-    Downloads the full raw video from YouTube in maximum quality (up to 1080p),
+    Downloads the full raw video from YouTube in maximum quality (up to 2160p),
     or copies the local uploaded / Google Drive video file directly.
     """
     local_source = None
@@ -1057,7 +1057,7 @@ def download_full_raw_video(
         cmd = [
             *base_cmd,
             "--no-colors",
-            "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+            "-f", "bestvideo[height<=2160]+bestaudio/best[height<=2160]/bestvideo+bestaudio/best",
             "-o", str(output_path),
             "--merge-output-format", "mp4",
             "--newline",

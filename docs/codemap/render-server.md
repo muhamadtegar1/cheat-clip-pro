@@ -30,7 +30,7 @@ Alur per klip: unduh segmen ([[unduhan-raw]]) → transkripsi kata + file `.ass`
 | `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2527-2842 | Layout, crop, background blur, preset streamer, rasio aspek |
 | `backend/video_engine.py` | `check_has_audio` | L2845-2858 | Cek trek audio sumber |
 | `backend/video_engine.py` | `is_valid_mp4` | L437-493 | Validasi output dengan ffprobe/decode |
-| `backend/video_engine.py` | `ENCODER_CONFIGS` | L292-297 | Argumen nvenc/amf/qsv/cpu (AMF `-b:v 6M` di L294, target task #9) |
+| `backend/video_engine.py` | `ENCODER_CONFIGS` | L292-297 | Argumen nvenc/amf/qsv/cpu. AMF di L294: `-quality balanced -rc vbr_peak -b:v 12M -maxrate 16M -bufsize 24M` (task #9, sebelumnya `speed`/`cbr` 6M). Ikut dipakai metode 2 unduhan dan trim lokal lewat `ACTIVE_ENCODER_ARGS` |
 | `backend/video_engine.py` | `detect_hardware_support` | L302-328 | Deteksi GPU, hasil di-cache |
 | `backend/video_engine.py` | `get_preferred_video_encoder` | L331-346 | Pilih encoder saat modul diimpor |
 | `backend/video_engine.py` | `resolve_encoder` | L349-365 | Encoder sesuai pilihan `hardware_accel` user |
