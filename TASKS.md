@@ -9,10 +9,10 @@
 
 ```text
 fase_aktif:      Fase 1 — Perbaikan cepat
-task_aktif:      —
-status:          7 DONE
-langkah_berikut: /mulai 9 (task terakhir Fase 1, encoder AMF). Berikutnya Fase 2 dimulai #17b (butuh K3)
-blocker:         — (K2 terjawab: AMD Radeon iGPU, AMF). #17b butuh K3
+task_aktif:      9
+status:          9 REVIEW
+langkah_berikut: Pemilik cek ketajaman klip AMF, lalu /done 9. Berikutnya #28 (unduhan HD YouTube, task terakhir Fase 1)
+blocker:         — . #17b butuh K3
 ```
 
 ***
@@ -51,8 +51,9 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | ID | Upgrade                                                                                                              | Area kode                                                                                                                      | Selesai jika                                                                                                          | Status |
 | -- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------ |
 | 16 | Pisahkan output permanen dari cache. Render ke folder permanen (mis. `Videos/CheatClip`), cleanup hanya untuk `temp` | `backend/services/system_service.py` (`auto_cleanup_expired_files`), `backend/config.py`, `backend/services/render_service.py` | Klip berumur > 1 jam tetap ada setelah cleanup berjalan                                                               | DONE   |
-| 9  | Sumber sampai 2160p + bitrate AMF lebih tinggi                                                                       | `backend/video_engine.py` baris ±806, ±858, ±1055 (format yt-dlp) dan ±289 (AMF)                                               | Video 4K terunduh tinggi 2160 (cek ffprobe). Output tetap 1080×1920 dan lebih tajam. Fallback 720p/480p tidak berubah | TODO   |
+| 9  | Sumber sampai 2160p + bitrate AMF lebih tinggi                                                                       | `backend/video_engine.py` baris ±806, ±858, ±1055 (format yt-dlp) dan ±289 (AMF)                                               | Video 4K terunduh tinggi 2160 (cek ffprobe). Output tetap 1080×1920 dan lebih tajam. Fallback 720p/480p tidak berubah | REVIEW |
 | 7  | Amankan API key + endpoint admin                                                                                     | `src/App.tsx` (±baris 2820), `backend/schemas/analyze.py`, `backend/routers/system.py` (`verify_admin_access`)                 | Key tidak ada di `localStorage`. Endpoint update/restart menolak request tanpa key admin                              | DONE   |
+| 28 | Unduhan HD YouTube: format HD (klien `android_vr`) ditolak 403 bila diambil ffmpeg (`--download-sections`, URL stream), jadi app hanya mendapat 360p (format 18). Riset: klien lain, `yt-dlp-ejs`, atau unduh native lalu potong lokal | `backend/video_engine.py` (`get_yt_dlp_base_cmd`, `download_clip_segment`, `download_full_raw_video`) | Segmen dari video YouTube 4K terunduh ≥ 1080p (cek ffprobe), waktu unduh wajar, fallback tetap ada | TODO |
 
 ***
 
@@ -168,6 +169,8 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 7 | REVIEW | Review sesi baru: PASS |
 | 2026-10-11 | 7 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | 9 | TODO | K2 terjawab: AMD Radeon(TM) Graphics (iGPU), `h264_amf` berfungsi. Blocker #9 dicabut |
+| 2026-10-11 | 28 | TODO | Ditemukan saat #9: unduhan YouTube selama ini 360p (format HD 403 lewat ffmpeg). Dipisah dari #9 atas persetujuan pemilik |
+| 2026-10-11 | 9 | REVIEW | Batas format yt-dlp 2160p (metode 1, 2, video utuh), AMF `balanced`/`vbr_peak` 12M (6 → 12 Mbps, waktu render sama). Fallback 720p/480p utuh. Smoke test 7/7 dengan dan tanpa `--gpu` |
 
 ***
 
