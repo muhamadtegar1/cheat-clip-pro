@@ -11,8 +11,8 @@
 fase_aktif:      Fase 1 — Perbaikan cepat
 task_aktif:      —
 status:          7 DONE
-langkah_berikut: /mulai 9 (task terakhir Fase 1) setelah K2 (GPU) tersedia. Melompat ke Fase 2 (#17b) hanya dengan persetujuan pemilik (aturan 6)
-blocker:         #9 butuh K2 (GPU)
+langkah_berikut: /mulai 9 (task terakhir Fase 1, encoder AMF). Berikutnya Fase 2 dimulai #17b (butuh K3)
+blocker:         — (K2 terjawab: AMD Radeon iGPU, AMF). #17b butuh K3
 ```
 
 ***
@@ -136,7 +136,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | #  | Keputusan                                                     | Jawaban |
 | -- | ------------------------------------------------------------- | ------- |
 | K1 | Akun GitHub untuk fork                                        | muhamadtegar1 |
-| K2 | GPU komputer (NVIDIA / AMD / Intel) untuk optimasi encoder #9 | <br />  |
+| K2 | GPU komputer (NVIDIA / AMD / Intel) untuk optimasi encoder #9 | AMD Radeon(TM) Graphics (iGPU, driver 31.0.12044.3). `h264_amf` diuji jalan 1080×1920. Tanpa NVENC/QSV |
 | K3 | 2–3 video golden fixtures + momen terbaiknya (untuk 17b)      | <br />  |
 | K4 | Campaign pertama untuk titik uji (platform + niche)           | <br />  |
 
@@ -167,6 +167,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 7 | REVIEW | Gemini key pindah dari `localStorage` ke `backend/.env` lewat `/api/settings/gemini-key` (migrasi otomatis, key tidak pernah dikirim balik utuh). Endpoint admin hanya loopback + Origin localhost, update/restart wajib `ADMIN_API_KEY`, backend `--host 127.0.0.1`. Smoke test 7/7 dengan cek 6 baru |
 | 2026-10-11 | 7 | REVIEW | Review sesi baru: PASS |
 | 2026-10-11 | 7 | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-11 | 9 | TODO | K2 terjawab: AMD Radeon(TM) Graphics (iGPU), `h264_amf` berfungsi. Blocker #9 dicabut |
 
 ***
 
