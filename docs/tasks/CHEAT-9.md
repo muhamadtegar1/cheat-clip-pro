@@ -1,5 +1,5 @@
 # CHEAT-9: Sumber sampai 2160p + bitrate AMF lebih tinggi
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Batas format yt-dlp dinaikkan ke 2160p dan encoder AMD AMF memakai bitrate lebih tinggi, sehingga klip 1080×1920 dari sumber resolusi tinggi lebih tajam tanpa mengubah fallback 720p/480p.
