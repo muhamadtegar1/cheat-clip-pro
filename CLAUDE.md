@@ -36,13 +36,13 @@ npm run dev
 - Isi API key Gemini dengan `mock` untuk menguji alur analisis tanpa memanggil Gemini.
 
 ## Smoke test
-**Belum ada** (task 17 di `TASKS.md`, menunggu golden fixtures K3). Sampai task itu selesai, minimal:
+**Belum ada** (task 17a di `TASKS.md`). Sampai task itu selesai, minimal:
 1. `npm run build` lulus.
 2. `venv\Scripts\python.exe scripts\check_codemap.py` lulus (link codemap valid, rentang baris cocok dengan kode).
 3. Untuk perubahan backend: impor modul atau uji endpoint terisolasi (FastAPI `TestClient` pada router terkait) agar tidak memicu auto-cleanup.
 4. Uji manual analisis dengan API key `mock`.
 
-Setelah task 17 selesai, ganti bagian ini dengan satu perintah smoke test.
+Setelah task 17a selesai, ganti bagian ini dengan satu perintah smoke test.
 
 ## Aturan kerja
 - Status task: `TODO` → `IN_PROGRESS` → `REVIEW`. **`DONE` hanya ditetapkan pemilik proyek.** AI berhenti di `REVIEW`.
@@ -50,7 +50,7 @@ Setelah task 17 selesai, ganti bagian ini dengan satu perintah smoke test.
 - Stage file satu per satu (`git add <file>`). **Jangan `git add .`**, dan jangan commit `package-lock.json` kecuali task memang mengubah dependensi.
 - Jalankan `git status` sebelum commit. Hanya file dalam scope kontrak yang boleh ikut.
 - Setiap perubahan kode wajib memperbarui catatan `docs/codemap/` yang terdampak (rentang baris, fungsi, risiko), lalu `scripts/check_codemap.py` harus lulus.
-- Perubahan prompt AI wajib lulus golden fixtures (setelah task 17).
+- Perubahan prompt AI wajib lulus golden fixtures (setelah task 17b).
 - Review dilakukan di sesi Claude Code baru, hanya dari kontrak + `git diff` + hasil test. Task berisiko tinggi (#7, #12, #16) wajib `/review` di sesi yang benar-benar baru.
 - Setelah menyimpan `TASKS.md`, baca ulang untuk memastikan tidak tertimpa proses lain.
 - Jangan sentuh `backend/exports`, `backend/temp_clips`, `venv`, `node_modules`.

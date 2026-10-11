@@ -11,8 +11,8 @@
 fase_aktif:      Fase 0 — Persiapan
 task_aktif:      P3b
 status:          P3b REVIEW
-langkah_berikut: 17 (smoke test + golden fixtures, menunggu K3)
-blocker:         K3 (video golden fixtures + momen terbaiknya) belum dijawab, dibutuhkan task 17
+langkah_berikut: 17a (smoke test)
+blocker:
 ```
 
 ***
@@ -23,7 +23,7 @@ blocker:         K3 (video golden fixtures + momen terbaiknya) belum dijawab, di
 2. **Implementasi:** Claude, satu sesi, hanya menyentuh area kode yang disebut di kontrak.
 3. **Review:** sesi Claude **baru**, hanya membaca kontrak + `git diff` + hasil test. Verdict: `PASS` atau `FIX_REQUIRED`.
 4. **DONE** hanya ditetapkan oleh pemilik proyek setelah mencoba hasilnya.
-5. Setiap perubahan prompt AI wajib lulus golden fixtures (#17).
+5. Setiap perubahan prompt AI wajib lulus golden fixtures (#17b).
 6. Jangan kerjakan task dari fase berikutnya sebelum task fase aktif selesai, kecuali disetujui.
 7. Setiap task yang mengubah kode wajib memperbarui catatan `docs/codemap/` yang terdampak (setelah P3 selesai).
 8. Task berisiko tinggi (#7 keamanan, #16 penghapusan file, #12 guardrail AI) wajib di-review dengan `/review` di sesi Claude Code yang benar-benar baru, bukan hanya subagent dari `/tutup`.
@@ -40,7 +40,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | P0 | Amankan hasil render         | Pindahkan 3 MP4 + 3 ZIP dari `backend/exports` ke folder di luar Cheat. Auto-cleanup menghapus file > 1 jam, 15 detik setelah backend menyala                       | File aman di luar folder Cheat                                        | DONE   |
 | P1 | Fork + amankan update        | Fork ke GitHub sendiri, ganti remote `origin`, buat branch `custom`. Matikan/arahkan ulang tombol update UI dan `update.bat`                                        | `git remote -v` menunjuk ke fork. Update tidak menarik dari repo asli | DONE   |
 | P2 | Sistem kerja                 | Buat folder `docs/tasks/` + salin template kontrak dari file ini                                                                                                    | Template siap dipakai                                                 | DONE   |
-| 17 | Smoke test + golden fixtures | Skrip uji: analyze `mock` → render 1 klip. 2–3 transkrip contoh dengan momen terbaik yang sudah diketahui. Mock ditambah skenario `RATE_LIMIT` dan `MALFORMED_JSON` | Satu perintah menjalankan semua cek, lulus pada kode asli             | TODO   |
+| 17a | Smoke test | Skrip uji satu perintah: analyze `mock` → render 1 klip dari video sintetis buatan FFmpeg (tanpa YouTube). Mock ditambah skenario `RATE_LIMIT` dan `MALFORMED_JSON` | Satu perintah menjalankan semua cek, lulus pada kode asli | TODO |
 | P3 | CLAUDE.md + codemap per fitur | `CLAUDE.md` di root (dibaca otomatis Claude Code): cara menjalankan app + smoke test, aturan kerja (baca TASKS.md + kontrak, sentuh hanya area yang diizinkan), jebakan yang diketahui (auto-cleanup `exports`, 1080×1920 hardcoded, self-update `git pull`). `docs/codemap/` berisi ±12 catatan per fitur: file + fungsi kunci dengan rentang baris, input/output, risiko, dan link `[[...]]` antar catatan. Folder `docs/` bisa dibuka sebagai vault Obsidian. Level fitur, bukan per fungsi | Claude Code di sesi baru bisa menunjuk file + rentang baris untuk tiap fitur tanpa grep panjang. Graph Obsidian menampilkan semua catatan saling terhubung | DONE |
 | P3b | Otomasi alur Claude Code | 4 skill di `.claude/skills/` (dengan `disable-model-invocation: true`): `/mulai <ID>` (baca TASKS.md + kontrak, tulis draf kontrak bila belum ada lalu BERHENTI menunggu persetujuan), `/tutup` (smoke test, laporan, codemap, status REVIEW, commit, panggil subagent reviewer), `/review <ID>` (review penuh di sesi baru), `/done <ID>` (tandai DONE, log, commit). Subagent `.claude/agents/reviewer.md` dengan tools Read, Grep, Glob, Bash saja (tanpa Edit), bukti hanya dari kontrak + `git diff` + test yang ia jalankan sendiri. Skrip `scripts/baton.js` + hook `SessionStart` (matcher startup, clear, compact) di `.claude/settings.json` yang mencetak blok Baton | Sesi baru tanpa prompt pembuka sudah tahu baton. Satu task selesai dengan alur `/mulai` → setujui kontrak → `/tutup` → `/done` | REVIEW |
 
@@ -60,6 +60,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 
 | ID | Upgrade                                                                                                                                                                                                                                     | Area kode                                                                                                                | Selesai jika                                                       | Status |
 | -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------ |
+| 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | TODO |
 | 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±945–1110), kartu klip di `src/App.tsx` | Setiap klip menampilkan 7 skor + penjelasan yang merujuk transkrip | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
 | 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | TODO   |
@@ -136,7 +137,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | -- | ------------------------------------------------------------- | ------- |
 | K1 | Akun GitHub untuk fork                                        | muhamadtegar1 |
 | K2 | GPU komputer (NVIDIA / AMD / Intel) untuk optimasi encoder #9 | <br />  |
-| K3 | 2–3 video golden fixtures + momen terbaiknya                  | <br />  |
+| K3 | 2–3 video golden fixtures + momen terbaiknya (untuk 17b)      | <br />  |
 | K4 | Campaign pertama untuk titik uji (platform + niche)           | <br />  |
 
 ***
@@ -156,6 +157,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | P3 | REVIEW | `CLAUDE.md` + `docs/codemap/` (index + 14 catatan fitur), kontrak `docs/tasks/CHEAT-P3.md`. 190 rentang simbol diverifikasi otomatis terhadap AST, semua link `[[...]]` valid. Dikerjakan sebelum task 17 karena 17 menunggu K3 |
 | 2026-10-11 | P3 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | P3b | REVIEW | 4 skill (`/mulai`, `/tutup`, `/review`, `/done`), subagent `reviewer`, hook SessionStart + `scripts/baton.js`, `scripts/check_codemap.py`. Hook dan skill diuji di sesi `claude -p` baru. Alur penuh dibuktikan pada task berikutnya |
+| 2026-10-11 | 17a/17b | TODO | Task 17 dipecah atas persetujuan pemilik: 17a smoke test (Fase 0, tidak butuh K3), 17b golden fixtures (dipindah ke awal Fase 2, butuh K3) |
 
 ***
 

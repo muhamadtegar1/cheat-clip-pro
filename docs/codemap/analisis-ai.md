@@ -45,7 +45,7 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 - Skor saat ini hanya satu angka `virality_score` 1-100 (target task #1, #2). Tidak ada validasi kutipan, overlap, atau timestamp di luar durasi (target task #12).
 - Mengubah deskripsi field di `ViralClipGemini` berarti mengubah prompt.
 - Aturan bahasa (zero-translation) dan aturan judul ditulis berulang di prompt dan di skema.
-- Mode mock dipakai untuk uji tanpa kuota Gemini. Smoke test (task 17) akan bergantung padanya.
+- Mode mock dipakai untuk uji tanpa kuota Gemini. Smoke test (task 17a) akan bergantung padanya.
 
 ## Terkait
 [[index]] · [[sumber-video]] · [[transkrip]] · [[frontend-app]]

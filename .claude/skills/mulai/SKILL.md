@@ -12,7 +12,7 @@ Task yang diminta: **$ARGUMENTS**. Kalau kosong, pakai `langkah_berikut` dari ba
 ## Tahap 1: Persiapan (tanpa mengubah kode)
 1. Baca `CLAUDE.md` dan blok **Baton** + baris task `$ARGUMENTS` di `TASKS.md`.
 2. Cek aturan kerja no. 6: kalau task berasal dari fase setelah `fase_aktif`, atau ada task lain berstatus `IN_PROGRESS`/`REVIEW`, sebutkan dan tanyakan apakah tetap lanjut.
-3. Cek blocker di baton dan tabel **Keputusan terbuka**. Kalau task bergantung pada keputusan yang belum dijawab (mis. K3 untuk task 17), berhenti dan minta jawabannya.
+3. Cek blocker di baton dan tabel **Keputusan terbuka**. Kalau task bergantung pada keputusan yang belum dijawab (mis. K3 untuk task 17b), berhenti dan minta jawabannya.
 4. Jalankan `git status`. Kalau ada perubahan lokal yang tidak terkait, berhenti dan tanyakan.
 5. Buka `docs/codemap/index.md` dan catatan fitur yang relevan. Ambil file, fungsi, dan rentang baris dari sana. Verifikasi rentangnya dengan membaca kodenya.
 

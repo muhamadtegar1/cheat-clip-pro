@@ -18,9 +18,9 @@ Kontrak: `docs/tasks/CHEAT-<ID>.md`. Baca dulu, terutama Area, Kriteria selesai,
 ## 2. Jalankan cek
 Catat perintah dan hasil (lulus/gagal + potongan output penting) untuk laporan:
 1. Bila `src/` berubah: `npm run build`.
-2. **Smoke test**: jalankan perintah smoke test di bagian "Smoke test" pada `CLAUDE.md`. Kalau bagian itu masih bertulisan "Belum ada", lewati dengan peringatan jelas di laporan ("smoke test belum tersedia, task 17"), jangan dianggap gagal.
+2. **Smoke test**: jalankan perintah smoke test di bagian "Smoke test" pada `CLAUDE.md`. Kalau bagian itu masih bertulisan "Belum ada", lewati dengan peringatan jelas di laporan ("smoke test belum tersedia, task 17a"), jangan dianggap gagal.
 3. Langkah di "Cara menguji" pada kontrak.
-4. Bila task mengubah prompt AI: golden fixtures (setelah task 17 tersedia).
+4. Bila task mengubah prompt AI: golden fixtures (setelah task 17b tersedia).
 
 Kalau ada yang gagal, berhenti di sini. Laporkan ke pemilik dan jangan set REVIEW.
 
