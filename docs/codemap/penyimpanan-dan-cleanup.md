@@ -30,11 +30,11 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | `backend/services/system_service.py` | `clear_temp_files` | L44-114 | Hapus temp manual (`POST /api/clear-temp`) |
 | `backend/services/system_service.py` | `cleanup_expired_temp_files` | L141-146 | Pembungkus TTL dalam jam |
 | `backend/services/system_service.py` | `get_temp_storage_summary` | L27-41 | Ukuran storage untuk UI |
-| `backend/routers/system.py` | `clear_temp_folder` | L64-75 | `POST /api/clear-temp` (ditolak di mode server) |
-| `backend/routers/system.py` | `api_trigger_auto_cleanup` | L85-94 | `POST /api/auto-cleanup` manual |
+| `backend/routers/system.py` | `clear_temp_folder` | L192-203 | `POST /api/clear-temp` (ditolak di mode server) |
+| `backend/routers/system.py` | `api_trigger_auto_cleanup` | L213-222 | `POST /api/auto-cleanup` manual |
 | `backend/video_engine.py` | konstanta folder | L21-26 | Definisi path. `EXPORTS_DIR` dari env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip` (L23) |
 | `backend/video_engine.py` | pembuatan folder | L152-162 | `mkdir` saat impor. Gagal membuat `EXPORTS_DIR` → fallback `backend/exports` + log peringatan |
-| `src/App.tsx` | `executeGlobalClearTemp` | L653-674 | Tombol Clear Temp di header |
+| `src/App.tsx` | `executeGlobalClearTemp` | L657-678 | Tombol Clear Temp di header |
 
 ## Input / output
 - Input: variabel `.env` `CHEAT_CLIP_EXPORTS_DIR`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`.

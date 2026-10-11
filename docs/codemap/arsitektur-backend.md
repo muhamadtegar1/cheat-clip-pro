@@ -22,7 +22,7 @@ FastAPI dengan 6 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 | `backend/video_engine.py` | `ensure_ffmpeg_in_path` | L180-242 | Mencari FFmpeg (winget/brew), dipanggil saat impor (L245) |
 | `backend/video_engine.py` | `get_preferred_video_encoder` | L331-346 | Dipanggil saat impor (L368), memilih encoder GPU/CPU. Lihat [[render-server]] |
 | `backend/routers/__init__.py` | ekspor router | L1-15 | Nama router yang di-include `main.py` |
-| `scripts/start-backend.js` | peluncur uvicorn | L244-260 | Mencari venv, menjalankan `uvicorn backend.main:app --port 8000 --reload` |
+| `scripts/start-backend.js` | peluncur uvicorn | L244-260 | Mencari venv, menjalankan `uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload` (hanya lokal, task #7) |
 
 ## Router dan endpoint
 
@@ -33,14 +33,14 @@ FastAPI dengan 6 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 | `backend/routers/media.py` | upload video/BGM/SFX/watermark/font, `GET /api/video/...`, `GET /api/detect-face` | [[sumber-video]], [[face-tracking]], [[subtitle-dan-judul]] |
 | `backend/routers/cookies.py` | `POST/GET/DELETE /api/cookies` | [[cookies-dan-proxy]] |
 | `backend/routers/downloads.py` | unduh video/segmen asli | [[unduhan-raw]] |
-| `backend/routers/system.py` | storage, cleanup, versi, update, restart | [[sistem-update]], [[penyimpanan-dan-cleanup]] |
+| `backend/routers/system.py` | storage, cleanup, versi, update, restart, `GET/PUT/DELETE /api/settings/gemini-key` | [[sistem-update]], [[penyimpanan-dan-cleanup]] |
 
 ## Input / output
 - Input: request HTTP dari frontend (proxy Vite `/api` → `127.0.0.1:8000`, lihat `vite.config.ts`), variabel `.env`.
 - Output: JSON, SSE (`backend/utils/sse.py` `_sse` L3-5), file media.
 
 ## Variabel `.env` yang dibaca
-`GEMINI_API_KEY`, `CHEAT_CLIP_EXPORTS_DIR`, `SUPADATA_API_KEY(S)`, `WEBSHARE_*`, `PROXY_URL`, `HTTP(S)_PROXY`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`, `ADMIN_API_KEY`/`CHEAT_CLIP_API_KEY`, `SERVER_MODE`, `ALLOW_SERVER_UPDATE`, `ALLOWED_ORIGINS`, `HOST`, `PORT`, `EMOJI_FONT_PATH`.
+`GEMINI_API_KEY` (ditulis UI ke `backend/.env`), `CHEAT_CLIP_EXPORTS_DIR`, `SUPADATA_API_KEY(S)`, `WEBSHARE_*`, `PROXY_URL`, `HTTP(S)_PROXY`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`, `ADMIN_API_KEY`/`CHEAT_CLIP_API_KEY`, `SERVER_MODE`, `ALLOW_SERVER_UPDATE`, `ALLOWED_ORIGINS`, `HOST`, `PORT`, `EMOJI_FONT_PATH`.
 
 ## Risiko
 - Mengimpor `backend.config` saja sudah menjalankan efek samping: membuat folder, mencari FFmpeg, dan menguji encoder GPU (memanggil FFmpeg beberapa kali).

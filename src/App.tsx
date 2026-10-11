@@ -48,8 +48,12 @@ export default function App() {
     if (saved === '15s' || saved === '30s' || saved === '60s' || saved === 'auto') return saved;
     return '30s';
   });
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('cheat_clip_gemini_api_key') || '');
+  // Gemini key lives in the backend (backend/.env). The input below is only a draft and is never persisted in the browser.
+  const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [geminiKeyStatus, setGeminiKeyStatus] = useState<{ configured: boolean; source: 'file' | 'env' | null; hint: string; is_mock: boolean } | null>(null);
+  const [savingApiKey, setSavingApiKey] = useState(false);
+  const [apiKeyNotice, setApiKeyNotice] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [isCookiesModalOpen, setIsCookiesModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [allowAppUpdates, setAllowAppUpdates] = useState<boolean>(() => {
@@ -733,17 +737,88 @@ export default function App() {
     };
   }, [result]);
 
-  // Fetch available AI models when API key is detected/entered
+  const saveGeminiKey = async (rawKey: string, maxRetries = 0): Promise<boolean> => {
+    const res = await resilientFetch('/api/settings/gemini-key', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: rawKey.trim() }),
+      maxRetries,
+      retryDelay: 800,
+      silent: true
+    });
+    if (!res.ok) return false;
+    setGeminiKeyStatus(await res.json());
+    return true;
+  };
+
+  const handleSaveApiKey = async () => {
+    if (!apiKey.trim() || savingApiKey) return;
+    setSavingApiKey(true);
+    try {
+      if (await saveGeminiKey(apiKey)) {
+        setApiKey('');
+        setShowApiKey(false);
+        setError(null);
+        setApiKeyNotice({ type: 'ok', text: t.form.apiKeySaved });
+      } else {
+        setApiKeyNotice({ type: 'error', text: t.form.apiKeySaveFailed });
+      }
+    } catch (err) {
+      console.error('Failed to save Gemini key:', err);
+      setApiKeyNotice({ type: 'error', text: t.form.apiKeySaveFailed });
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
+  const handleDeleteApiKey = async () => {
+    if (savingApiKey) return;
+    setSavingApiKey(true);
+    try {
+      const res = await fetch('/api/settings/gemini-key', { method: 'DELETE' });
+      if (res.ok) {
+        setGeminiKeyStatus(await res.json());
+        setApiKeyNotice({ type: 'ok', text: t.form.apiKeyDeleted });
+      } else {
+        setApiKeyNotice({ type: 'error', text: t.form.apiKeySaveFailed });
+      }
+    } catch (err) {
+      console.error('Failed to delete Gemini key:', err);
+      setApiKeyNotice({ type: 'error', text: t.form.apiKeySaveFailed });
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
+  // Load key status from the backend. A key left in localStorage by older versions is moved to the backend once, then removed.
+  useEffect(() => {
+    const LEGACY_KEY = 'cheat_clip_gemini_api_key';
+    const loadKeyStatus = async () => {
+      try {
+        const legacy = (localStorage.getItem(LEGACY_KEY) || '').trim();
+        if (legacy && await saveGeminiKey(legacy, 4)) {
+          localStorage.removeItem(LEGACY_KEY);
+          return;
+        }
+        const res = await resilientFetch('/api/settings/gemini-key', { maxRetries: 3, retryDelay: 800, silent: true });
+        if (res.ok) setGeminiKeyStatus(await res.json());
+      } catch (err) {
+        console.error('Failed to load Gemini key status:', err);
+      }
+    };
+    loadKeyStatus();
+  }, []);
+
+  // Fetch available AI models once the backend has a real key
   useEffect(() => {
     const fetchModels = async () => {
-      const cleanKey = apiKey.trim();
-      if (!cleanKey || cleanKey.length < 20 || cleanKey.toLowerCase() === 'mock') {
+      if (!geminiKeyStatus?.configured || geminiKeyStatus.is_mock) {
         setAvailableModels([]);
         return;
       }
       setLoadingModels(true);
       try {
-        const res = await resilientFetch(`/api/models?api_key=${encodeURIComponent(cleanKey)}`, {
+        const res = await resilientFetch('/api/models', {
           maxRetries: 3,
           retryDelay: 800,
           silent: true
@@ -771,7 +846,7 @@ export default function App() {
     }, 600);
 
     return () => clearTimeout(delayDebounce);
-  }, [apiKey]);
+  }, [geminiKeyStatus]);
 
   // Sync marked clips with local storage based on active video ID
   useEffect(() => {
@@ -1287,7 +1362,7 @@ export default function App() {
     }
 
     // Require an API key before making any request
-    if (!apiKey.trim()) {
+    if (!geminiKeyStatus?.configured) {
       setError(t.errors.apiKeyRequired);
       return;
     }
@@ -1483,7 +1558,6 @@ export default function App() {
         body: JSON.stringify({
           url: targetAnalyzeUrl,
           duration: durationPref,
-          api_key: apiKey.trim() || undefined,
           model: selectedModel,
           custom_prompt: customPrompt.trim() || undefined,
           range_start: rangeStartSecs,
@@ -2812,22 +2886,61 @@ Transcript:
                     </span>
                   </div>
                 </label>
-                <input
-                  id="gemini-key-input"
-                  type={showApiKey ? 'text' : 'password'}
-                  className={`form-input${!apiKey.trim() ? ' input-error-highlight' : ''}`}
-                  placeholder={t.form.apiKeyPlaceholder}
-                  value={apiKey}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setApiKey(val);
-                    localStorage.setItem('cheat_clip_gemini_api_key', val);
-                    if (val.trim()) setError(null);
-                  }}
-                  disabled={loading}
-                  style={{ height: '42px' }}
-                />
-                {!apiKey.trim() && (
+                {geminiKeyStatus?.configured && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '8px', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <span>
+                      ✅ {t.form.apiKeyStored}
+                      {geminiKeyStatus.hint && <strong style={{ marginLeft: '0.35rem', color: '#4ade80' }}>…{geminiKeyStatus.hint}</strong>}
+                      {geminiKeyStatus.source === 'env' && <span style={{ marginLeft: '0.35rem', color: 'var(--text-muted)' }}>({t.form.apiKeyFromSystemEnv})</span>}
+                    </span>
+                    {geminiKeyStatus.source === 'file' && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteApiKey}
+                        disabled={loading || savingApiKey}
+                        style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.35)', color: '#f87171', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        {t.form.apiKeyDeleteBtn}
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    id="gemini-key-input"
+                    type={showApiKey ? 'text' : 'password'}
+                    className={`form-input${!geminiKeyStatus?.configured ? ' input-error-highlight' : ''}`}
+                    placeholder={geminiKeyStatus?.configured ? t.form.apiKeyReplacePlaceholder : t.form.apiKeyPlaceholder}
+                    value={apiKey}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      setApiKey(e.target.value);
+                      setApiKeyNotice(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveApiKey();
+                      }
+                    }}
+                    disabled={loading || savingApiKey}
+                    style={{ height: '42px', flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveApiKey}
+                    disabled={loading || savingApiKey || !apiKey.trim()}
+                    style={{ height: '42px', padding: '0 1rem', borderRadius: '8px', border: '1px solid var(--primary)', background: 'rgba(255,255,255,0.03)', color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem', cursor: !apiKey.trim() ? 'not-allowed' : 'pointer', opacity: !apiKey.trim() ? 0.5 : 1 }}
+                  >
+                    {savingApiKey ? t.form.apiKeySaving : t.form.apiKeySaveBtn}
+                  </button>
+                </div>
+                {apiKeyNotice && (
+                  <span style={{ fontSize: '0.75rem', color: apiKeyNotice.type === 'ok' ? '#4ade80' : '#f87171' }}>
+                    {apiKeyNotice.text}
+                  </span>
+                )}
+                {!geminiKeyStatus?.configured && (
                   <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                     {t.form.apiKeyErrorHint}

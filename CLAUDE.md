@@ -62,7 +62,7 @@ Selain smoke test, `npm run build` (bila menyentuh `src/`) dan `venv\Scripts\pyt
 5. **`analyze_video` adalah satu generator ±1250 baris** (`backend/routers/analyze.py` L224-1477). Ubah per potongan sesuai codemap `analisis-ai.md`.
 6. **Mengimpor `backend.config` punya efek samping**: membuat folder, mencari FFmpeg, menguji encoder GPU.
 7. **Komponen mati**: `src/components/ClipStudioModal.tsx` dan `BatchRenderProgressModal.tsx` tidak dipakai. UI aktif ada di `ClipStudioSection.tsx`.
-8. **Data sensitif di `localStorage`**: Gemini API key (`cheat_clip_gemini_api_key`) dan cookies YouTube. Target task #7.
+8. **Gemini key di backend, admin hanya lokal.** Key disimpan UI ke `backend/.env` lewat `/api/settings/gemini-key` dan tidak pernah dikirim balik utuh ke browser (task #7). Jangan menambah `api_key` lagi ke request frontend. Backend hanya mendengarkan `127.0.0.1`. Tanpa `ADMIN_API_KEY`, endpoint admin hanya menerima klien loopback dengan `Origin` localhost. Update/restart selalu butuh `ADMIN_API_KEY`. Cookies YouTube masih di `localStorage`. Detail: `docs/codemap/sistem-update.md`.
 9. **Teks UI dua bahasa**: setiap string baru harus masuk `src/locales/id.ts` dan `src/locales/en.ts`.
 10. **Menjalankan `claude -p "/skill ..."` dari Git Bash** membuat `/skill` diubah menjadi path Windows. Pakai `MSYS_NO_PATHCONV=1` atau PowerShell.
 11. **Line ending campuran** (CRLF/LF). Peringatan `LF will be replaced by CRLF` dari git normal. Pertahankan line ending file yang diedit.

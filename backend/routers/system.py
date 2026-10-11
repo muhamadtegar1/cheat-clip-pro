@@ -1,11 +1,14 @@
+import ipaddress
 import logging
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel
 
 from backend.config import _base_dir, logger
 from backend.services.system_service import (
@@ -32,26 +35,151 @@ SELF_UPDATE_DISABLED_MESSAGE = (
 )
 
 
+LOCAL_ORIGIN_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$", re.IGNORECASE)
+
+
+def _configured_admin_key() -> str:
+    return (os.environ.get("ADMIN_API_KEY") or os.environ.get("CHEAT_CLIP_API_KEY") or "").strip()
+
+
+def _provided_admin_key(x_api_key: Optional[str], authorization: Optional[str]) -> str:
+    provided = (x_api_key or "").strip()
+    if not provided and authorization and authorization.startswith("Bearer "):
+        provided = authorization[7:].strip()
+    return provided
+
+
+def _is_loopback_client(request: Request) -> bool:
+    host = request.client.host if request.client else ""
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host == "localhost"
+
+
 def verify_admin_access(
+    request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     authorization: Optional[str] = Header(None)
 ) -> bool:
     """
     Verifies administrative authorization.
     If ADMIN_API_KEY or CHEAT_CLIP_API_KEY is configured in .env, requires matching token.
-    If no secret key is set, allows open access for local desktop installation.
+    Without a key, only requests from this computer (loopback client, no foreign Origin) are allowed,
+    so other devices on the network and other websites cannot call admin endpoints.
     """
-    admin_key = (os.environ.get("ADMIN_API_KEY") or os.environ.get("CHEAT_CLIP_API_KEY") or "").strip()
-    if not admin_key:
+    admin_key = _configured_admin_key()
+    if admin_key:
+        if _provided_admin_key(x_api_key, authorization) != admin_key:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing administrator API key")
         return True
 
-    provided = (x_api_key or "").strip()
-    if not provided and authorization and authorization.startswith("Bearer "):
-        provided = authorization[7:].strip()
+    if not _is_loopback_client(request):
+        raise HTTPException(status_code=403, detail="Forbidden: admin endpoints are only available from this computer")
+    origin = request.headers.get("origin")
+    if origin and not LOCAL_ORIGIN_RE.match(origin.strip()):
+        raise HTTPException(status_code=403, detail="Forbidden: cross-origin admin request rejected")
+    return True
 
-    if provided != admin_key:
+
+def require_admin_key(
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(None)
+) -> bool:
+    """Update/restart always require ADMIN_API_KEY, even for local requests."""
+    admin_key = _configured_admin_key()
+    if not admin_key:
+        raise HTTPException(status_code=403, detail="Forbidden: set ADMIN_API_KEY in .env to use update/restart")
+    if _provided_admin_key(x_api_key, authorization) != admin_key:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing administrator API key")
     return True
+
+
+# ── Gemini API key stored by the backend (backend/.env), never returned in full ──
+# backend/.env (not the root .env): Vite restarts and reloads the page whenever the root .env changes.
+# config.py loads backend/.env first, so a key saved here wins over the root .env.
+GEMINI_KEY_NAME = "GEMINI_API_KEY"
+GEMINI_KEY_ENV_PATH = Path(_base_dir) / ".env"
+_GEMINI_KEY_LINE_RE = re.compile(r"^\s*(export\s+)?" + GEMINI_KEY_NAME + r"\s*=")
+_GEMINI_KEY_VALID_RE = re.compile(r"^[A-Za-z0-9_\-.]{4,200}$")
+
+
+class GeminiKeyPayload(BaseModel):
+    api_key: str
+
+
+def _read_env_lines() -> tuple:
+    path = Path(GEMINI_KEY_ENV_PATH)
+    if not path.exists():
+        return [], "\n"
+    text = path.read_bytes().decode("utf-8")  # keep CRLF/LF as-is
+    newline = "\r\n" if "\r\n" in text else "\n"
+    return text.splitlines(), newline
+
+
+def _write_env_lines(lines: list, newline: str) -> None:
+    path = Path(GEMINI_KEY_ENV_PATH)
+    content = newline.join(lines) + (newline if lines else "")
+    path.write_text(content, encoding="utf-8", newline="")
+
+
+def _gemini_key_status() -> dict:
+    key = (os.environ.get(GEMINI_KEY_NAME) or "").strip()
+    if not key:
+        return {"configured": False, "source": None, "hint": "", "is_mock": False}
+    in_file = any(_GEMINI_KEY_LINE_RE.match(line) for line in _read_env_lines()[0])
+    is_mock = key.lower() == "mock"
+    hint = "mock" if is_mock else (key[-4:] if len(key) >= 12 else "")
+    return {"configured": True, "source": "file" if in_file else "env", "hint": hint, "is_mock": is_mock}
+
+
+@router.get("/api/settings/gemini-key")
+def get_gemini_key_status(authorized: bool = Depends(verify_admin_access)):
+    """Returns whether a Gemini key is stored, plus its last 4 characters. Never the full key."""
+    return _gemini_key_status()
+
+
+@router.put("/api/settings/gemini-key")
+def save_gemini_key(payload: GeminiKeyPayload, authorized: bool = Depends(verify_admin_access)):
+    """Stores the Gemini key in backend/.env (other lines untouched) and activates it immediately."""
+    key = (payload.api_key or "").strip()
+    if not _GEMINI_KEY_VALID_RE.match(key):
+        raise HTTPException(status_code=400, detail="Invalid Gemini API key format")
+    lines, newline = _read_env_lines()
+    new_line = f"{GEMINI_KEY_NAME}={key}"
+    replaced = False
+    out = []
+    for line in lines:
+        if _GEMINI_KEY_LINE_RE.match(line):
+            if not replaced:
+                out.append(new_line)
+                replaced = True
+            continue
+        out.append(line)
+    if not replaced:
+        out.append(new_line)
+    try:
+        _write_env_lines(out, newline)
+    except OSError as e:
+        logger.error(f"Failed to write Gemini key to .env: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save the key to .env")
+    os.environ[GEMINI_KEY_NAME] = key
+    return _gemini_key_status()
+
+
+@router.delete("/api/settings/gemini-key")
+def delete_gemini_key(authorized: bool = Depends(verify_admin_access)):
+    """Removes the Gemini key from backend/.env and from the running process."""
+    lines, newline = _read_env_lines()
+    out = [line for line in lines if not _GEMINI_KEY_LINE_RE.match(line)]
+    if len(out) != len(lines):
+        try:
+            _write_env_lines(out, newline)
+        except OSError as e:
+            logger.error(f"Failed to remove Gemini key from .env: {e}")
+            raise HTTPException(status_code=500, detail="Failed to remove the key from .env")
+    os.environ.pop(GEMINI_KEY_NAME, None)
+    return _gemini_key_status()
 
 
 @router.get("/api/temp-storage-info")
@@ -164,7 +292,7 @@ def api_check_update():
 
 
 @router.post("/api/system/update")
-async def api_perform_update(authorized: bool = Depends(verify_admin_access)):
+async def api_perform_update(authorized: bool = Depends(require_admin_key)):
     """Pulls latest code, syncs dependencies if modified, and triggers background restart."""
     if SELF_UPDATE_DISABLED:
         raise HTTPException(status_code=403, detail=SELF_UPDATE_DISABLED_MESSAGE)
@@ -251,7 +379,7 @@ async def api_perform_update(authorized: bool = Depends(verify_admin_access)):
 
 
 @router.post("/api/system/restart")
-async def api_restart_app(authorized: bool = Depends(verify_admin_access)):
+async def api_restart_app(authorized: bool = Depends(require_admin_key)):
     """Triggers an immediate background restart without pulling code. Disabled in server environments for security."""
     if SELF_UPDATE_DISABLED:
         raise HTTPException(status_code=403, detail=SELF_UPDATE_DISABLED_MESSAGE)

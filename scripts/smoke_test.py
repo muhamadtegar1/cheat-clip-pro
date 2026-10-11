@@ -9,6 +9,7 @@ Cek yang dijalankan:
   3. MALFORMED_JSON: klien palsu mengembalikan JSON terpotong, parser toleran harus tetap menghasilkan klip.
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
+  6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -317,6 +318,94 @@ def run_cleanup_check(config) -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def run_admin_check() -> None:
+    """Cek 6: guard endpoint admin dan penyimpanan Gemini key di backend.
+    `.env` dialihkan ke folder sementara dan variabel env dipulihkan, jadi `.env` asli tidak tersentuh."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    import backend.routers.system as system_mod
+
+    name = "admin guard + gemini key backend"
+    env_names = ("ADMIN_API_KEY", "CHEAT_CLIP_API_KEY", "GEMINI_API_KEY")
+    saved_env = {k: os.environ.get(k) for k in env_names}
+    original_path = system_mod.GEMINI_KEY_ENV_PATH
+    root = Path(tempfile.mkdtemp(prefix="cheatclip_admin_"))
+    env_file = root / ".env"
+    env_file.write_bytes(b"FOO=bar\r\n# komentar\r\nGEMINI_API_KEY=old_key_value_123\r\n")
+    system_mod.GEMINI_KEY_ENV_PATH = env_file
+
+    app = FastAPI()
+    app.include_router(system_mod.router)
+    local = TestClient(app, client=("127.0.0.1", 50000))
+    remote = TestClient(app, client=("192.168.1.50", 50000))
+    problems = []
+
+    def expect(label, resp, code):
+        if resp.status_code != code:
+            problems.append(f"{label}: {resp.status_code} (harap {code})")
+
+    try:
+        for k in env_names:
+            os.environ.pop(k, None)
+        fake_key = "AIzaSmokeTestKey_0123456789abcdWXYZ"
+
+        # Tanpa ADMIN_API_KEY: hanya loopback tanpa Origin asing.
+        expect("GET key lokal", local.get("/api/settings/gemini-key"), 200)
+        expect("GET key dari LAN", remote.get("/api/settings/gemini-key"), 403)
+        expect("clear-temp dari LAN", remote.post("/api/clear-temp"), 403)
+        expect("auto-cleanup Origin asing",
+               local.post("/api/auto-cleanup", headers={"Origin": "https://evil.example"}), 403)
+        expect("PUT key Origin asing",
+               local.put("/api/settings/gemini-key", json={"api_key": fake_key}, headers={"Origin": "https://evil.example"}), 403)
+        expect("update tanpa ADMIN_API_KEY", local.post("/api/system/update"), 403)
+        expect("restart tanpa ADMIN_API_KEY", local.post("/api/system/restart"), 403)
+
+        # Simpan key: .env ditulis, baris lain utuh, respons tidak memuat key utuh.
+        r = local.put("/api/settings/gemini-key", json={"api_key": fake_key},
+                      headers={"Origin": "http://localhost:5173"})
+        expect("PUT key lokal", r, 200)
+        body = r.text
+        if fake_key in body or fake_key in local.get("/api/settings/gemini-key").text:
+            problems.append("respons memuat key utuh")
+        if r.status_code == 200 and (r.json().get("hint") != "WXYZ" or r.json().get("source") != "file"):
+            problems.append(f"status key salah: {r.json()}")
+        text = env_file.read_bytes()
+        if text != f"FOO=bar\r\n# komentar\r\nGEMINI_API_KEY={fake_key}\r\n".encode():
+            problems.append(f".env tidak sesuai: {text!r}")
+        if os.environ.get("GEMINI_API_KEY") != fake_key:
+            problems.append("key tidak aktif di os.environ")
+        expect("PUT key format salah", local.put("/api/settings/gemini-key", json={"api_key": "ada spasi di sini"}), 400)
+
+        # Hapus key: baris lain tetap ada.
+        r = local.delete("/api/settings/gemini-key")
+        expect("DELETE key", r, 200)
+        if env_file.read_bytes() != b"FOO=bar\r\n# komentar\r\n" or os.environ.get("GEMINI_API_KEY"):
+            problems.append("DELETE tidak menghapus key dengan rapi")
+
+        # Dengan ADMIN_API_KEY: key wajib, update/restart lolos guard lalu ditolak flag SELF_UPDATE_DISABLED.
+        os.environ["ADMIN_API_KEY"] = "smoke-admin-key"
+        expect("clear-temp tanpa key admin", local.post("/api/clear-temp"), 401)
+        expect("update key salah", local.post("/api/system/update", headers={"X-API-Key": "salah"}), 401)
+        r = local.post("/api/system/update", headers={"X-API-Key": "smoke-admin-key"})
+        expect("update key benar (diblok flag)", r, 403)
+        if r.status_code == 403 and "dinonaktifkan" not in r.text:
+            problems.append("update dengan key benar tidak sampai ke flag SELF_UPDATE_DISABLED")
+        expect("restart Bearer benar (diblok flag)",
+               local.post("/api/system/restart", headers={"Authorization": "Bearer smoke-admin-key"}), 403)
+
+        report(name, not problems, "; ".join(problems) or "LAN/Origin asing ditolak, update/restart butuh key admin, key di .env tanpa bocor")
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        system_mod.GEMINI_KEY_ENV_PATH = original_path
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
     targets = list(paths)
     if batch_id:
@@ -379,6 +468,7 @@ def main() -> int:
             client, render_service, config.is_valid_mp4, config.EXPORTS_DIR, video_name, args.gpu
         )
         run_cleanup_check(config)
+        run_admin_check()
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")
