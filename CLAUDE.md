@@ -36,13 +36,12 @@ npm run dev
 - Isi API key Gemini dengan `mock` untuk menguji alur analisis tanpa memanggil Gemini.
 
 ## Smoke test
-**Belum ada** (task 17a di `TASKS.md`). Sampai task itu selesai, minimal:
-1. `npm run build` lulus.
-2. `venv\Scripts\python.exe scripts\check_codemap.py` lulus (link codemap valid, rentang baris cocok dengan kode).
-3. Untuk perubahan backend: impor modul atau uji endpoint terisolasi (FastAPI `TestClient` pada router terkait) agar tidak memicu auto-cleanup.
-4. Uji manual analisis dengan API key `mock`.
+```bash
+venv\Scripts\python.exe scripts\smoke_test.py
+```
+Butuh ±20 detik, tanpa jaringan dan tanpa backend yang menyala. Membuat video sintetis dengan FFmpeg, lalu menguji `POST /api/analyze` (key `mock`, skenario `RATE_LIMIT` dan `MALFORMED_JSON` lewat klien Gemini palsu) dan render 1 klip 1080×1920 lewat `POST /api/render-batch`. Exit code 0 = lulus. Skrip tidak mengimpor `backend.main`, jadi auto-cleanup tidak terpicu, dan file buatannya dihapus di akhir (`--keep` untuk menyimpan, `--gpu` untuk encoder `auto`).
 
-Setelah task 17a selesai, ganti bagian ini dengan satu perintah smoke test.
+Selain smoke test, `npm run build` (bila menyentuh `src/`) dan `venv\Scripts\python.exe scripts\check_codemap.py` tetap wajib lulus.
 
 ## Aturan kerja
 - Status task: `TODO` → `IN_PROGRESS` → `REVIEW`. **`DONE` hanya ditetapkan pemilik proyek.** AI berhenti di `REVIEW`.
