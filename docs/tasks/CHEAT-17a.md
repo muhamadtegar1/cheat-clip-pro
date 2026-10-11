@@ -1,5 +1,5 @@
 # CHEAT-17a: Smoke test satu perintah
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Satu perintah (`venv\Scripts\python.exe scripts\smoke_test.py`) memverifikasi alur inti, yaitu analisis mode mock, skenario error Gemini, dan render 1 klip dari video sintetis. Semuanya lulus pada kode saat ini tanpa YouTube, tanpa Gemini sungguhan, dan tanpa memicu auto-cleanup.
