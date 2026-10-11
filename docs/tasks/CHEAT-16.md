@@ -1,5 +1,5 @@
 # CHEAT-16: Pisahkan output permanen dari cache
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Hasil render (MP4) dan unduhan raw disimpan di folder permanen di luar proyek (default `~/CheatClip`), dan auto-cleanup hanya menghapus folder cache (`temp_clips`, `temp_clips/uploads`, `backend/temp`), tidak pernah folder permanen.

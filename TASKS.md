@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 1 — Perbaikan cepat
-task_aktif:      16
-status:          16 REVIEW
-langkah_berikut: /review 16 di sesi baru (wajib, risiko tinggi), lalu pemilik mencoba dan /done 16. Berikutnya #9
+task_aktif:      —
+status:          16 DONE
+langkah_berikut: /mulai 9 (butuh K2 GPU). Bila K2 belum siap, #7 boleh lebih dulu dengan persetujuan pemilik
 blocker:         #9 butuh K2 (GPU)
 ```
 
@@ -50,7 +50,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 
 | ID | Upgrade                                                                                                              | Area kode                                                                                                                      | Selesai jika                                                                                                          | Status |
 | -- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------ |
-| 16 | Pisahkan output permanen dari cache. Render ke folder permanen (mis. `Videos/CheatClip`), cleanup hanya untuk `temp` | `backend/services/system_service.py` (`auto_cleanup_expired_files`), `backend/config.py`, `backend/services/render_service.py` | Klip berumur > 1 jam tetap ada setelah cleanup berjalan                                                               | REVIEW |
+| 16 | Pisahkan output permanen dari cache. Render ke folder permanen (mis. `Videos/CheatClip`), cleanup hanya untuk `temp` | `backend/services/system_service.py` (`auto_cleanup_expired_files`), `backend/config.py`, `backend/services/render_service.py` | Klip berumur > 1 jam tetap ada setelah cleanup berjalan                                                               | DONE   |
 | 9  | Sumber sampai 2160p + bitrate AMF lebih tinggi                                                                       | `backend/video_engine.py` baris ±806, ±858, ±1055 (format yt-dlp) dan ±289 (AMF)                                               | Video 4K terunduh tinggi 2160 (cek ffprobe). Output tetap 1080×1920 dan lebih tajam. Fallback 720p/480p tidak berubah | TODO   |
 | 7  | Amankan API key + endpoint admin                                                                                     | `src/App.tsx` (±baris 2820), `backend/schemas/analyze.py`, `backend/routers/system.py` (`verify_admin_access`)                 | Key tidak ada di `localStorage`. Endpoint update/restart menolak request tanpa key admin                              | TODO   |
 
@@ -163,6 +163,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 17a | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | 16 | REVIEW | Output permanen di `EXPORTS_DIR` (default `~/CheatClip`, env `CHEAT_CLIP_EXPORTS_DIR`, fallback `backend/exports`). Auto-cleanup hanya folder cache, ZIP batch jadi cache di `temp_clips`. Smoke test 6/6 dengan cek cleanup baru. Default bukan `~/Videos` karena Defender Controlled Folder Access |
 | 2026-10-11 | 16 | REVIEW | Review sesi baru: PASS |
+| 2026-10-11 | 16 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 
