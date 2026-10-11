@@ -83,5 +83,16 @@ CATATAN:
 - Task berisiko tinggi: wajib `/review 7` di sesi baru.
 
 ## Review (sesi baru)
-VERDICT: PASS | FIX_REQUIRED
+VERDICT: PASS
 ALASAN:
+- Lingkup: `git show --stat c25a9ea` hanya berisi file di Area (`backend/routers/system.py`, `src/App.tsx`, `src/locales/id.ts`/`en.ts`, `scripts/start-backend.js`, `scripts/smoke_test.py`, `CLAUDE.md`, 7 catatan `docs/codemap/`, kontrak). `backend/routers/analyze.py`, `backend/schemas/analyze.py`, `backend/main.py`, komponen mati tidak disentuh. `9662a71` hanya `TASKS.md`.
+- Key tidak di `localStorage`: `src/App.tsx` L52 state awal kosong, `cheat_clip_gemini_api_key` hanya dibaca lalu dihapus di migrasi L793-810 (`removeItem` setelah PUT sukses). `grep` di `src/` tidak menemukan `setItem` key atau `api_key` lain.
+- Key tidak bocor: `_gemini_key_status` (`system.py` L126-133) hanya mengembalikan `hint` 4 karakter (bila key >= 12). `fetchModels` memanggil `/api/models` tanpa query; backend jatuh ke `os.environ["GEMINI_API_KEY"]` (`ai_service.py` L83). Body `/api/analyze` tidak lagi memuat `api_key` (diff L1558), backend fallback ke env (`analyze.py` L228).
+- Persist + baris lain utuh: PUT/DELETE menulis `backend/.env` dengan newline asli dipertahankan (`_read_env_lines`/`_write_env_lines`). Cek 6 membandingkan byte `.env` CRLF sebelum/sesudah PUT dan DELETE. `backend/.env` di-ignore git (`git check-ignore`: `.gitignore:6`), dan dimuat `config.py` L46.
+- Update/restart: `require_admin_key` dipakai di `system.py` L295 dan L382. Cek 6: tanpa `ADMIN_API_KEY` 403, key salah 401, key benar sampai 403 `SELF_UPDATE_DISABLED`.
+- Guard admin tanpa key: `clear-temp`, `cleanup-expired-temp`, `auto-cleanup`, dan 3 endpoint key memakai `verify_admin_access` (L137, L143, L171, L192, L207, L216). Cek 6: klien LAN 403, `Origin: https://evil.example` 403, loopback + `Origin: http://localhost:5173` 200. Vite proxy (`vite.config.ts`) meneruskan ke `127.0.0.1:8000` dan Vite default hanya `localhost`, jadi permintaan dari UI lokal lolos guard. Klik tombol Clear Temp di UI: perlu dicek pemilik.
+- Host: `scripts/start-backend.js` L250 `127.0.0.1`, tidak ada `0.0.0.0` lain di `scripts/`/`package.json`. Uji `curl` dari IP LAN: perlu dicek pemilik (dicatat lulus oleh implementer).
+- String UI: 9 kunci baru + `apiKeyErrorHint` ada di `id.ts` dan `en.ts`. Tombol "Ganti API Key" tetap fokus ke `gemini-key-input` (`App.tsx` L3750).
+- Test (dijalankan reviewer): `smoke_test.py` 7/7 lulus, exit 0 (cek 6 PASS). `npm run build` lulus (hanya peringatan ukuran chunk). `check_codemap.py` SEMUA CEK LULUS (200 simbol). `eslint src/App.tsx`: 27 masalah, sama persis dengan versi `c25a9ea^`, tidak ada masalah baru.
+- Codemap: `sistem-update.md`, `frontend-app.md`, `arsitektur-backend.md` diperbarui dengan simbol dan baris baru; cek codemap lulus. Tidak ada rahasia ter-commit (hanya key palsu smoke test).
+- Catatan non-blok: (1) key lama di `localStorage` dengan format tidak valid (mis. berisi spasi) ditolak 400 dan tidak dihapus, jadi tetap tertinggal di browser; (2) DELETE hanya menghapus dari `backend/.env`, key di `.env` root akan aktif lagi setelah restart; (3) karena key kini disimpan backend, endpoint non-admin seperti `/api/analyze` bisa memakai key itu tanpa auth, hanya dibatasi CORS (di luar scope, kandidat task lanjutan).

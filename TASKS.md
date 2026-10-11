@@ -11,7 +11,7 @@
 fase_aktif:      Fase 1 — Perbaikan cepat
 task_aktif:      7
 status:          7 REVIEW
-langkah_berikut: /review 7 di sesi baru (wajib, risiko tinggi), lalu pemilik mencoba dan /done 7. Berikutnya #9
+langkah_berikut: Review 7 PASS. Pemilik mencoba (Clear Temp di UI, curl dari IP LAN, key asli pindah), lalu /done 7. Berikutnya #9
 blocker:         #9 butuh K2 (GPU)
 ```
 
@@ -165,6 +165,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 16 | REVIEW | Review sesi baru: PASS |
 | 2026-10-11 | 16 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | 7 | REVIEW | Gemini key pindah dari `localStorage` ke `backend/.env` lewat `/api/settings/gemini-key` (migrasi otomatis, key tidak pernah dikirim balik utuh). Endpoint admin hanya loopback + Origin localhost, update/restart wajib `ADMIN_API_KEY`, backend `--host 127.0.0.1`. Smoke test 7/7 dengan cek 6 baru |
+| 2026-10-11 | 7 | REVIEW | Review sesi baru: PASS |
 
 ***
 
