@@ -8,11 +8,11 @@
 ## Baton saat ini
 
 ```text
-fase_aktif:      Fase 1 — Perbaikan cepat
+fase_aktif:      Fase 2 — Inti AI
 task_aktif:      —
-status:          9 DONE
-langkah_berikut: /mulai 28 (unduhan HD YouTube, task terakhir Fase 1). Setelah itu Fase 2 dimulai #17b (butuh K3)
-blocker:         — (#28 tidak ter-blok; disk C: sempit, unduhan HD sebaiknya ke D:). #17b butuh K3
+status:          28 SKIPPED (ditunda pemilik), Fase 1 selesai
+langkah_berikut: /mulai 17b (golden fixtures) setelah K3 tersedia. #28 bisa dilanjutkan nanti (riset di CHEAT-28.md)
+blocker:         #17b butuh K3 (2–3 video golden fixtures + momen terbaiknya)
 ```
 
 ***
@@ -53,7 +53,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | 16 | Pisahkan output permanen dari cache. Render ke folder permanen (mis. `Videos/CheatClip`), cleanup hanya untuk `temp` | `backend/services/system_service.py` (`auto_cleanup_expired_files`), `backend/config.py`, `backend/services/render_service.py` | Klip berumur > 1 jam tetap ada setelah cleanup berjalan                                                               | DONE   |
 | 9  | Sumber sampai 2160p + bitrate AMF lebih tinggi                                                                       | `backend/video_engine.py` baris ±806, ±858, ±1055 (format yt-dlp) dan ±289 (AMF)                                               | Video 4K terunduh tinggi 2160 (cek ffprobe). Output tetap 1080×1920 dan lebih tajam. Fallback 720p/480p tidak berubah | DONE   |
 | 7  | Amankan API key + endpoint admin                                                                                     | `src/App.tsx` (±baris 2820), `backend/schemas/analyze.py`, `backend/routers/system.py` (`verify_admin_access`)                 | Key tidak ada di `localStorage`. Endpoint update/restart menolak request tanpa key admin                              | DONE   |
-| 28 | Unduhan HD YouTube: format HD (klien `android_vr`) ditolak 403 bila diambil ffmpeg (`--download-sections`, URL stream), jadi app hanya mendapat 360p (format 18). Riset: klien lain, `yt-dlp-ejs`, atau unduh native lalu potong lokal | `backend/video_engine.py` (`get_yt_dlp_base_cmd`, `download_clip_segment`, `download_full_raw_video`) | Segmen dari video YouTube 4K terunduh ≥ 1080p (cek ffprobe), waktu unduh wajar, fallback tetap ada | TODO |
+| 28 | Unduhan HD YouTube: format HD (klien `android_vr`) ditolak 403 bila diambil ffmpeg (`--download-sections`, URL stream), jadi app hanya mendapat 360p (format 18). Riset: klien lain, `yt-dlp-ejs`, atau unduh native lalu potong lokal | `backend/video_engine.py` (`get_yt_dlp_base_cmd`, `download_clip_segment`, `download_full_raw_video`) | Segmen dari video YouTube 4K terunduh ≥ 1080p (cek ffprobe), waktu unduh wajar, fallback tetap ada | SKIPPED |
 
 ***
 
@@ -172,6 +172,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 28 | TODO | Ditemukan saat #9: unduhan YouTube selama ini 360p (format HD 403 lewat ffmpeg). Dipisah dari #9 atas persetujuan pemilik |
 | 2026-10-11 | 9 | REVIEW | Batas format yt-dlp 2160p (metode 1, 2, video utuh), AMF `balanced`/`vbr_peak` 12M (6 → 12 Mbps, waktu render sama). Fallback 720p/480p utuh. Smoke test 7/7 dengan dan tanpa `--gpu` |
 | 2026-10-11 | 9 | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-11 | 28 | SKIPPED | Ditunda pemilik: kualitas render cukup, kontrak dinilai riskan. Riset (yt-dlp-ejs membuka 2160p, ffmpeg ke URL remote tidak andal, usulan cache native) disimpan di CHEAT-28.md. yt-dlp-ejs dicopot lagi dari venv. Fase 1 selesai, fase aktif → Fase 2 |
 
 ***
 
