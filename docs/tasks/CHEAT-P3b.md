@@ -1,5 +1,5 @@
 # CHEAT-P3b: Otomasi alur Claude Code
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Sesi Claude Code baru otomatis tahu baton, dan satu task bisa dijalankan dengan alur `/mulai <ID>` → setujui kontrak → `/tutup` → `/done <ID>`.
