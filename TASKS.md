@@ -9,10 +9,10 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      —
-status:          17b DONE
-langkah_berikut: /mulai 12 (guardrail; cek objektif golden fixtures sudah cukup, berisiko tinggi: wajib /review di sesi baru). Alternatif #1 setelah K3 Tahap 2
-blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik). Kuota Gemini harian habis s.d. ±2026-10-14 08:00 (golden fixtures butuh Gemini)
+task_aktif:      12
+status:          12 REVIEW
+langkah_berikut: WAJIB /review 12 di sesi Claude Code baru (risiko tinggi), lalu /done 12. Berikutnya #1 (butuh K3 Tahap 2) atau #3
+blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik). Baseline golden sekarang gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
 ***
@@ -64,7 +64,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | DONE   |
 | 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±945–1110), kartu klip di `src/App.tsx` | Setiap klip menampilkan 7 skor + penjelasan yang merujuk transkrip | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
-| 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | TODO   |
+| 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | REVIEW |
 | 3  | Preset bobot (Founder, Edukasi, Hiburan, Gaming, General) + hitung ulang ranking lokal                                                                                                                                                      | `src/App.tsx`                                                                                                            | Ganti preset → ranking berubah tanpa memanggil AI                  | TODO   |
 
 Bobot default (jumlah 100): Prompt Match 25 · Hook 20 · Retention 20 · Clarity 15 · Emotional Pull 10 · Payoff 7 · Editability 3.
@@ -176,6 +176,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-13 | 17b | REVIEW | Golden fixtures Tahap 1: `scripts/golden_fixtures.py` (fetch/run/score/selftest), label K3 + baseline (hanya angka) di `tests/golden/`, transkrip lokal (di-ignore git). Baseline Gemini flash: 38 klip, grounded 97,9%, valid 100%, duplikat 0, zona terlarang 1, heat lift 1,38. Selftest 16/16, smoke test 7/7 |
 | 2026-10-13 | 17b | REVIEW | Perbaikan temuan reviewer: model dikunci (`--model auto`), model yang dipakai dicatat per video, `--compare` exit 3 bila model beda, baseline ulang dengan `gemini-3.7-flash` (36 klip, grounded 100%, valid 100%, duplikat 0, zona terlarang 1, lift 1,46). Selftest 18/18, smoke test 7/7 |
 | 2026-10-13 | 17b | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-13 | 12 | REVIEW | Guardrail output: `backend/utils/clip_guardrails.py` (timestamp, kutipan, overlap), prompt `<TRANSCRIPT_DATA>` + jumlah klip batas atas. Golden `--repeat 2 --compare` exit 0 (gemini-3.8-flash): grounded 100%, karangan/salah tempat/duplikat 0, zona terlarang 2→0,5, klip 36→29. Smoke test 8/8 |
 
 ***
 
