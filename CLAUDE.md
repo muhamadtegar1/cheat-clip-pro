@@ -43,13 +43,20 @@ Butuh ±20 detik, tanpa jaringan dan tanpa backend yang menyala. Membuat video s
 
 Selain smoke test, `npm run build` (bila menyentuh `src/`) dan `venv\Scripts\python.exe scripts\check_codemap.py` tetap wajib lulus.
 
+## Golden fixtures (perubahan prompt AI)
+```bash
+venv\Scripts\python.exe scripts\golden_fixtures.py fetch
+venv\Scripts\python.exe scripts\golden_fixtures.py run --repeat 2 --compare
+```
+`fetch` cukup sekali (transkrip, metadata, heatmap 3 video K3 ke `tests/golden/data/`, di-ignore git karena transkrip milik channel lain; jangan pernah di-commit). `run` memanggil Gemini flash dengan key dari `backend/.env` (±3 analisis per ulangan, memakai kuota pemilik) tanpa memanggil YouTube, lalu menilai kutipan (grounded/salah tempat/karangan), timestamp, duplikat, klip di zona "jangan dipilih", dan heatmap. Exit 2 bila ada metrik lebih buruk dari `tests/golden/baseline.json`. Perbarui baseline hanya bila perubahan prompt diterima: `run --save-baseline`. `run --mock` dan `selftest` tanpa Gemini. Detail: `docs/codemap/golden-fixtures.md`.
+
 ## Aturan kerja
 - Status task: `TODO` → `IN_PROGRESS` → `REVIEW`. **`DONE` hanya ditetapkan pemilik proyek.** AI berhenti di `REVIEW`.
 - Satu kontrak = satu fitur kecil = satu commit kode, plus commit terpisah untuk `TASKS.md`.
 - Stage file satu per satu (`git add <file>`). **Jangan `git add .`**, dan jangan commit `package-lock.json` kecuali task memang mengubah dependensi.
 - Jalankan `git status` sebelum commit. Hanya file dalam scope kontrak yang boleh ikut.
 - Setiap perubahan kode wajib memperbarui catatan `docs/codemap/` yang terdampak (rentang baris, fungsi, risiko), lalu `scripts/check_codemap.py` harus lulus.
-- Perubahan prompt AI wajib lulus golden fixtures (setelah task 17b).
+- Perubahan prompt AI (teks prompt, deskripsi field `ViralClipGemini`/`VideoAnalysis`, pasca-proses klip) wajib lulus golden fixtures: `golden_fixtures.py run --repeat 2 --compare` exit 0, hasilnya dicatat di laporan implementer.
 - Review dilakukan di sesi Claude Code baru, hanya dari kontrak + `git diff` + hasil test. Task berisiko tinggi (#7, #12, #16) wajib `/review` di sesi yang benar-benar baru.
 - Setelah menyimpan `TASKS.md`, baca ulang untuk memastikan tidak tertimpa proses lain.
 - Jangan sentuh `backend/exports`, `EXPORTS_DIR` (`~/CheatClip`), `backend/temp_clips`, `venv`, `node_modules`.

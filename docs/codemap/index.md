@@ -39,6 +39,9 @@ Browser (React, Vite :5173)                Backend (FastAPI, uvicorn :8000)
 - [[clip-studio]]: pengaturan render, preferensi studio, peluncuran batch, trimmer, heatmap
 - [[render-browser]]: render di browser dengan FFmpeg WebAssembly
 
+### Pengujian
+- [[golden-fixtures]]: alat ukur perubahan prompt AI dari 3 transkrip tersimpan (task 17b)
+
 ## Jebakan lintas fitur
 - Hasil render permanen di `EXPORTS_DIR` (default `~/CheatClip`). Auto-cleanup hanya membersihkan folder cache. Lihat [[penyimpanan-dan-cleanup]].
 - Kanvas 1080×1920 ditulis langsung (±80 literal) di `video_engine.py`. Lihat [[render-server]].

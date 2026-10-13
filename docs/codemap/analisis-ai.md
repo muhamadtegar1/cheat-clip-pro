@@ -43,7 +43,7 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 ## Risiko
 - Fungsi raksasa. Ubah per potongan, jangan pindahkan blok tanpa alasan. Semua langkah berbagi variabel lokal (`duration`, `heatmap`, `enriched_transcript`, `is_mock`).
 - Skor saat ini hanya satu angka `virality_score` 1-100 (target task #1, #2). Tidak ada validasi kutipan, overlap, atau timestamp di luar durasi (target task #12).
-- Mengubah deskripsi field di `ViralClipGemini` berarti mengubah prompt.
+- Mengubah deskripsi field di `ViralClipGemini` berarti mengubah prompt. Setiap perubahan prompt wajib diukur dengan [[golden-fixtures]] (`run --repeat 2 --compare`). Skrip itu mengganti `fetch_video_metadata`, `fetch_transcript`, dan `download_youtube_audio_file` di modul ini, jadi nama dan cara impornya jangan diubah.
 - Aturan bahasa (zero-translation) dan aturan judul ditulis berulang di prompt dan di skema.
 - Mode mock dipakai untuk uji tanpa kuota Gemini. `scripts/smoke_test.py` bergantung padanya, dan juga mengganti `genai.Client` serta `get_flash_models_for_key` di modul ini dengan klien palsu (skenario 429 dan JSON rusak). Mengganti nama atau cara impor keduanya akan memutus smoke test.
 

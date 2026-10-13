@@ -52,6 +52,8 @@ backend/temp/
 backend/temp_downloads/
 backend/temp_clips/
 backend/exports/
+# Golden fixtures (task 17b): transkrip milik channel lain + hasil run, hanya lokal
+tests/golden/data/
 *.ass
 *.mp4
 *.m4a

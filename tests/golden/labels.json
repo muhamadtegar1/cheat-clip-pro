@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "notes": "Label golden fixtures task 17b (K3 Tahap 1). Rentang 'avoid' dibantu Gemini dan diverifikasi pemilik. 'references' (Shorts resmi, pilihan pemilik) diisi di Tahap 2 sebelum task #1/#2. Transkrip TIDAK disimpan di sini; jalankan `golden_fixtures.py fetch` untuk mengisi tests/golden/data/ (di-ignore git).",
+  "videos": [
+    {
+      "code": "A",
+      "video_id": "hbZbPHjE8NE",
+      "title": "The Rise of Diary of a CEO",
+      "channel": "Colin and Samir",
+      "kind": "podcast",
+      "language": "en",
+      "duration": "00:52:26",
+      "avoid": [
+        {"start": "00:00:00", "end": "00:01:31", "kind": "intro", "note": "Pembukaan acara, penyambutan tamu, penjelasan singkat PressPublish NYC"},
+        {"start": "00:13:33", "end": "00:15:06", "kind": "sponsor", "note": "Segmen sponsor Microsoft Copilot"},
+        {"start": "00:52:04", "end": "00:52:26", "kind": "outro", "note": "Penutup acara dan ucapan terima kasih"}
+      ],
+      "references": []
+    },
+    {
+      "code": "B",
+      "video_id": "094y1Z2wpJg",
+      "title": "The Simplest Math Problem No One Can Solve - Collatz Conjecture",
+      "channel": "Veritasium",
+      "kind": "edukasi",
+      "language": "en",
+      "duration": "00:22:09",
+      "avoid": [
+        {"start": "00:00:00", "end": "00:00:20", "kind": "intro", "note": "Pembuka naratif yang terlalu singkat untuk klip mandiri"},
+        {"start": "00:01:23", "end": "00:01:32", "kind": "low-context", "note": "Penjelasan loop 4-2-1 yang butuh aturan dasar sebelumnya"},
+        {"start": "00:20:42", "end": "00:22:09", "kind": "sponsor", "note": "Promosi berbayar Brilliant"}
+      ],
+      "references": []
+    },
+    {
+      "code": "C",
+      "video_id": "YzDyjAsd4Z8",
+      "title": "AYAH Gua BERUBAH jadi SADIS SEMENJAK Gua PINDAH ke RUMAH ANEH ini. - House 2",
+      "channel": "Billy Samuel",
+      "kind": "gaming",
+      "language": "id",
+      "duration": "00:29:16",
+      "avoid": [
+        {"start": "00:00:00", "end": "00:00:30", "kind": "intro", "note": "Pembukaan dan salam khas channel"},
+        {"start": "00:08:48", "end": "00:09:30", "kind": "low-context", "note": "Transisi antar segmen ending yang membingungkan tanpa narasi awal"},
+        {"start": "00:27:48", "end": "00:29:16", "kind": "outro", "note": "Penutup, ajakan subscribe, musik outro"}
+      ],
+      "references": []
+    }
+  ]
+}
