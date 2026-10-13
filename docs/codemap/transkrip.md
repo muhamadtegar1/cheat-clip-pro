@@ -10,10 +10,10 @@ Langkah 3 dari `POST /api/analyze`. Menghasilkan `transcript_lines` berformat `[
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | transkrip upload (Whisper) | L372-467 | Subtitle manual atau `transcribe_local_video_file` |
-| `backend/routers/analyze.py` | transkrip YouTube | L558-776 | Subtitle manual → `fetch_transcript` → fallback Whisper |
-| `backend/routers/analyze.py` | fallback Whisper YouTube | L664-776 | Unduh audio lalu transkripsi lokal |
-| `backend/routers/analyze.py` | potong rentang + skor engagement | L777-826 | `range_start`/`range_end`, gabung dengan heatmap |
+| `backend/routers/analyze.py` | transkrip upload (Whisper) | L373-468 | Subtitle manual atau `transcribe_local_video_file` |
+| `backend/routers/analyze.py` | transkrip YouTube | L559-777 | Subtitle manual → `fetch_transcript` → fallback Whisper |
+| `backend/routers/analyze.py` | fallback Whisper YouTube | L665-777 | Unduh audio lalu transkripsi lokal |
+| `backend/routers/analyze.py` | potong rentang + skor engagement | L778-827 | `range_start`/`range_end`, gabung dengan heatmap |
 | `backend/services/youtube_service.py` | `fetch_transcript` | L607-801 | Orkestrator 7 tier (Supadata, proxy, langsung) |
 | `backend/services/youtube_service.py` | `fetch_transcript_supadata` | L294-363 | Tier 1, API Supadata dengan rotasi key |
 | `backend/services/youtube_service.py` | `get_supadata_usage_data` | L422-472 | Kuota Supadata (`GET /api/supadata-usage`) |

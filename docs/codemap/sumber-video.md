@@ -10,12 +10,12 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | cabang Google Drive | L241-280 | Unduh file Drive dengan progres lewat antrean SSE |
-| `backend/routers/analyze.py` | deteksi upload | L281-288 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
-| `backend/routers/analyze.py` | cabang upload lokal | L290-467 | Probe metadata, transkrip via subtitle manual atau Whisper |
-| `backend/routers/analyze.py` | heatmap akustik (upload) | L341-371 | Heatmap dari energi audio karena tidak ada data retensi |
-| `backend/routers/analyze.py` | cabang YouTube: metadata | L468-529 | `extract_video_id`, `fetch_video_metadata`, mock fallback |
-| `backend/routers/analyze.py` | cabang YouTube: heatmap | L530-557 | Langkah 2, kurva retensi dari metadata |
+| `backend/routers/analyze.py` | cabang Google Drive | L242-281 | Unduh file Drive dengan progres lewat antrean SSE |
+| `backend/routers/analyze.py` | deteksi upload | L282-289 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
+| `backend/routers/analyze.py` | cabang upload lokal | L291-468 | Probe metadata, transkrip via subtitle manual atau Whisper |
+| `backend/routers/analyze.py` | heatmap akustik (upload) | L342-372 | Heatmap dari energi audio karena tidak ada data retensi |
+| `backend/routers/analyze.py` | cabang YouTube: metadata | L469-530 | `extract_video_id`, `fetch_video_metadata`, mock fallback |
+| `backend/routers/analyze.py` | cabang YouTube: heatmap | L531-558 | Langkah 2, kurva retensi dari metadata |
 | `backend/services/youtube_service.py` | `fetch_video_metadata` | L218-274 | yt-dlp JSON: judul, channel, durasi, heatmap |
 | `backend/services/youtube_service.py` | `get_youtube_oembed_title` | L166-215 | Fallback judul via oEmbed |
 | `backend/services/gdrive_service.py` | `is_google_drive_url` | L14-19 | Deteksi link Drive |

@@ -1,13 +1,13 @@
 {
- "created": "2026-10-13T11:57:34",
- "model": "gemini-3.7-flash",
+ "created": "2026-10-13T15:15:33",
+ "model": "gemini-3.8-flash",
  "models_used": {
-  "A": "gemini-3.7-flash",
-  "B": "gemini-3.7-flash",
-  "C": "gemini-3.7-flash"
+  "A": "gemini-3.8-flash",
+  "B": "gemini-3.8-flash",
+  "C": "gemini-3.8-flash"
  },
  "duration_pref": "auto",
- "repeat": 1,
+ "repeat": 2,
  "thresholds": {
   "QUOTE_MATCH": 0.85,
   "QUOTE_WINDOW": 5.0,
@@ -16,32 +16,18 @@
   "REF_TOLERANCE": 5.0
  },
  "total": {
-  "clips": 36.0,
+  "clips": 29.0,
   "grounded": 100.0,
   "misplaced": 0.0,
   "fabricated": 0.0,
   "valid_time": 100.0,
   "duplicates": 0.0,
-  "avoid_hits": 1.0,
-  "heat_lift": 1.46,
+  "avoid_hits": 0.5,
+  "heat_lift": 1.496,
   "ref_recall": null
  },
  "per_video": {
   "A": {
-   "clips": 16,
-   "grounded": 100.0,
-   "quotes": 32,
-   "misplaced": 0,
-   "fabricated": 0,
-   "valid_time": 100.0,
-   "duplicates": 0,
-   "avoid_hits": 0,
-   "heat_lift": 1.162,
-   "ref_recall": null,
-   "seconds": 101.4,
-   "model_used": "gemini-3.7-flash"
-  },
-  "B": {
    "clips": 11,
    "grounded": 100.0,
    "quotes": 22,
@@ -50,24 +36,38 @@
    "valid_time": 100.0,
    "duplicates": 0,
    "avoid_hits": 0,
-   "heat_lift": 1.175,
+   "heat_lift": 1.208,
    "ref_recall": null,
-   "seconds": 133.4,
-   "model_used": "gemini-3.7-flash"
+   "seconds": 74.0,
+   "model_used": "gemini-3.8-flash"
   },
-  "C": {
-   "clips": 9,
+  "B": {
+   "clips": 10,
    "grounded": 100.0,
-   "quotes": 18,
+   "quotes": 20,
    "misplaced": 0,
    "fabricated": 0,
    "valid_time": 100.0,
    "duplicates": 0,
-   "avoid_hits": 1,
-   "heat_lift": 2.042,
+   "avoid_hits": 0,
+   "heat_lift": 1.26,
    "ref_recall": null,
-   "seconds": 32.3,
-   "model_used": "gemini-3.7-flash"
+   "seconds": 75.1,
+   "model_used": "gemini-3.8-flash"
+  },
+  "C": {
+   "clips": 7,
+   "grounded": 100.0,
+   "quotes": 7,
+   "misplaced": 0,
+   "fabricated": 0,
+   "valid_time": 100.0,
+   "duplicates": 0,
+   "avoid_hits": 0,
+   "heat_lift": 1.906,
+   "ref_recall": null,
+   "seconds": 86.6,
+   "model_used": "gemini-3.8-flash"
   }
  }
 }

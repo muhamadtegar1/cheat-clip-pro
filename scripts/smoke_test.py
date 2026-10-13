@@ -10,6 +10,7 @@ Cek yang dijalankan:
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
+  7. Guardrail output (task #12): kutipan karangan diganti kalimat asli, timestamp dijepit/dibuang, overlap 80% digabung, 50% ditandai.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -406,6 +407,55 @@ def run_admin_check() -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def run_guardrail_check() -> None:
+    """Fungsi murni backend/utils/clip_guardrails.py dengan kasus buatan (tanpa jaringan, tanpa Gemini)."""
+    name = "guardrail output"
+    try:
+        from backend.utils.clip_guardrails import apply_guardrails
+
+        transcript = [{"start": float(s), "end": float(e), "text": text, "engagement": 0.0} for s, e, text in SRT_LINES]
+
+        def clip(title, s, e, quotes, score=80, hook=None):
+            return {"title": title, "start_time": s, "end_time": e, "hook_time": s if hook is None else hook,
+                    "virality_score": score, "key_quotes": quotes}
+
+        clips = [
+            clip("asli", 5.0, 15.0, ["you can measure attention with data"], score=90),
+            clip("karangan", 15.0, 25.0, ["editors secretly hate short clips"], hook=99.0),
+            clip("duplikat 80%", 6.0, 16.0, ["Most people think finding viral moments is pure luck"], score=70),
+            clip("overlap 50%", 20.0, 30.0, ["Short clips with a strong payoff keep viewers watching"], score=60),
+            clip("lewat durasi", 33.0, 55.0, ["That is the whole process from start to finish"], score=50),
+            clip("di luar video", 45.0, 60.0, ["Thanks for watching"], score=40),
+        ]
+        out, summary = apply_guardrails(clips, transcript, 0.0, float(VIDEO_DURATION))
+        by_title = {c["title"]: c for c in out}
+        problems = []
+        if "duplikat 80%" in by_title or summary["merged"] != 1:
+            problems.append("overlap 80% tidak digabung")
+        if "di luar video" in by_title or summary["dropped_invalid"] != 1:
+            problems.append("klip di luar durasi tidak dibuang")
+        late = by_title.get("lewat durasi")
+        if not late or late["end_time"] != float(VIDEO_DURATION):
+            problems.append("end_time tidak dijepit ke durasi")
+        fake = by_title.get("karangan")
+        if not fake or fake["key_quotes"] == ["editors secretly hate short clips"] or not fake["key_quotes"]:
+            problems.append("kutipan karangan tidak diganti")
+        elif not any(fake["key_quotes"][0] in text for _, _, text in SRT_LINES):
+            problems.append("kutipan pengganti bukan kalimat asli")
+        if not fake or fake["hook_time"] != 15.0:
+            problems.append("hook di luar klip tidak diperbaiki")
+        if by_title.get("asli", {}).get("key_quotes") != ["you can measure attention with data"]:
+            problems.append("kutipan asli ikut dibuang")
+        flagged = [c for c in out if any("review" in n for n in c["guardrail_notes"])]
+        if summary["flagged_overlap"] != 1 or {c["title"] for c in flagged} != {"karangan", "overlap 50%"}:
+            problems.append(f"overlap 50% tidak ditandai ({summary})")
+        report(name, not problems, "; ".join(problems) or
+               f"{summary['clips_in']} klip -> {summary['clips_out']}, 1 digabung, 1 dibuang, 1 dijepit, "
+               f"1 kutipan diganti, 1 overlap ditandai")
+    except Exception as e:
+        report(name, False, repr(e))
+
+
 def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
     targets = list(paths)
     if batch_id:
@@ -469,6 +519,7 @@ def main() -> int:
         )
         run_cleanup_check(config)
         run_admin_check()
+        run_guardrail_check()
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

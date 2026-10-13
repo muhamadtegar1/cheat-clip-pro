@@ -39,7 +39,7 @@ npm run dev
 ```bash
 venv\Scripts\python.exe scripts\smoke_test.py
 ```
-Butuh ±20 detik, tanpa jaringan dan tanpa backend yang menyala. Membuat video sintetis dengan FFmpeg, lalu menguji `POST /api/analyze` (key `mock`, skenario `RATE_LIMIT` dan `MALFORMED_JSON` lewat klien Gemini palsu) dan render 1 klip 1080×1920 lewat `POST /api/render-batch`, serta memastikan auto-cleanup tidak menyentuh `EXPORTS_DIR`. Exit code 0 = lulus. Skrip tidak mengimpor `backend.main`, jadi auto-cleanup tidak terpicu, dan file buatannya dihapus di akhir (`--keep` untuk menyimpan, `--gpu` untuk encoder `auto`).
+Butuh ±20 detik, tanpa jaringan dan tanpa backend yang menyala. Membuat video sintetis dengan FFmpeg, lalu menguji `POST /api/analyze` (key `mock`, skenario `RATE_LIMIT` dan `MALFORMED_JSON` lewat klien Gemini palsu) dan render 1 klip 1080×1920 lewat `POST /api/render-batch`, serta memastikan auto-cleanup tidak menyentuh `EXPORTS_DIR` dan guardrail output (#12, `backend/utils/clip_guardrails.py`) bekerja pada kasus buatan. Exit code 0 = lulus. Skrip tidak mengimpor `backend.main`, jadi auto-cleanup tidak terpicu, dan file buatannya dihapus di akhir (`--keep` untuk menyimpan, `--gpu` untuk encoder `auto`).
 
 Selain smoke test, `npm run build` (bila menyentuh `src/`) dan `venv\Scripts\python.exe scripts\check_codemap.py` tetap wajib lulus.
 
@@ -66,7 +66,7 @@ venv\Scripts\python.exe scripts\golden_fixtures.py run --repeat 2 --compare
 2. **Kanvas 1080×1920 ditulis langsung.** ±80 literal `1080`/`1920` di `backend/video_engine.py` (filtergraph, ASS, overlay judul). Rasio lain ditempatkan di dalam kanvas vertikal; hanya `16:9_landscape` yang 1920×1080. Pratinjau Clip Studio meniru angka yang sama. Detail: `docs/codemap/render-server.md`. Target task #10.
 3. **Self-update `git pull` dimatikan.** Flag `SELF_UPDATE_DISABLED` di `backend/routers/system.py` dan `src/App.tsx`. Jangan aktifkan lagi; update dari upstream dilakukan manual (`git fetch upstream`, merge ke `custom`). Detail: `docs/codemap/sistem-update.md`.
 4. **`uvicorn --reload` aktif.** Menyimpan file `.py` saat render/analisis berjalan me-restart backend. Semua state job (render, unduhan) ada di memori dan hilang.
-5. **`analyze_video` adalah satu generator ±1250 baris** (`backend/routers/analyze.py` L224-1477). Ubah per potongan sesuai codemap `analisis-ai.md`.
+5. **`analyze_video` adalah satu generator ±1280 baris** (`backend/routers/analyze.py` L225-1507). Ubah per potongan sesuai codemap `analisis-ai.md`.
 6. **Mengimpor `backend.config` punya efek samping**: membuat folder, mencari FFmpeg, menguji encoder GPU.
 7. **Komponen mati**: `src/components/ClipStudioModal.tsx` dan `BatchRenderProgressModal.tsx` tidak dipakai. UI aktif ada di `ClipStudioSection.tsx`.
 8. **Gemini key di backend, admin hanya lokal.** Key disimpan UI ke `backend/.env` lewat `/api/settings/gemini-key` dan tidak pernah dikirim balik utuh ke browser (task #7). Jangan menambah `api_key` lagi ke request frontend. Backend hanya mendengarkan `127.0.0.1`. Tanpa `ADMIN_API_KEY`, endpoint admin hanya menerima klien loopback dengan `Origin` localhost. Update/restart selalu butuh `ADMIN_API_KEY`. Cookies YouTube masih di `localStorage`. Detail: `docs/codemap/sistem-update.md`.
