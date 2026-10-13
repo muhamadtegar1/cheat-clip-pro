@@ -1,5 +1,5 @@
 # CHEAT-17b: Golden fixtures analisis AI (Tahap 1, cek objektif)
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Satu perintah menjalankan analisis AI pada 3 transkrip tersimpan (K3) dan memberi nilai objektif (kutipan tidak dikarang, timestamp valid, tanpa duplikat, tidak memilih intro/sponsor/outro), sehingga perubahan prompt di #1, #2, #12 bisa dibandingkan dengan angka.
