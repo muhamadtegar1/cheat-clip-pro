@@ -178,6 +178,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-13 | 17b | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-13 | 12 | REVIEW | Guardrail output: `backend/utils/clip_guardrails.py` (timestamp, kutipan, overlap), prompt `<TRANSCRIPT_DATA>` + jumlah klip batas atas. Golden `--repeat 2 --compare` exit 0 (gemini-3.8-flash): grounded 100%, karangan/salah tempat/duplikat 0, zona terlarang 2→0,5, klip 36→29. Smoke test 8/8 |
 | 2026-10-13 | 12 | REVIEW | Perbaikan temuan reviewer: guardrail sebelum fallback heatmap (semua klip dibuang -> fallback), urutkan/jepit timestamp sebelum batas 90 s. Smoke test 9/9 |
+| 2026-10-13 | 12 | REVIEW | Review sesi baru: PASS |
 
 ***
 
