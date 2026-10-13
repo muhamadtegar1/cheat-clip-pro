@@ -1,6 +1,11 @@
 {
- "created": "2026-10-13T11:06:52",
- "model": "gemini-2.5-flash",
+ "created": "2026-10-13T11:57:34",
+ "model": "gemini-3.7-flash",
+ "models_used": {
+  "A": "gemini-3.7-flash",
+  "B": "gemini-3.7-flash",
+  "C": "gemini-3.7-flash"
+ },
  "duration_pref": "auto",
  "repeat": 1,
  "thresholds": {
@@ -11,55 +16,58 @@
   "REF_TOLERANCE": 5.0
  },
  "total": {
-  "clips": 38.0,
-  "grounded": 97.9,
-  "misplaced": 1.0,
-  "fabricated": 1.0,
+  "clips": 36.0,
+  "grounded": 100.0,
+  "misplaced": 0.0,
+  "fabricated": 0.0,
   "valid_time": 100.0,
   "duplicates": 0.0,
   "avoid_hits": 1.0,
-  "heat_lift": 1.379,
+  "heat_lift": 1.46,
   "ref_recall": null
  },
  "per_video": {
   "A": {
    "clips": 16,
-   "grounded": 93.8,
-   "quotes": 32,
-   "misplaced": 1,
-   "fabricated": 1,
-   "valid_time": 100.0,
-   "duplicates": 0,
-   "avoid_hits": 0,
-   "heat_lift": 1.376,
-   "ref_recall": null,
-   "seconds": 63.6
-  },
-  "B": {
-   "clips": 12,
    "grounded": 100.0,
-   "quotes": 24,
+   "quotes": 32,
    "misplaced": 0,
    "fabricated": 0,
    "valid_time": 100.0,
    "duplicates": 0,
    "avoid_hits": 0,
-   "heat_lift": 1.074,
+   "heat_lift": 1.162,
    "ref_recall": null,
-   "seconds": 78.2
+   "seconds": 101.4,
+   "model_used": "gemini-3.7-flash"
+  },
+  "B": {
+   "clips": 11,
+   "grounded": 100.0,
+   "quotes": 22,
+   "misplaced": 0,
+   "fabricated": 0,
+   "valid_time": 100.0,
+   "duplicates": 0,
+   "avoid_hits": 0,
+   "heat_lift": 1.175,
+   "ref_recall": null,
+   "seconds": 133.4,
+   "model_used": "gemini-3.7-flash"
   },
   "C": {
-   "clips": 10,
+   "clips": 9,
    "grounded": 100.0,
-   "quotes": 20,
+   "quotes": 18,
    "misplaced": 0,
    "fabricated": 0,
    "valid_time": 100.0,
    "duplicates": 0,
    "avoid_hits": 1,
-   "heat_lift": 1.687,
+   "heat_lift": 2.042,
    "ref_recall": null,
-   "seconds": 36.7
+   "seconds": 32.3,
+   "model_used": "gemini-3.7-flash"
   }
  }
 }

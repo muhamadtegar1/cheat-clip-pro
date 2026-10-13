@@ -9,6 +9,8 @@ Jalankan dari root repo:
 - `fetch`  : ambil metadata, heatmap, dan transkrip (lewat fungsi backend yang sama dengan app) ke
              tests/golden/data/<video_id>/. Folder data di-ignore git (transkrip milik channel lain).
 - `run`    : jalankan POST /api/analyze lewat TestClient dengan transkrip tersimpan sebagai `subtitles`.
+             `--model auto` (default) mengunci satu model flash yang benar-benar menjawab untuk semua video.
+             Model yang dipakai backend (bisa fallback) dicatat per video dari event SSE.
              `fetch_video_metadata` diganti data tersimpan, `fetch_transcript` dan unduh audio diblokir,
              jadi tidak ada panggilan ke YouTube. Default Gemini flash dengan key dari backend/.env.
              Gemini yang sibuk (503/429) diulang otomatis (--retries, --retry-wait).
@@ -27,6 +29,8 @@ Metrik (per video, lalu total):
   ref_recall : persen momen referensi yang tertangkap (Tahap 2, "n/a" bila label kosong).
 
 `--compare`: rate turun > WORSE_RATE poin atau hitungan naik > COUNT_NOISE = LEBIH BURUK (exit 2).
+Model per video berbeda dari baseline = perbandingan tidak setara (exit 3), apa pun nilai metriknya.
+`score <laporan> --save-baseline` menimpa baseline dari laporan yang dinilai ulang (hanya bila penilai diubah).
 Variasi antar run Gemini dengan prompt sama: karangan/salah tempat 0-1, jadi untuk perubahan prompt
 pakai `run --repeat 2 --compare`.
 """
@@ -50,7 +54,7 @@ BASELINE_PATH = GOLDEN_DIR / "baseline.json"
 DATA_DIR = GOLDEN_DIR / "data"
 RUNS_DIR = DATA_DIR / "runs"
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "auto"  # model flash pertama yang benar-benar menjawab untuk key ini (lihat resolve_model)
 QUOTE_MATCH = 0.85      # rasio kemiripan minimum agar kutipan dianggap ada di transkrip
 QUOTE_WINDOW = 5.0      # detik toleransi di luar rentang klip saat mencari kutipan
 DUP_OVERLAP = 0.70      # overlap > 70% dari klip lebih pendek = duplikat (sesuai #12)
@@ -345,6 +349,47 @@ def read_sse_events(client, payload: dict) -> list:
     return events
 
 
+def resolve_model(api_key: str, requested: str) -> str:
+    """`auto`: model flash pertama (urutan backend) yang benar-benar menjawab permintaan kecil untuk key ini.
+    Dipakai untuk semua video dalam satu run supaya hasilnya setara."""
+    if requested != "auto":
+        return requested
+    from google import genai
+    from google.genai import types
+    from backend.services.ai_service import get_flash_models_for_key
+
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30000))
+    for model in get_flash_models_for_key(client):
+        try:
+            client.models.generate_content(model=model, contents="Reply with OK.",
+                                           config=types.GenerateContentConfig(max_output_tokens=5))
+            return model
+        except Exception as e:
+            print(f"       model {model} tidak bisa dipakai: {str(e)[:120]}")
+    raise RuntimeError("tidak ada model flash yang menjawab untuk key ini")
+
+
+def model_used(events: list, fallback: str) -> str:
+    """Model yang benar-benar menghasilkan analisis (event SSE langkah 4 'Clip Verification & Alignment')."""
+    for e in reversed(events):
+        if e.get("model") and e.get("stage") == "Clip Verification & Alignment":
+            return e["model"]
+    return fallback
+
+
+def model_mismatch(current: dict, baseline: dict) -> list:
+    """Kode video yang modelnya berbeda dari baseline (perbandingan tidak setara)."""
+    return sorted(code for code, model in current.items() if code in baseline and baseline[code] != model)
+
+
+def unique_path(path: Path) -> Path:
+    candidate, n = path, 2
+    while candidate.exists():
+        candidate = path.with_name(f"{path.stem}-{n}{path.suffix}")
+        n += 1
+    return candidate
+
+
 def cmd_run(args) -> int:
     import backend.config  # noqa: F401  efek samping: memuat backend/.env (GEMINI_API_KEY)
     from fastapi import FastAPI
@@ -355,6 +400,15 @@ def cmd_run(args) -> int:
     if not api_key:
         print("[FAIL] GEMINI_API_KEY tidak ada. Simpan key lewat UI atau pakai --mock.")
         return 1
+    if args.mock:
+        model = "mock"
+    else:
+        try:
+            model = resolve_model(api_key, args.model)
+        except Exception as e:
+            print(f"[FAIL] memilih model: {e}")
+            return 1
+        print(f"Model run ini: {model}" + (" (dipilih otomatis)" if args.model == "auto" else ""))
 
     labels = load_labels()
     videos = [v for v in labels["videos"] if not args.only or v["code"] in args.only]
@@ -400,7 +454,7 @@ def cmd_run(args) -> int:
                 avoid = [{"start": hms_to_seconds(a["start"]), "end": hms_to_seconds(a["end"])} for a in v["avoid"]]
                 refs = [{"start": hms_to_seconds(x["start"]), "end": hms_to_seconds(x["end"])} for x in v.get("references") or []]
                 payload = {"url": f"https://www.youtube.com/watch?v={vid}", "duration": args.duration,
-                           "api_key": api_key, "model": args.model, "target_clip_count": "auto",
+                           "api_key": api_key, "model": model, "target_clip_count": "auto",
                            "subtitles": lines_to_srt(lines), "subtitles_filename": f"{vid}.srt"}
                 t0 = time.time()
                 for attempt in range(args.retries + 1):
@@ -411,6 +465,12 @@ def cmd_run(args) -> int:
                     done = [e for e in events if e.get("done")]
                     errors = [e for e in events if e.get("error")]
                     if done and not errors:
+                        used = model_used(events, model)
+                        if used != model and attempt < args.retries:
+                            print(f"       {v['code']}: backend pindah ke {used} (fallback), ulangi dengan {model} "
+                                  f"dalam {args.retry_wait}s ({attempt + 1}/{args.retries})")
+                            time.sleep(args.retry_wait)
+                            continue
                         break
                     msg = str(errors[0].get("error")) if errors else ""
                     if attempt < args.retries and TRANSIENT_RE.search(msg):
@@ -428,6 +488,7 @@ def cmd_run(args) -> int:
                 clips = done[-1]["result"].get("clips") or []
                 score = score_video(clips, transcript, duration, meta.get("heatmap") or [], avoid, refs)
                 score["seconds"] = elapsed
+                score["model_used"] = model_used(events, model)
                 score["raw_clips"] = [{k: c.get(k) for k in ("title", "start_time", "end_time", "hook_time",
                                                              "virality_score", "key_quotes")} for c in clips]
                 score["label_notes"] = check_labels(v, duration, transcript)
@@ -435,16 +496,28 @@ def cmd_run(args) -> int:
                 print(f"[ok]   run {r + 1} {v['code']} {vid}: {score['clips']} klip, grounded {score['grounded']}% "
                       f"(salah tempat {score['misplaced']}, karangan {score['fabricated']}), "
                       f"valid {score['valid_time']}%, dup {score['duplicates']}, avoid {score['avoid_hits']}, "
-                      f"lift {score['heat_lift']}, {elapsed}s")
+                      f"lift {score['heat_lift']}, {elapsed}s, model {score['model_used']}")
+                if score["model_used"] != model:
+                    print(f"       PERINGATAN: backend pindah dari {model} ke {score['model_used']} (fallback)")
                 for note in score["label_notes"]:
                     print(f"       catatan label: {note}")
             runs.append(per_video)
     finally:
         analyze_mod.fetch_video_metadata, analyze_mod.fetch_transcript, analyze_mod.download_youtube_audio_file = originals
 
-    return finish(runs, failed, {"model": "mock" if args.mock else args.model, "duration_pref": args.duration,
+    return finish(runs, failed, {"model": model, "model_requested": args.model, "duration_pref": args.duration,
                                  "repeat": args.repeat, "metadata_calls_from_file": calls["metadata"]},
                   args, mock=args.mock)
+
+
+def models_of(runs: list) -> dict:
+    """Model per kode video dari run terakhir yang berhasil (untuk baseline dan cek kesetaraan)."""
+    models = {}
+    for pv in runs:
+        for code, s in pv.items():
+            if "error" not in s:
+                models.setdefault(code, set()).add(s.get("model_used") or "?")
+    return {code: (next(iter(m)) if len(m) == 1 else "campuran:" + ",".join(sorted(m))) for code, m in models.items()}
 
 
 def total_of(runs: list):
@@ -459,18 +532,28 @@ def total_of(runs: list):
     return total
 
 
-def print_compare(total: dict) -> int:
+def print_compare(total: dict, models: dict) -> int:
+    """Tabel selisih. Exit 2 bila ada metrik lebih buruk, 3 bila model berbeda dari baseline (tidak setara)."""
     if not BASELINE_PATH.exists():
         print("[FAIL] baseline belum ada. Jalankan `run --save-baseline` dulu.")
         return 1
     base = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
-    print(f"\nBanding dengan baseline {base['created']} ({base['model']}):")
+    base_models = base.get("models_used") or {}
+    print(f"\nBanding dengan baseline {base['created']} (model {base_models or base.get('model')}):")
     print(f"{'metrik':<12}{'baseline':>10}{'sekarang':>10}{'selisih':>10}  status")
     worse = False
     for key, b, c, d, verdict in compare(total, base["total"]):
         worse |= verdict == "LEBIH BURUK"
         print(f"{key:<12}{str(b):>10}{str(c):>10}{str(d):>10}  {verdict}")
     print("HASIL: ada metrik yang lebih buruk" if worse else "HASIL: tidak ada metrik yang lebih buruk")
+    if not base_models:
+        print("PERINGATAN: baseline tidak mencatat model yang dipakai. Buat ulang dengan `run --save-baseline`.")
+        return 3
+    mismatched = model_mismatch(models, base_models)
+    if mismatched:
+        for code in mismatched:
+            print(f"PERINGATAN: video {code} memakai {models[code]}, baseline {base_models[code]}. Perbandingan tidak setara.")
+        return 3
     return 2 if worse else 0
 
 
@@ -480,15 +563,16 @@ def finish(runs: list, failed: bool, info: dict, args, mock: bool, suffix: str =
     if total is None:
         print("[FAIL] tidak ada video yang berhasil dianalisis")
         return 1
+    models = models_of(runs)
     report = {
-        "created": datetime.now().isoformat(timespec="seconds"), **info,
+        "created": datetime.now().isoformat(timespec="seconds"), **info, "models_used": models,
         "thresholds": {"QUOTE_MATCH": QUOTE_MATCH, "QUOTE_WINDOW": QUOTE_WINDOW, "DUP_OVERLAP": DUP_OVERLAP,
                        "AVOID_SHARE": AVOID_SHARE, "REF_TOLERANCE": REF_TOLERANCE},
         "total": total,
         "runs": runs,
     }
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    run_path = RUNS_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{'-mock' if mock else ''}{suffix}.json"
+    run_path = unique_path(RUNS_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{'-mock' if mock else ''}{suffix}.json")
     run_path.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print("\nTOTAL:", json.dumps(total, ensure_ascii=False))
@@ -504,8 +588,12 @@ def finish(runs: list, failed: bool, info: dict, args, mock: bool, suffix: str =
         if mock:
             print("[FAIL] baseline tidak disimpan dari run --mock")
             return 1
+        if any(m.startswith("campuran:") for m in models.values()):
+            print(f"[FAIL] baseline tidak disimpan: model berganti di tengah run ({models}). Ulangi run.")
+            return 1
         baseline = {
-            "created": report["created"], "model": info["model"], "duration_pref": info["duration_pref"],
+            "created": report["created"], "model": info["model"], "models_used": models,
+            "duration_pref": info["duration_pref"],
             "repeat": info["repeat"], "thresholds": report["thresholds"], "total": total,
             "per_video": {code: {k: v for k, v in s.items() if k not in ("details", "label_notes", "raw_clips")}
                           for code, s in runs[-1].items()},
@@ -514,7 +602,7 @@ def finish(runs: list, failed: bool, info: dict, args, mock: bool, suffix: str =
         print(f"Baseline disimpan: {BASELINE_PATH.relative_to(REPO_ROOT)}")
 
     if args.compare:
-        return print_compare(total)
+        return print_compare(total, models)
     return 0
 
 
@@ -541,6 +629,7 @@ def cmd_score(args) -> int:
             score = score_video(s["raw_clips"], transcript, float(meta["duration"]), meta.get("heatmap") or [], avoid, refs)
             score["raw_clips"] = s["raw_clips"]
             score["seconds"] = s.get("seconds")
+            score["model_used"] = s.get("model_used") or "?"
             rescored[code] = score
             print(f"[ok]   run {r + 1} {code}: {score['clips']} klip, grounded {score['grounded']}% "
                   f"(salah tempat {score['misplaced']}, karangan {score['fabricated']}), valid {score['valid_time']}%, "
@@ -602,6 +691,13 @@ def cmd_selftest(args) -> int:
                   rows["grounded"] == "LEBIH BURUK" and rows["duplicates"] == "LEBIH BURUK"
                   and rows["fabricated"] == "naik (dalam variasi)"
                   and rows["avoid_hits"] == "lebih baik" and rows["valid_time"] == "sama"))
+    cases.append(("model berbeda dari baseline terdeteksi",
+                  model_mismatch({"A": "gemini-3.8-flash", "B": "x"}, {"A": "gemini-2.5-flash", "B": "x"}) == ["A"]
+                  and model_mismatch({"A": "m"}, {"A": "m"}) == []))
+    cases.append(("model dari event SSE langkah 4, fallback bila tidak ada",
+                  model_used([{"stage": "Language & Context Assembly", "model": "req"},
+                              {"stage": "Clip Verification & Alignment", "model": "dipakai"}], "req") == "dipakai"
+                  and model_used([{"stage": "x"}], "mock") == "mock"))
     srt = lines_to_srt([{"text": "halo", "start": 3661.5, "duration": 2.25}])
     cases.append(("SRT jam:menit:detik,ms", "01:01:01,500 --> 01:01:03,750" in srt))
     cases.append(("hms_to_seconds", hms_to_seconds("00:13:33") == 813.0 and hms_to_seconds("01:31") == 91.0))
@@ -621,7 +717,7 @@ def main() -> int:
     p_fetch.add_argument("--only", type=lambda s: s.upper().split(","), default=None, help="Kode video, mis. A,C")
     p_run = sub.add_parser("run", help="Jalankan analisis pada fixture dan beri nilai")
     p_run.add_argument("--mock", action="store_true", help="Key mock, tanpa Gemini")
-    p_run.add_argument("--model", default=DEFAULT_MODEL)
+    p_run.add_argument("--model", default=DEFAULT_MODEL, help="Nama model Gemini, atau auto (default)")
     p_run.add_argument("--duration", default="auto", help="Preferensi durasi klip (15s/30s/60s/auto)")
     p_run.add_argument("--repeat", type=int, default=1)
     p_run.add_argument("--only", type=lambda s: s.upper().split(","), default=None, help="Kode video, mis. A,C")
