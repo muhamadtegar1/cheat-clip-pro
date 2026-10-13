@@ -1,5 +1,5 @@
 # CHEAT-29: Klip fallback heatmap salah saat rentang khusus dipakai
-Status: REVIEW
+Status: DONE
 Risiko: rendah (jalur fallback, prompt tidak berubah)
 
 ## Tujuan

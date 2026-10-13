@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      29
-status:          29 REVIEW
-langkah_berikut: Pemilik mencoba #29 lalu /done 29. Setelah itu #1 (skor 7 dimensi) setelah K3 Tahap 2 siap, kemudian #2 dan #3 (preset bobot memakai skor #1)
+task_aktif:      —
+status:          29 DONE
+langkah_berikut: /mulai 1 (skor 7 dimensi) setelah K3 Tahap 2 siap, kemudian #2 dan #3 (preset bobot memakai skor #1)
 blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik); #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
@@ -65,7 +65,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±945–1110), kartu klip di `src/App.tsx` | Setiap klip menampilkan 7 skor + penjelasan yang merujuk transkrip | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
 | 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | DONE   |
-| 29 | Klip fallback heatmap saat rentang khusus: batas akhir memakai `duration` relatif sehingga klip terbalik lalu dijepit guardrail jadi satu klip panjang. Temuan review #12 | `backend/routers/analyze.py` (klip fallback heatmap ±1345–1420), `scripts/smoke_test.py` | Klip fallback dengan rentang berada di dalam rentang dan sepanjang target | REVIEW |
+| 29 | Klip fallback heatmap saat rentang khusus: batas akhir memakai `duration` relatif sehingga klip terbalik lalu dijepit guardrail jadi satu klip panjang. Temuan review #12 | `backend/routers/analyze.py` (klip fallback heatmap ±1345–1420), `scripts/smoke_test.py` | Klip fallback dengan rentang berada di dalam rentang dan sepanjang target | DONE   |
 | 3  | Preset bobot (Founder, Edukasi, Hiburan, Gaming, General) + hitung ulang ranking lokal                                                                                                                                                      | `src/App.tsx`                                                                                                            | Ganti preset → ranking berubah tanpa memanggil AI                  | TODO   |
 
 Bobot default (jumlah 100): Prompt Match 25 · Hook 20 · Retention 20 · Clarity 15 · Emotional Pull 10 · Payoff 7 · Editability 3.
@@ -183,6 +183,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-13 | 12 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-13 | 29 | TODO | Ditambahkan atas permintaan pemilik dari temuan review #12: klip fallback heatmap memakai `duration` relatif saat rentang khusus. Direproduksi (rentang 60-110 s: 1 klip 45 s, bukan klip 15 s). Kontrak `docs/tasks/CHEAT-29.md` |
 | 2026-10-13 | 29 | REVIEW | Fallback heatmap: kandidat dijepit ke `start_bound`, sisa rentang < 5 s dilewati, akhir klip `min(end_bound, start + target)`. Smoke test 10/10 dengan cek baru rentang 22-38 s (gagal di kode lama). Reproduksi 60-110 `15s`: 2 klip di dalam rentang tanpa penjepitan; tanpa rentang identik. Catatan: `auto` dengan rentang sempit masih bisa tinggal 1 klip pendek karena overlap kandidat digabung guardrail (di luar scope) |
+| 2026-10-13 | 29 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 
