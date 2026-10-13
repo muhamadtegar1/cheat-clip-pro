@@ -11,7 +11,7 @@
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      17b
 status:          17b REVIEW
-langkah_berikut: Pemilik coba `golden_fixtures.py run --compare`, lalu /done 17b. Berikutnya #1 (butuh K3 Tahap 2: Shorts resmi) atau #12 (cek objektif sudah cukup)
+langkah_berikut: Pemilik coba `golden_fixtures.py run --compare`, lalu /done 17b. Berikutnya #12 (cek objektif sudah cukup) atau #1 (butuh K3 Tahap 2: Shorts resmi)
 blocker:         — (K3 Tahap 1 terisi; Tahap 2 dibutuhkan sebelum #1/#2)
 ```
 
@@ -174,6 +174,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 9 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | 28 | SKIPPED | Ditunda pemilik: kualitas render cukup, kontrak dinilai riskan. Riset (yt-dlp-ejs membuka 2160p, ffmpeg ke URL remote tidak andal, usulan cache native) disimpan di CHEAT-28.md. yt-dlp-ejs dicopot lagi dari venv. Fase 1 selesai, fase aktif → Fase 2 |
 | 2026-10-13 | 17b | REVIEW | Golden fixtures Tahap 1: `scripts/golden_fixtures.py` (fetch/run/score/selftest), label K3 + baseline (hanya angka) di `tests/golden/`, transkrip lokal (di-ignore git). Baseline Gemini flash: 38 klip, grounded 97,9%, valid 100%, duplikat 0, zona terlarang 1, heat lift 1,38. Selftest 16/16, smoke test 7/7 |
+| 2026-10-13 | 17b | REVIEW | Perbaikan temuan reviewer: model dikunci (`--model auto`), model yang dipakai dicatat per video, `--compare` exit 3 bila model beda, baseline ulang dengan `gemini-3.7-flash` (36 klip, grounded 100%, valid 100%, duplikat 0, zona terlarang 1, lift 1,46). Selftest 18/18, smoke test 7/7 |
 
 ***
 
