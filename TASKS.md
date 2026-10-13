@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      30
-status:          30 REVIEW
-langkah_berikut: Pemilik mencoba #30 lalu /done 30. Setelah itu #1 (skor 7 dimensi), kemudian #2 dan #3 (preset bobot memakai skor #1)
+task_aktif:      —
+status:          30 DONE
+langkah_berikut: /mulai 1 (skor 7 dimensi) setelah K3 Tahap 2 siap, kemudian #2 dan #3 (preset bobot memakai skor #1)
 blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik); #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
@@ -66,7 +66,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
 | 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | DONE   |
 | 29 | Klip fallback heatmap saat rentang khusus: batas akhir memakai `duration` relatif sehingga klip terbalik lalu dijepit guardrail jadi satu klip panjang. Temuan review #12 | `backend/routers/analyze.py` (klip fallback heatmap ±1345–1420), `scripts/smoke_test.py` | Klip fallback dengan rentang berada di dalam rentang dan sepanjang target | DONE   |
-| 30 | Klip fallback heatmap saling tumpang tindih: kandidat hanya berjarak 25 s padahal target `auto`/`60s` sampai 85 s, sehingga guardrail menggabungkan klip dan menyisakan klip skor tertinggi (bisa klip 5 s di ujung rentang). Temuan #29 | `backend/routers/analyze.py` (klip fallback heatmap L1345-1425), `scripts/smoke_test.py` | Klip fallback tidak tumpang tindih (tidak ada yang digabung atau ditandai overlap oleh guardrail), rentang 60-110 dengan `auto` menghasilkan lebih dari 1 klip dan tidak ada klip < 10 s bila ada kandidat lain | REVIEW |
+| 30 | Klip fallback heatmap saling tumpang tindih: kandidat hanya berjarak 25 s padahal target `auto`/`60s` sampai 85 s, sehingga guardrail menggabungkan klip dan menyisakan klip skor tertinggi (bisa klip 5 s di ujung rentang). Temuan #29 | `backend/routers/analyze.py` (klip fallback heatmap L1345-1425), `scripts/smoke_test.py` | Klip fallback tidak tumpang tindih (tidak ada yang digabung atau ditandai overlap oleh guardrail), rentang 60-110 dengan `auto` menghasilkan lebih dari 1 klip dan tidak ada klip < 10 s bila ada kandidat lain | DONE   |
 | 3  | Preset bobot (Founder, Edukasi, Hiburan, Gaming, General) + hitung ulang ranking lokal                                                                                                                                                      | `src/App.tsx`                                                                                                            | Ganti preset → ranking berubah tanpa memanggil AI                  | TODO   |
 
 Bobot default (jumlah 100): Prompt Match 25 · Hook 20 · Retention 20 · Clarity 15 · Emotional Pull 10 · Payoff 7 · Editability 3.
@@ -187,6 +187,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-13 | 29 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-13 | 30 | TODO | Ditambahkan atas permintaan pemilik dari temuan #29: klip fallback heatmap tumpang tindih (jarak kandidat 25 s vs target sampai 85 s). Rentang 60-110 `auto`: hanya 1 klip 105-110 (5 s) karena 65-110 digabung guardrail. Tanpa rentang `auto`: 55-100 dan 80-115 ditandai overlap. Kontrak ditulis lewat `/mulai 30` |
 | 2026-10-13 | 30 | REVIEW | `pick_fallback_spans`: kandidat yang menimpa klip terpilih atau < 10 s dilewati (5 s bila tidak ada klip sama sekali), target `auto` per klip yang diterima. Rentang 60-110 `auto`: 65-90, 90-110 (dulu 1 klip 5 s); tanpa merge/overlap di semua durasi; `15s` tanpa rentang identik kecuali klip < 10 s. Smoke test 11/11 dengan cek baru video 120 s (gagal di kode lama), ±26 s |
+| 2026-10-14 | 30 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 

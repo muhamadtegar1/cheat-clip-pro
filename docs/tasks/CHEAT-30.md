@@ -1,5 +1,5 @@
 # CHEAT-30: Klip fallback heatmap tidak saling tumpang tindih
-Status: REVIEW
+Status: DONE
 Risiko: rendah (jalur fallback, prompt tidak berubah)
 
 ## Tujuan
