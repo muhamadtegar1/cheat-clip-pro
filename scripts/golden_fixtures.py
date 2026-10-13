@@ -63,6 +63,9 @@ REF_TOLERANCE = 5.0     # detik toleransi untuk mencocokkan momen referensi (Tah
 WORSE_RATE = 5.0        # penurunan > 5 poin persen dianggap lebih buruk di --compare
 COUNT_NOISE = 1.0       # naik <= 1 (karangan, duplikat, zona terlarang) masih variasi wajar antar run Gemini
 TRANSIENT_RE = re.compile(r"high demand|overloaded|unavailable|503|429|rate limit|quota|timed out|timeout", re.IGNORECASE)
+# Kuota habis di semua model flash (backend sudah mencoba seluruh rantai fallback), atau kuota harian:
+# mengulang tidak berguna, jadi run dihentikan dan video sisanya dilewati.
+EXHAUSTED_RE = re.compile(r"across all available Gemini|PerDay|per day", re.IGNORECASE)
 
 
 # ── Utilitas ─────────────────────────────────────────────────────────────────
@@ -366,7 +369,8 @@ def resolve_model(api_key: str, requested: str) -> str:
             return model
         except Exception as e:
             print(f"       model {model} tidak bisa dipakai: {str(e)[:120]}")
-    raise RuntimeError("tidak ada model flash yang menjawab untuk key ini")
+    raise RuntimeError("tidak ada model flash yang menjawab untuk key ini. Bila semua 429 RESOURCE_EXHAUSTED, "
+                       "kuota harian habis: coba lagi setelah pulih atau pakai key lain")
 
 
 def model_used(events: list, fallback: str) -> str:
@@ -443,10 +447,14 @@ def cmd_run(args) -> int:
 
     runs = []
     failed = False
+    exhausted = False
     try:
         for r in range(args.repeat):
             per_video = {}
             for v in videos:
+                if exhausted:
+                    per_video[v["code"]] = {"error": "dilewati: kuota Gemini habis", "seconds": 0.0}
+                    continue
                 vid = v["video_id"]
                 current["vid"] = vid
                 meta, lines, transcript = fixtures[vid]
@@ -473,6 +481,9 @@ def cmd_run(args) -> int:
                             continue
                         break
                     msg = str(errors[0].get("error")) if errors else ""
+                    if EXHAUSTED_RE.search(msg):
+                        exhausted = True
+                        break
                     if attempt < args.retries and TRANSIENT_RE.search(msg):
                         print(f"       {v['code']}: error sementara, coba lagi dalam {args.retry_wait}s ({attempt + 1}/{args.retries})")
                         time.sleep(args.retry_wait)
@@ -484,6 +495,10 @@ def cmd_run(args) -> int:
                     msg = errors[0].get("error") if errors else "event done tidak ditemukan"
                     print(f"[FAIL] run {r + 1} {v['code']} {vid}: {msg}")
                     per_video[v["code"]] = {"error": str(msg)[:300], "seconds": elapsed}
+                    if exhausted:
+                        print("[FAIL] kuota Gemini habis di semua model flash untuk key ini. Video sisanya dilewati, "
+                              "tanpa retry. Coba lagi setelah kuota harian pulih (lihat 'Please retry in' di log) "
+                              "atau pakai key lain.")
                     continue
                 clips = done[-1]["result"].get("clips") or []
                 score = score_video(clips, transcript, duration, meta.get("heatmap") or [], avoid, refs)
@@ -698,6 +713,11 @@ def cmd_selftest(args) -> int:
                   model_used([{"stage": "Language & Context Assembly", "model": "req"},
                               {"stage": "Clip Verification & Alignment", "model": "dipakai"}], "req") == "dipakai"
                   and model_used([{"stage": "x"}], "mock") == "mock"))
+    quota_msg = ("Quota limit reached across all available Gemini Flash models for this API key. "
+                 "Free keys have a request limit per minute.")
+    cases.append(("kuota habis di semua model: berhenti tanpa retry, 503 tetap diulang",
+                  bool(EXHAUSTED_RE.search(quota_msg)) and not EXHAUSTED_RE.search("503 UNAVAILABLE high demand")
+                  and bool(TRANSIENT_RE.search("503 UNAVAILABLE high demand"))))
     srt = lines_to_srt([{"text": "halo", "start": 3661.5, "duration": 2.25}])
     cases.append(("SRT jam:menit:detik,ms", "01:01:01,500 --> 01:01:03,750" in srt))
     cases.append(("hms_to_seconds", hms_to_seconds("00:13:33") == 813.0 and hms_to_seconds("01:31") == 91.0))
