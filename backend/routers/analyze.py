@@ -1348,7 +1348,11 @@ async def analyze_video(request: AnalyzeRequest):
             sorted_lines = sorted(enriched_transcript, key=lambda l: l.get('engagement', 0.0), reverse=True)
             candidate_starts = []
             for l in sorted_lines:
-                s = l['start']
+                # Detik absolut di dalam rentang; baris yang hanya beririsan dengan awal rentang dijepit ke start_bound
+                s = max(start_bound, l['start'])
+                # Sisa rentang kurang dari 5 s (MIN_CLIP_SECONDS guardrail): lewati, jangan digeser mundur agar tidak tumpang tindih
+                if end_bound - s < 5.0:
+                    continue
                 if not any(abs(s - existing) < 25.0 for existing in candidate_starts):
                     candidate_starts.append(s)
                 if len(candidate_starts) >= 5:
@@ -1365,7 +1369,8 @@ async def analyze_video(request: AnalyzeRequest):
                     target_len = auto_lens[i % len(auto_lens)]
                 else:
                     target_len = 30.0
-                et = min(duration, st + min(90.0, target_len))
+                # end_bound, bukan duration: dengan rentang khusus duration adalah panjang relatif
+                et = min(end_bound, st + min(90.0, target_len))
                 seg_lines = [l['text'] for l in enriched_transcript if max(l['start'], st) < min(l['end'], et)]
                 seg_text = " ".join(seg_lines).strip()
                 preview = seg_text[:60] + "..." if len(seg_text) > 60 else seg_text or f"Viral Highlight #{i+1}"

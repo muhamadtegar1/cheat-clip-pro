@@ -7,6 +7,8 @@ Cek yang dijalankan:
   1. POST /api/analyze dengan key `mock` pada video sintetis + SRT manual (tanpa Whisper).
   2. RATE_LIMIT: klien Gemini palsu selalu melempar 429, endpoint harus mengirim error status 429.
   3. MALFORMED_JSON: klien palsu mengembalikan JSON terpotong, parser toleran harus tetap menghasilkan klip.
+     Klien palsu juga mengembalikan klip di luar durasi: guardrail membuang semuanya lalu fallback heatmap dipakai,
+     tanpa rentang dan dengan `range_start`/`range_end` (task #29: klip di dalam rentang, sepanjang target).
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
@@ -33,6 +35,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 VIDEO_DURATION = 40
 RENDER_CLIP = (5.0, 15.0)
+FALLBACK_RANGE = (22.0, 38.0)  # task #29: mulai di tengah baris, berakhir sebelum durasi video, panjang relatif (16 s) < detik absolut
 SRT_LINES = [
     (0, 5, "Hello and welcome to this synthetic smoke test video."),
     (5, 10, "Most people think finding viral moments is pure luck."),
@@ -222,6 +225,42 @@ def run_analyze_checks(client, analyze_mod, video_name: str, srt: str) -> None:
                    problem or f"2 klip di luar durasi dibuang, {len(titles)} klip fallback heatmap")
     except Exception as e:
         report("analyze guardrail buang semua -> fallback", False, repr(e))
+    finally:
+        restore_gemini(analyze_mod, original)
+
+    # 3c. Fallback heatmap dengan rentang khusus (task #29): klip di dalam rentang, sepanjang target, tanpa dijepit guardrail
+    name = "analyze fallback heatmap dengan rentang"
+    rs, re_, target = FALLBACK_RANGE[0], FALLBACK_RANGE[1], 15.0
+    original = patch_gemini(analyze_mod, "out_of_range")
+    try:
+        events = read_sse_events(client, {**base, "api_key": "smoke-fake-key", "range_start": rs, "range_end": re_})
+        done = [e for e in events if e.get("done")]
+        errors = [e for e in events if e.get("error")]
+        guard = [e.get("guardrails") for e in events if e.get("stage") == "Clip Guardrails"]
+        if errors:
+            report(name, False, errors[0]["error"])
+        elif not done:
+            report(name, False, "event done tidak ditemukan")
+        else:
+            clips = done[-1]["result"].get("clips") or []
+            problem = "" if clips else "tidak ada klip"
+            for c in clips:
+                s, e = c["start_time"], c["end_time"]
+                notes = [n for n in c.get("guardrail_notes") or [] if "timestamp adjusted" in n]
+                if not (rs <= s < e <= re_):
+                    problem = f"klip {s}-{e} di luar rentang {rs}-{re_}"
+                elif abs((e - s) - min(target, re_ - s)) > 0.01:
+                    problem = f"klip {s}-{e} panjangnya {e - s:.1f}s, seharusnya {min(target, re_ - s):.1f}s"
+                elif notes:
+                    problem = f"klip {s}-{e} dijepit guardrail: {notes[0]}"
+                if problem:
+                    break
+            if not problem and not (guard and guard[-1].get("fallback_clips") == len(clips)):
+                problem = f"ringkasan guardrail tidak sesuai: {guard[-1] if guard else None}"
+            spans = ", ".join(f"{c['start_time']:g}-{c['end_time']:g}" for c in clips)
+            report(name, not problem, problem or f"rentang {rs:g}-{re_:g}s: {len(clips)} klip fallback ({spans})")
+    except Exception as e:
+        report(name, False, repr(e))
     finally:
         restore_gemini(analyze_mod, original)
 
