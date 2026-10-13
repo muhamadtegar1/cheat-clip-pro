@@ -9,10 +9,10 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      12
-status:          12 REVIEW
-langkah_berikut: WAJIB /review 12 di sesi Claude Code baru (risiko tinggi), lalu /done 12. Berikutnya #1 (butuh K3 Tahap 2) atau #3
-blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik). Baseline golden sekarang gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
+task_aktif:      —
+status:          12 DONE
+langkah_berikut: #1 (skor 7 dimensi) setelah K3 Tahap 2 siap, lalu #2 dan #3 (preset bobot memakai skor #1). Kandidat task baru: klip fallback heatmap memakai `duration` relatif saat range_start dipakai (temuan review #12)
+blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik); #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
 ***
@@ -64,7 +64,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | DONE   |
 | 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±945–1110), kartu klip di `src/App.tsx` | Setiap klip menampilkan 7 skor + penjelasan yang merujuk transkrip | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
-| 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | REVIEW |
+| 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | DONE   |
 | 3  | Preset bobot (Founder, Edukasi, Hiburan, Gaming, General) + hitung ulang ranking lokal                                                                                                                                                      | `src/App.tsx`                                                                                                            | Ganti preset → ranking berubah tanpa memanggil AI                  | TODO   |
 
 Bobot default (jumlah 100): Prompt Match 25 · Hook 20 · Retention 20 · Clarity 15 · Emotional Pull 10 · Payoff 7 · Editability 3.
@@ -179,6 +179,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-13 | 12 | REVIEW | Guardrail output: `backend/utils/clip_guardrails.py` (timestamp, kutipan, overlap), prompt `<TRANSCRIPT_DATA>` + jumlah klip batas atas. Golden `--repeat 2 --compare` exit 0 (gemini-3.8-flash): grounded 100%, karangan/salah tempat/duplikat 0, zona terlarang 2→0,5, klip 36→29. Smoke test 8/8 |
 | 2026-10-13 | 12 | REVIEW | Perbaikan temuan reviewer: guardrail sebelum fallback heatmap (semua klip dibuang -> fallback), urutkan/jepit timestamp sebelum batas 90 s. Smoke test 9/9 |
 | 2026-10-13 | 12 | REVIEW | Review sesi baru: PASS |
+| 2026-10-13 | 12 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 

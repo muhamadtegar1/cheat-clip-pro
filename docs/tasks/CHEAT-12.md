@@ -1,5 +1,5 @@
 # CHEAT-12: Guardrail output analisis AI
-Status: REVIEW
+Status: DONE
 Risiko: TINGGI (wajib `/review 12` di sesi baru)
 
 ## Tujuan
