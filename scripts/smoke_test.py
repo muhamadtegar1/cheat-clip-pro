@@ -9,6 +9,7 @@ Cek yang dijalankan:
   3. MALFORMED_JSON: klien palsu mengembalikan JSON terpotong, parser toleran harus tetap menghasilkan klip.
      Klien palsu juga mengembalikan klip di luar durasi: guardrail membuang semuanya lalu fallback heatmap dipakai,
      tanpa rentang dan dengan `range_start`/`range_end` (task #29: klip di dalam rentang, sepanjang target).
+     Task #30: pada video sintetis kedua (120 s), klip fallback `auto` tidak saling tumpang tindih dan tidak ada yang < 10 s.
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
@@ -36,6 +37,8 @@ sys.path.insert(0, str(REPO_ROOT))
 VIDEO_DURATION = 40
 RENDER_CLIP = (5.0, 15.0)
 FALLBACK_RANGE = (22.0, 38.0)  # task #29: mulai di tengah baris, berakhir sebelum durasi video, panjang relatif (16 s) < detik absolut
+OVERLAP_VIDEO = 120  # task #30: video kedua, cukup panjang untuk klip fallback `auto` yang dulu saling menimpa
+OVERLAP_RANGE = (60.0, 110.0)
 SRT_LINES = [
     (0, 5, "Hello and welcome to this synthetic smoke test video."),
     (5, 10, "Most people think finding viral moments is pure luck."),
@@ -85,18 +88,18 @@ def fmt_srt_time(sec: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-def build_srt() -> str:
+def build_srt(lines=None) -> str:
     blocks = []
-    for i, (start, end, text) in enumerate(SRT_LINES, 1):
+    for i, (start, end, text) in enumerate(lines or SRT_LINES, 1):
         blocks.append(f"{i}\n{fmt_srt_time(start)} --> {fmt_srt_time(end)}\n{text}")
     return "\n\n".join(blocks) + "\n"
 
 
-def make_synthetic_video(path: Path) -> None:
+def make_synthetic_video(path: Path, duration: int = VIDEO_DURATION, size: str = "1280x720") -> None:
     cmd = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-f", "lavfi", "-i", f"testsrc2=size=1280x720:rate=30:duration={VIDEO_DURATION}",
-        "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=44100:duration={VIDEO_DURATION}",
+        "-f", "lavfi", "-i", f"testsrc2=size={size}:rate=30:duration={duration}",
+        "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=44100:duration={duration}",
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-shortest", str(path),
     ]
@@ -282,6 +285,56 @@ def run_analyze_checks(client, analyze_mod, video_name: str, srt: str) -> None:
         report("analyze MALFORMED_JSON", False, repr(e))
     finally:
         restore_gemini(analyze_mod, original)
+
+
+def run_fallback_overlap_check(client, analyze_mod, uploads_dir: Path, work_dir: Path) -> None:
+    """Task #30: klip fallback heatmap `auto` tidak saling tumpang tindih dan tidak ada klip < 10 s.
+
+    Video 40 s terlalu pendek untuk klip `auto` yang saling menimpa, jadi cek ini memakai video sintetis 120 s sendiri.
+    """
+    name = "analyze fallback heatmap tanpa tumpang tindih"
+    video_name = f"upload_smoke_overlap_{uuid.uuid4().hex[:8]}.mp4"
+    video_path = uploads_dir / video_name
+    lines = [(i * 5, i * 5 + 5, f"Synthetic sentence number {i} about finding viral moments.") for i in range(OVERLAP_VIDEO // 5)]
+    rs, re_ = OVERLAP_RANGE
+    original = None
+    try:
+        make_synthetic_video(work_dir / video_name, OVERLAP_VIDEO, "320x180")
+        shutil.copy2(work_dir / video_name, video_path)
+        base = {"url": video_name, "subtitles": build_srt(lines), "subtitles_filename": "overlap.srt", "api_key": "smoke-fake-key"}
+        original = patch_gemini(analyze_mod, "out_of_range")
+        problem, spans = "", []
+        for label, extra in (("tanpa rentang", {}), (f"rentang {rs:g}-{re_:g}s", {"range_start": rs, "range_end": re_})):
+            events = read_sse_events(client, {**base, "duration": "auto", **extra})
+            done = [e for e in events if e.get("done")]
+            errors = [e for e in events if e.get("error")]
+            if errors or not done:
+                problem = f"{label}: {errors[0]['error'] if errors else 'event done tidak ditemukan'}"
+                break
+            clips = sorted(done[-1]["result"].get("clips") or [], key=lambda c: c["start_time"])
+            lo, hi = (rs, re_) if extra else (0.0, float(OVERLAP_VIDEO))
+            notes = [n for c in clips for n in c.get("guardrail_notes") or [] if n.startswith(("merged", "overlaps", "timestamp"))]
+            short = [c for c in clips if c["end_time"] - c["start_time"] < 10.0]
+            if len(clips) < 2:
+                problem = f"{label}: hanya {len(clips)} klip fallback"
+            elif notes:
+                problem = f"{label}: {notes[0]}"
+            elif short:
+                problem = f"{label}: klip {short[0]['start_time']:g}-{short[0]['end_time']:g} kurang dari 10 s"
+            elif any(not (lo <= c["start_time"] < c["end_time"] <= hi) for c in clips):
+                problem = f"{label}: klip di luar {lo:g}-{hi:g}s"
+            elif any(a["end_time"] > b["start_time"] for a, b in zip(clips, clips[1:])):
+                problem = f"{label}: klip saling tumpang tindih"
+            if problem:
+                break
+            spans.append(f"{label}: " + ", ".join(f"{c['start_time']:g}-{c['end_time']:g}" for c in clips))
+        report(name, not problem, problem or "; ".join(spans))
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        if original is not None:
+            restore_gemini(analyze_mod, original)
+        video_path.unlink(missing_ok=True)
 
 
 def run_render_check(client, render_service, is_valid_mp4, exports_dir: Path, video_name: str, use_gpu: bool):
@@ -589,6 +642,7 @@ def main() -> int:
             return 1
 
         run_analyze_checks(client, analyze_mod, video_name, build_srt())
+        run_fallback_overlap_check(client, analyze_mod, config.UPLOADS_DIR, work_dir)
         batch_id = run_render_check(
             client, render_service, config.is_valid_mp4, config.EXPORTS_DIR, video_name, args.gpu
         )

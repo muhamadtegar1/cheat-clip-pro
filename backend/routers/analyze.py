@@ -1346,31 +1346,39 @@ async def analyze_video(request: AnalyzeRequest):
         if len(analysis_data.get('clips', [])) == 0 and enriched_transcript:
             logger.info("Generating fallback clips from heatmap and transcript segments...")
             sorted_lines = sorted(enriched_transcript, key=lambda l: l.get('engagement', 0.0), reverse=True)
-            candidate_starts = []
-            for l in sorted_lines:
-                # Detik absolut di dalam rentang; baris yang hanya beririsan dengan awal rentang dijepit ke start_bound
-                s = max(start_bound, l['start'])
-                # Sisa rentang kurang dari 5 s (MIN_CLIP_SECONDS guardrail): lewati, jangan digeser mundur agar tidak tumpang tindih
-                if end_bound - s < 5.0:
-                    continue
-                if not any(abs(s - existing) < 25.0 for existing in candidate_starts):
-                    candidate_starts.append(s)
-                if len(candidate_starts) >= 5:
-                    break
-            
+            def pick_fallback_spans(min_len):
+                # Klip fallback (task #30): tidak saling tumpang tindih dan minimal `min_len` detik, panjang target per klip yang diterima
+                spans = []
+                for l in sorted_lines:
+                    # Detik absolut di dalam rentang; baris yang hanya beririsan dengan awal rentang dijepit ke start_bound
+                    s = max(start_bound, l['start'])
+                    if any(abs(s - a) < 25.0 for a, _ in spans):
+                        continue
+                    i = len(spans)
+                    if request.duration == "15s":
+                        target_len = 15.0
+                    elif request.duration == "60s":
+                        target_len = 60.0
+                    elif request.duration == "auto":
+                        auto_lens = [25.0, 45.0, 75.0, 35.0, 60.0, 85.0, 20.0, 50.0]
+                        target_len = auto_lens[i % len(auto_lens)]
+                    else:
+                        target_len = 30.0
+                    # end_bound, bukan duration: dengan rentang khusus duration adalah panjang relatif
+                    e = min(end_bound, s + min(90.0, target_len))
+                    # Terlalu pendek (terpotong end_bound) atau menimpa klip lain: lewati, jangan digeser agar awal tetap di puncak engagement
+                    if e - s < min_len or any(max(s, a) < min(e, b) for a, b in spans):
+                        continue
+                    spans.append((s, e))
+                    if len(spans) >= 5:
+                        break
+                return spans
+
+            # Minimal 10 s; turun ke 5 s (MIN_CLIP_SECONDS guardrail) hanya bila rentang terlalu pendek untuk klip 10 s
+            fallback_spans = pick_fallback_spans(10.0) or pick_fallback_spans(5.0)
+
             fallback_clips_list = []
-            for i, st in enumerate(candidate_starts):
-                if request.duration == "15s":
-                    target_len = 15.0
-                elif request.duration == "60s":
-                    target_len = 60.0
-                elif request.duration == "auto":
-                    auto_lens = [25.0, 45.0, 75.0, 35.0, 60.0, 85.0, 20.0, 50.0]
-                    target_len = auto_lens[i % len(auto_lens)]
-                else:
-                    target_len = 30.0
-                # end_bound, bukan duration: dengan rentang khusus duration adalah panjang relatif
-                et = min(end_bound, st + min(90.0, target_len))
+            for i, (st, et) in enumerate(fallback_spans):
                 seg_lines = [l['text'] for l in enriched_transcript if max(l['start'], st) < min(l['end'], et)]
                 seg_text = " ".join(seg_lines).strip()
                 preview = seg_text[:60] + "..." if len(seg_text) > 60 else seg_text or f"Viral Highlight #{i+1}"
