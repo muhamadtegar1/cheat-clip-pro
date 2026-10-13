@@ -9,10 +9,10 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      —
-status:          28 SKIPPED (ditunda pemilik), Fase 1 selesai
-langkah_berikut: /mulai 17b (golden fixtures) setelah K3 tersedia. #28 bisa dilanjutkan nanti (riset di CHEAT-28.md)
-blocker:         #17b butuh K3 (2–3 video golden fixtures + momen terbaiknya)
+task_aktif:      17b
+status:          17b REVIEW
+langkah_berikut: Pemilik coba `golden_fixtures.py run --compare`, lalu /done 17b. Berikutnya #1 (butuh K3 Tahap 2: Shorts resmi) atau #12 (cek objektif sudah cukup)
+blocker:         — (K3 Tahap 1 terisi; Tahap 2 dibutuhkan sebelum #1/#2)
 ```
 
 ***
@@ -61,7 +61,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 
 | ID | Upgrade                                                                                                                                                                                                                                     | Area kode                                                                                                                | Selesai jika                                                       | Status |
 | -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------ |
-| 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | TODO |
+| 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | REVIEW |
 | 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±945–1110), kartu klip di `src/App.tsx` | Setiap klip menampilkan 7 skor + penjelasan yang merujuk transkrip | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
 | 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | TODO   |
@@ -138,7 +138,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | -- | ------------------------------------------------------------- | ------- |
 | K1 | Akun GitHub untuk fork                                        | muhamadtegar1 |
 | K2 | GPU komputer (NVIDIA / AMD / Intel) untuk optimasi encoder #9 | AMD Radeon(TM) Graphics (iGPU, driver 31.0.12044.3). `h264_amf` diuji jalan 1080×1920. Tanpa NVENC/QSV |
-| K3 | 2–3 video golden fixtures + momen terbaiknya (untuk 17b)      | <br />  |
+| K3 | 2–3 video golden fixtures + momen terbaiknya (untuk 17b)      | Tahap 1 (2026-10-13): A `hbZbPHjE8NE` (Colin and Samir, podcast EN, 52:26), B `094y1Z2wpJg` (Veritasium, edukasi EN, 22:09), C `YzDyjAsd4Z8` (Billy Samuel, gaming ID, 29:16), masing-masing 3 rentang "jangan dipilih" (dibantu Gemini, diverifikasi pemilik). Transkrip disimpan lokal (di-ignore git), analisis memakai model flash. Tahap 2 (Shorts resmi + pilihan pemilik) menyusul sebelum #1/#2 |
 | K4 | Campaign pertama untuk titik uji (platform + niche)           | <br />  |
 
 ***
@@ -173,6 +173,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-11 | 9 | REVIEW | Batas format yt-dlp 2160p (metode 1, 2, video utuh), AMF `balanced`/`vbr_peak` 12M (6 → 12 Mbps, waktu render sama). Fallback 720p/480p utuh. Smoke test 7/7 dengan dan tanpa `--gpu` |
 | 2026-10-11 | 9 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-11 | 28 | SKIPPED | Ditunda pemilik: kualitas render cukup, kontrak dinilai riskan. Riset (yt-dlp-ejs membuka 2160p, ffmpeg ke URL remote tidak andal, usulan cache native) disimpan di CHEAT-28.md. yt-dlp-ejs dicopot lagi dari venv. Fase 1 selesai, fase aktif → Fase 2 |
+| 2026-10-13 | 17b | REVIEW | Golden fixtures Tahap 1: `scripts/golden_fixtures.py` (fetch/run/score/selftest), label K3 + baseline (hanya angka) di `tests/golden/`, transkrip lokal (di-ignore git). Baseline Gemini flash: 38 klip, grounded 97,9%, valid 100%, duplikat 0, zona terlarang 1, heat lift 1,38. Selftest 16/16, smoke test 7/7 |
 
 ***
 
