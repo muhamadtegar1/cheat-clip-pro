@@ -54,6 +54,14 @@ MALFORMED_JSON = (
     '"virality_score": 79, "key_quotes": ["the one trick editors'
 )
 
+# Semua klip di luar durasi video (40 s): guardrail membuang semuanya, analisis harus jatuh ke klip fallback heatmap.
+OUT_OF_RANGE_JSON = json.dumps({"summary": "Out of range #SmokeTest", "clips": [
+    {"title": "Beyond the end", "start_time": 120.0, "end_time": 150.0, "hook_time": 121.0, "virality_score": 90,
+     "key_quotes": ["this was never said"], "title_suggestion": "", "caption_suggestion": "", "hashtag_suggestion": ""},
+    {"title": "Also beyond", "start_time": 200.0, "end_time": 230.0, "hook_time": 201.0, "virality_score": 80,
+     "key_quotes": ["neither was this"], "title_suggestion": "", "caption_suggestion": "", "hashtag_suggestion": ""},
+]})
+
 RESULTS = []
 
 
@@ -119,7 +127,7 @@ def read_sse_events(client, payload: dict) -> list:
 
 
 class FakeGeminiClient:
-    """Pengganti `genai.Client` untuk skenario error. `mode` = 'rate_limit' atau 'malformed_json'."""
+    """Pengganti `genai.Client` untuk skenario error. `mode` = 'rate_limit', 'malformed_json', atau 'out_of_range'."""
 
     calls = []
 
@@ -131,6 +139,8 @@ class FakeGeminiClient:
         FakeGeminiClient.calls.append(model)
         if self.mode == "rate_limit":
             raise Exception("429 RESOURCE_EXHAUSTED. Quota exceeded for this API key (smoke test).")
+        if self.mode == "out_of_range":
+            return SimpleNamespace(parsed=None, text=OUT_OF_RANGE_JSON)
         return SimpleNamespace(parsed=None, text=MALFORMED_JSON)
 
 
@@ -186,6 +196,32 @@ def run_analyze_checks(client, analyze_mod, video_name: str, srt: str) -> None:
         report("analyze RATE_LIMIT -> 429", ok, detail)
     except Exception as e:
         report("analyze RATE_LIMIT -> 429", False, repr(e))
+    finally:
+        restore_gemini(analyze_mod, original)
+
+    # 3b. Guardrail membuang semua klip -> fallback heatmap (task #12)
+    original = patch_gemini(analyze_mod, "out_of_range")
+    try:
+        events = read_sse_events(client, {**base, "api_key": "smoke-fake-key"})
+        done = [e for e in events if e.get("done")]
+        errors = [e for e in events if e.get("error")]
+        guard = [e.get("guardrails") for e in events if e.get("stage") == "Clip Guardrails"]
+        if errors:
+            report("analyze guardrail buang semua -> fallback", False, errors[0]["error"])
+        elif not done:
+            report("analyze guardrail buang semua -> fallback", False, "event done tidak ditemukan")
+        else:
+            result = done[-1]["result"]
+            problem = check_clips(result, VIDEO_DURATION)
+            titles = [c["title"] for c in result.get("clips") or []]
+            if not problem and any(t in ("Beyond the end", "Also beyond") for t in titles):
+                problem = "klip di luar durasi lolos"
+            if not problem and not (guard and guard[-1].get("dropped_invalid") == 2 and guard[-1].get("fallback_clips")):
+                problem = f"ringkasan guardrail tidak sesuai: {guard[-1] if guard else None}"
+            report("analyze guardrail buang semua -> fallback", not problem,
+                   problem or f"2 klip di luar durasi dibuang, {len(titles)} klip fallback heatmap")
+    except Exception as e:
+        report("analyze guardrail buang semua -> fallback", False, repr(e))
     finally:
         restore_gemini(analyze_mod, original)
 

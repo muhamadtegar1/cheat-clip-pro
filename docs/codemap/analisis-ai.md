@@ -10,7 +10,7 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | `analyze_video` | L225-1507 | Endpoint SSE, berisi semua langkah |
+| `backend/routers/analyze.py` | `analyze_video` | L225-1528 | Endpoint SSE, berisi semua langkah |
 | `backend/routers/analyze.py` | cek API key + mode mock | L229-234 | Key `mock` mengaktifkan data contoh tanpa Gemini |
 | `backend/routers/analyze.py` | mock short-circuit | L828-893 | Klip dan heatmap contoh, lalu `done` |
 | `backend/routers/analyze.py` | target jumlah klip | L896-947 | `target_clip_count` atau otomatis berdasarkan durasi. Sejak #12 rentang adalah batas atas ("QUALITY OVER QUANTITY"), boleh lebih sedikit |
@@ -18,10 +18,11 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 | `backend/routers/analyze.py` | teks prompt | L997-1040 | Prompt utama: konteks, aturan bahasa, aturan judul, transkrip dalam `<TRANSCRIPT_DATA>` (data, bukan instruksi), aturan kutipan satu potongan bersambung di dalam klip (#12) |
 | `backend/routers/analyze.py` | pilih model + daftar fallback | L1042-1079 | Model diminta, lalu model Flash lain, dipotong maksimal 4 total |
 | `backend/routers/analyze.py` | panggilan Gemini + retry | L1081-1304 | `generate_content` dengan `response_schema=VideoAnalysis`, timeout 120 s, heartbeat SSE |
-| `backend/routers/analyze.py` | klip fallback dari heatmap | L1306-1377 | Kalau AI mengembalikan 0 klip |
-| `backend/routers/analyze.py` | batas 90 s + guardrail | L1390-1424 | Batas 90 s (mode auto), lalu `apply_guardrails` dan event SSE "Clip Guardrails" (#12) |
-| `backend/routers/analyze.py` | rekonstruksi klip final | L1426-1456 | Transkrip per klip, sanitasi judul, hashtag huruf kecil, `guardrail_notes` |
-| `backend/routers/analyze.py` | susun `AnalyzeResponse` | L1457-1497 | Maks 200 klip, heatmap, transkrip, ringkasan |
+| `backend/routers/analyze.py` | batas 90 s + guardrail | L1306-1343 | `guard_clips` (fungsi lokal): urutkan start/end, jepit ke `start_bound`/`end_bound` (catat `clamped`), batas 90 s (mode auto), lalu `apply_guardrails` (#12) |
+| `backend/routers/analyze.py` | klip fallback dari heatmap | L1345-1420 | Kalau AI mengembalikan 0 klip atau guardrail membuang semuanya; klip fallback ikut lewat `guard_clips` (`fallback_clips` di ringkasan) |
+| `backend/routers/analyze.py` | SSE verifikasi + guardrail | L1422-1445 | Event "Clip Verification & Alignment" (jumlah setelah guardrail) dan "Clip Guardrails" (`guardrails`) |
+| `backend/routers/analyze.py` | rekonstruksi klip final | L1447-1477 | Transkrip per klip, sanitasi judul, hashtag huruf kecil, `guardrail_notes` |
+| `backend/routers/analyze.py` | susun `AnalyzeResponse` | L1478-1518 | Maks 200 klip, heatmap, transkrip, ringkasan |
 | `backend/routers/analyze.py` | `parse_lenient_json_analysis` | L88-175 | Perbaiki JSON rusak/terpotong dari model |
 | `backend/routers/analyze.py` | `_format_parsed_dict` | L63-85 | Normalisasi hasil parse |
 | `backend/routers/analyze.py` | `health_check` | L182-208 | `GET /api/health` |

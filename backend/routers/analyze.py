@@ -1303,7 +1303,46 @@ async def analyze_video(request: AnalyzeRequest):
                 })
             return
 
-        # Fallback clip synthesis if 0 clips were returned after all models
+        def guard_clips(clips: list):
+            """Urutkan start/end, jepit ke rentang pencarian, batas 90 s (mode auto), lalu guardrail #12."""
+            trimmed = []
+            clamped = 0
+            for raw in clips:
+                clip = dict(raw)
+                try:
+                    start = float(clip.get('start_time', 0.0))
+                    end = float(clip.get('end_time', 0.0))
+                except (TypeError, ValueError):
+                    trimmed.append(clip)  # dibuang guardrail sebagai timestamp tidak valid
+                    continue
+                raw_start, raw_end = start, end
+                if start > end:
+                    start, end = end, start
+                start, end = max(start_bound, start), min(end_bound, end)
+                if (start, end) != (raw_start, raw_end) and end - start > 0:
+                    clamped += 1
+                    clip['guardrail_notes'] = list(clip.get('guardrail_notes') or []) + [
+                        f"timestamp adjusted from {raw_start:.1f}-{raw_end:.1f}s to {start:.1f}-{end:.1f}s"]
+                # Enforce max 90 seconds (1m 30s) duration constraint for auto duration mode
+                if is_auto_duration and (end - start) > 90.0:
+                    max_end = start + 90.0
+                    best_end = max_end
+                    for l in enriched_transcript:
+                        l_end = l.get('end', 0.0)
+                        if start + 15.0 <= l_end <= max_end:
+                            best_end = l_end
+                    end = best_end
+                clip['start_time'], clip['end_time'] = start, end
+                trimmed.append(clip)
+            guarded, summary = apply_guardrails(trimmed, enriched_transcript, start_bound, end_bound)
+            summary['clamped'] += clamped
+            return guarded, summary
+
+        # Guardrail (task #12): timestamp, verbatim quotes, overlap merge/flag
+        analysis_data['clips'], guard_summary = guard_clips(analysis_data.get('clips', []))
+        logger.info(f"Clip guardrails: {guard_summary}")
+
+        # Fallback clip synthesis if 0 clips were returned after all models (or all were removed by guardrails)
         if len(analysis_data.get('clips', [])) == 0 and enriched_transcript:
             logger.info("Generating fallback clips from heatmap and transcript segments...")
             sorted_lines = sorted(enriched_transcript, key=lambda l: l.get('engagement', 0.0), reverse=True)
@@ -1375,6 +1414,11 @@ async def analyze_video(request: AnalyzeRequest):
                 else:
                     analysis_data['summary'] = f"Analysis of \"{title}\" identifying {len(fallback_clips_list)} key segments. #viral #highlights"
 
+        if guard_summary['clips_out'] == 0 and analysis_data.get('clips'):
+            analysis_data['clips'], fallback_summary = guard_clips(analysis_data['clips'])
+            guard_summary['fallback_clips'] = fallback_summary['clips_out']
+            logger.info(f"Clip guardrails (heatmap fallback): {fallback_summary}")
+
         clip_count = len(analysis_data.get('clips', []))
         yield _sse({
             "step": 4,
@@ -1386,30 +1430,6 @@ async def analyze_video(request: AnalyzeRequest):
             "message": f"Found {clip_count} viral clip candidates ({lang_name}) with {successful_model or requested_model} — reconstructing transcripts..."
         })
         logger.info(f"Gemini analysis complete with {successful_model or requested_model}. Found {clip_count} clips in {lang_name}.")
-
-        # Enforce max 90 seconds (1m 30s) duration constraint for auto duration mode
-        trimmed_clips = []
-        for raw_clip in analysis_data.get('clips', []):
-            clip = dict(raw_clip)
-            try:
-                start = float(clip.get('start_time', 0.0))
-                end = float(clip.get('end_time', 0.0))
-            except (TypeError, ValueError):
-                trimmed_clips.append(clip)
-                continue
-            if is_auto_duration and (end - start) > 90.0:
-                max_end = start + 90.0
-                best_end = max_end
-                for l in enriched_transcript:
-                    l_end = l.get('end', 0.0)
-                    if start + 15.0 <= l_end <= max_end:
-                        best_end = l_end
-                clip['end_time'] = best_end
-            trimmed_clips.append(clip)
-
-        # Guardrail (task #12): timestamp, verbatim quotes, overlap merge/flag
-        guarded_clips, guard_summary = apply_guardrails(trimmed_clips, enriched_transcript, start_bound, end_bound)
-        logger.info(f"Clip guardrails: {guard_summary}")
         yield _sse({
             "step": 4,
             "step_progress": 99,
@@ -1418,14 +1438,15 @@ async def analyze_video(request: AnalyzeRequest):
             "detail": (f"Kept {guard_summary['clips_out']}/{guard_summary['clips_in']} clips: "
                        f"{guard_summary['merged']} merged, {guard_summary['dropped_invalid']} invalid, "
                        f"{guard_summary['quotes_dropped']} unverified quotes removed, "
-                       f"{guard_summary['flagged_overlap']} overlaps flagged."),
+                       f"{guard_summary['flagged_overlap']} overlaps flagged"
+                       + (f", {guard_summary['fallback_clips']} heatmap fallback clips." if 'fallback_clips' in guard_summary else ".")),
             "guardrails": guard_summary,
             "message": f"Guardrails checked {guard_summary['clips_in']} clips against the transcript."
         })
 
         # Reconstruct clip transcripts from enriched_transcript
         final_clips = []
-        for raw_clip in guarded_clips:
+        for raw_clip in analysis_data.get('clips', []):
             start = raw_clip['start_time']
             end   = raw_clip['end_time']
             hook  = raw_clip['hook_time']
