@@ -570,7 +570,7 @@ def get_video_file_metadata(file_path: Union[str, Path]) -> Dict[str, Any]:
     }
 
 
-AUDIO_FLAT_SPREAD = 0.10  # selisih RMS < 10% dari maksimum = volume rata (nada konstan terukur 6,2%), heatmap tidak berarti
+AUDIO_FLAT_SPREAD = 0.15  # selisih RMS < 15% dari maksimum = volume rata; nada konstan ber-AAC terukur 6,2-8,0% (derau encoder), heatmap tidak berarti
 
 
 def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, num_points: int = 100) -> List[Dict[str, float]]:
@@ -602,9 +602,11 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
         return []
 
     if res.returncode != 0:
-        err = (res.stderr or b"").decode("utf-8", "replace").strip().splitlines()
-        logger.warning(f"Audio energy heatmap skipped: no usable audio track in {p.name} "
-                       f"({err[-1] if err else f'ffmpeg exit {res.returncode}'})")
+        err = (res.stderr or b"").decode("utf-8", "replace").strip()
+        detail = err.splitlines()[-1] if err else f"ffmpeg exit {res.returncode}"
+        unreadable = any(k in err for k in ("Error opening input", "No such file", "Invalid data found"))
+        reason = "file cannot be read" if unreadable else "no usable audio track"
+        logger.warning(f"Audio energy heatmap skipped: {reason} in {p.name} ({detail})")
         return []
 
     import numpy as np

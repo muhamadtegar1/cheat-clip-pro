@@ -12,19 +12,19 @@ Bagian dari render server. Subtitle karaoke dibuat dari transkripsi Whisper per 
 | --- | --- | --- | --- |
 | `backend/services/render_service.py` | langkah subtitle/judul per klip | L74-172 | Overlay judul emoji, transkripsi kata, panggil `generate_ass_file` |
 | `backend/services/render_service.py` | subtitle mode merged | L373-461 | Kata per segmen digeser waktunya lalu digabung |
-| `backend/video_engine.py` | `transcribe_clip_words` | L1152-1237 | Whisper per kata (0.0 = awal klip), fallback sebar transkrip |
-| `backend/video_engine.py` | `generate_ass_file` | L1699-2071 | File ASS: gaya caption, posisi, karaoke, judul teks |
-| `backend/video_engine.py` | `format_ass_timestamp` | L1240-1248 | Format waktu ASS |
-| `backend/video_engine.py` | `escape_ass_text` | L1692-1696 | Escape teks untuk ASS |
-| `backend/video_engine.py` | `clean_caption_text` | L1130-1149 | Bersihkan teks caption |
-| `backend/video_engine.py` | `apply_text_case` | L1251-1260 | uppercase / lowercase / title case |
-| `backend/video_engine.py` | `wrap_title_smart` | L1263-1308 | Pecah judul jadi beberapa baris |
-| `backend/video_engine.py` | `render_title_overlay_png` | L1491-1689 | PNG judul seukuran kanvas, mendukung emoji berwarna |
-| `backend/video_engine.py` | `render_text_watermark_png` | L1421-1488 | Watermark teks via Pillow (hindari error Fontconfig di Windows) |
-| `backend/video_engine.py` | `has_emoji` | L1326-1330 | Penentu jalur PNG vs ASS untuk judul |
-| `backend/video_engine.py` | `get_font` | L1356-1372 | Muat font dari `backend/fonts` |
-| `backend/video_engine.py` | `get_emoji_font` | L1375-1394 | Font emoji (`seguiemj.ttf` atau `EMOJI_FONT_PATH`) |
-| `backend/video_engine.py` | `get_ffmpeg_safe_font_path` | L1397-1418 | Path font yang aman untuk filter FFmpeg |
+| `backend/video_engine.py` | `transcribe_clip_words` | L1154-1239 | Whisper per kata (0.0 = awal klip), fallback sebar transkrip |
+| `backend/video_engine.py` | `generate_ass_file` | L1701-2073 | File ASS: gaya caption, posisi, karaoke, judul teks |
+| `backend/video_engine.py` | `format_ass_timestamp` | L1242-1250 | Format waktu ASS |
+| `backend/video_engine.py` | `escape_ass_text` | L1694-1698 | Escape teks untuk ASS |
+| `backend/video_engine.py` | `clean_caption_text` | L1132-1151 | Bersihkan teks caption |
+| `backend/video_engine.py` | `apply_text_case` | L1253-1262 | uppercase / lowercase / title case |
+| `backend/video_engine.py` | `wrap_title_smart` | L1265-1310 | Pecah judul jadi beberapa baris |
+| `backend/video_engine.py` | `render_title_overlay_png` | L1493-1691 | PNG judul seukuran kanvas, mendukung emoji berwarna |
+| `backend/video_engine.py` | `render_text_watermark_png` | L1423-1490 | Watermark teks via Pillow (hindari error Fontconfig di Windows) |
+| `backend/video_engine.py` | `has_emoji` | L1328-1332 | Penentu jalur PNG vs ASS untuk judul |
+| `backend/video_engine.py` | `get_font` | L1358-1374 | Muat font dari `backend/fonts` |
+| `backend/video_engine.py` | `get_emoji_font` | L1377-1396 | Font emoji (`seguiemj.ttf` atau `EMOJI_FONT_PATH`) |
+| `backend/video_engine.py` | `get_ffmpeg_safe_font_path` | L1399-1420 | Path font yang aman untuk filter FFmpeg |
 | `backend/routers/media.py` | `upload_font` | L441-488 | `POST /api/upload-font` |
 | `backend/routers/media.py` | `list_available_fonts` | L492-546 | `GET /api/fonts` |
 | `backend/routers/media.py` | `upload_bgm` | L260-286 | `POST /api/upload-bgm` (musik latar) |

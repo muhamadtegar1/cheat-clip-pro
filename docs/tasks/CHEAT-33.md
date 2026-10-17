@@ -68,6 +68,12 @@ CATATAN:
 - Uji manual UI belum dilakukan (opsional): upload video tanpa audio, pastikan analisis jalan dan grafik heatmap kosong.
 - `docs/.obsidian/` (untracked) tidak disentuh dan tidak di-commit.
 
+PERBAIKAN SETELAH REVIEW SUBAGENT (FIX_REQUIRED, 2026-10-17):
+- Temuan wajib: `docs/codemap/unduhan-raw.md` kolom keterangan "Format di L..." masih nomor lama (klaim implementer "rujukan teks sudah diperbarui" tidak akurat). Diperbaiki; setelah perubahan di bawah, semua rujukan `video_engine.py` di atas L642 (tabel semua kolom dan teks biasa) digeser +2 lalu dicocokkan ke kode: format di L820, L872, L933, L976, L1069 (grep `height<=`), `build_ffmpeg_filtergraph` L2536-2851, `compute_audio_energy_heatmap` L576-644.
+- Atas permintaan pemilik juga: `AUDIO_FLAT_SPREAD` 0,10 -> 0,15 (reviewer mengukur nada konstan 8,0%, implementer 6,2%; margin 10% terlalu tipis); log membedakan "file cannot be read" (Error opening input / No such file / Invalid data) dari "no usable audio track".
+- Uji ulang: nada konstan -> [] "spread 6.2% < 15%"; tanpa audio -> [] "no usable audio track"; file rusak dan file tidak ada -> [] "file cannot be read"; audio keras 20-26 s -> 100 titik. Smoke test 12/12, `check_codemap.py` SEMUA CEK LULUS.
+- Risiko ambang 15%: belum diukur pada rekaman ucapan sungguhan (tidak ada file audio nyata yang boleh dipakai di repo); podcast dengan kompresor kuat dan level sangat rata bisa jatuh ke heatmap kosong (analisis tetap jalan dari transkrip).
+
 ## Review (sesi baru)
 VERDICT: PASS | FIX_REQUIRED
 ALASAN:
