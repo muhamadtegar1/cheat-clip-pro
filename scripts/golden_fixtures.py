@@ -3,7 +3,7 @@
 Jalankan dari root repo:
     venv\\Scripts\\python.exe scripts\\golden_fixtures.py selftest
     venv\\Scripts\\python.exe scripts\\golden_fixtures.py fetch [--force]
-    venv\\Scripts\\python.exe scripts\\golden_fixtures.py run [--mock] [--repeat N] [--model M] [--only A,B] [--save-baseline] [--compare]
+    venv\\Scripts\\python.exe scripts\\golden_fixtures.py run [--mock] [--no-heatmap] [--repeat N] [--model M] [--only A,B] [--save-baseline] [--compare]
     venv\\Scripts\\python.exe scripts\\golden_fixtures.py score <laporan-run.json> [--compare]
 
 - `fetch`  : ambil metadata, heatmap, dan transkrip (lewat fungsi backend yang sama dengan app) ke
@@ -14,6 +14,9 @@ Jalankan dari root repo:
              `fetch_video_metadata` diganti data tersimpan, `fetch_transcript` dan unduh audio diblokir,
              jadi tidak ada panggilan ke YouTube. Default Gemini flash dengan key dari backend/.env.
              Gemini yang sibuk (503/429) diulang otomatis (--retries, --retry-wait).
+             `--no-heatmap` (task #31): heatmap dikosongkan sebelum dikirim ke backend, seperti video YouTube
+             tanpa heatmap (pendekatan untuk upload/Drive, yang memakai heatmap energi audio). `heat_lift` tetap
+             dinilai dari heatmap asli. Baseline dan --compare memakai tests/golden/baseline-noheatmap.json.
 - `score`  : nilai ulang klip mentah dari laporan run tersimpan (tanpa Gemini), mis. setelah penilai diubah.
 - `selftest`: uji fungsi penilai dengan kasus buatan (tanpa jaringan, tanpa Gemini).
 
@@ -51,6 +54,7 @@ sys.path.insert(0, str(REPO_ROOT))
 GOLDEN_DIR = REPO_ROOT / "tests" / "golden"
 LABELS_PATH = GOLDEN_DIR / "labels.json"
 BASELINE_PATH = GOLDEN_DIR / "baseline.json"
+BASELINE_NOHEAT_PATH = GOLDEN_DIR / "baseline-noheatmap.json"  # run --no-heatmap (#31), tidak dicampur dengan baseline biasa
 DATA_DIR = GOLDEN_DIR / "data"
 RUNS_DIR = DATA_DIR / "runs"
 
@@ -386,6 +390,21 @@ def model_mismatch(current: dict, baseline: dict) -> list:
     return sorted(code for code, model in current.items() if code in baseline and baseline[code] != model)
 
 
+def heatmap_sent(events: list):
+    """True/False bila event SSE langkah 2 menunjukkan backend menerima heatmap atau tidak, None bila tidak ada."""
+    for e in events:
+        if e.get("stage") == "Retention Decoded":
+            return True
+        if e.get("stage") == "Dialogue Fallback":
+            return False
+    return None
+
+
+def baseline_path(heatmap_mode: str) -> Path:
+    """Baseline per mode heatmap: 'none' (run --no-heatmap) terpisah dari baseline biasa ('youtube')."""
+    return BASELINE_NOHEAT_PATH if heatmap_mode == "none" else BASELINE_PATH
+
+
 def unique_path(path: Path) -> Path:
     candidate, n = path, 2
     while candidate.exists():
@@ -413,6 +432,8 @@ def cmd_run(args) -> int:
             print(f"[FAIL] memilih model: {e}")
             return 1
         print(f"Model run ini: {model}" + (" (dipilih otomatis)" if args.model == "auto" else ""))
+    if args.no_heatmap:
+        print("Mode tanpa heatmap: heatmap tidak dikirim ke backend, heat_lift tetap dinilai dari heatmap asli.")
 
     labels = load_labels()
     videos = [v for v in labels["videos"] if not args.only or v["code"] in args.only]
@@ -430,8 +451,9 @@ def cmd_run(args) -> int:
     def fake_metadata(url, custom_proxy=None, cookies_content=None):
         calls["metadata"] += 1
         meta = fixtures[current["vid"]][0]
+        heatmap = [] if args.no_heatmap else (meta.get("heatmap") or [])
         return {"title": meta.get("title", ""), "channel": meta.get("channel", ""), "duration": float(meta["duration"]),
-                "heatmap": meta.get("heatmap") or [], "is_live": False, "live_status": "not_live"}
+                "heatmap": heatmap, "is_live": False, "live_status": "not_live"}
 
     def blocked(*a, **kw):
         raise RuntimeError("golden fixtures: panggilan YouTube diblokir")
@@ -504,6 +526,11 @@ def cmd_run(args) -> int:
                 score = score_video(clips, transcript, duration, meta.get("heatmap") or [], avoid, refs)
                 score["seconds"] = elapsed
                 score["model_used"] = model_used(events, model)
+                score["heatmap_sent"] = heatmap_sent(events)
+                if score["heatmap_sent"] is not (not args.no_heatmap):
+                    failed = True
+                    print(f"[FAIL] run {r + 1} {v['code']}: backend {'menerima' if score['heatmap_sent'] else 'tidak menerima'} "
+                          f"heatmap, padahal mode {'tanpa' if args.no_heatmap else 'dengan'} heatmap")
                 score["raw_clips"] = [{k: c.get(k) for k in ("title", "start_time", "end_time", "hook_time",
                                                              "virality_score", "key_quotes")} for c in clips]
                 score["label_notes"] = check_labels(v, duration, transcript)
@@ -521,7 +548,8 @@ def cmd_run(args) -> int:
         analyze_mod.fetch_video_metadata, analyze_mod.fetch_transcript, analyze_mod.download_youtube_audio_file = originals
 
     return finish(runs, failed, {"model": model, "model_requested": args.model, "duration_pref": args.duration,
-                                 "repeat": args.repeat, "metadata_calls_from_file": calls["metadata"]},
+                                 "repeat": args.repeat, "heatmap": "none" if args.no_heatmap else "youtube",
+                                 "metadata_calls_from_file": calls["metadata"]},
                   args, mock=args.mock)
 
 
@@ -547,12 +575,17 @@ def total_of(runs: list):
     return total
 
 
-def print_compare(total: dict, models: dict) -> int:
+def print_compare(total: dict, models: dict, heatmap_mode: str = "youtube") -> int:
     """Tabel selisih. Exit 2 bila ada metrik lebih buruk, 3 bila model berbeda dari baseline (tidak setara)."""
-    if not BASELINE_PATH.exists():
-        print("[FAIL] baseline belum ada. Jalankan `run --save-baseline` dulu.")
+    path = baseline_path(heatmap_mode)
+    if not path.exists():
+        flag = " --no-heatmap" if heatmap_mode == "none" else ""
+        print(f"[FAIL] baseline {path.name} belum ada. Jalankan `run{flag} --save-baseline` dulu.")
         return 1
-    base = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+    base = json.loads(path.read_text(encoding="utf-8"))
+    if base.get("heatmap", "youtube") != heatmap_mode:
+        print(f"[FAIL] {path.name} dibuat dengan heatmap '{base.get('heatmap', 'youtube')}', run ini '{heatmap_mode}'. Tidak setara.")
+        return 3
     base_models = base.get("models_used") or {}
     print(f"\nBanding dengan baseline {base['created']} (model {base_models or base.get('model')}):")
     print(f"{'metrik':<12}{'baseline':>10}{'sekarang':>10}{'selisih':>10}  status")
@@ -579,6 +612,7 @@ def finish(runs: list, failed: bool, info: dict, args, mock: bool, suffix: str =
         print("[FAIL] tidak ada video yang berhasil dianalisis")
         return 1
     models = models_of(runs)
+    heatmap_mode = info.get("heatmap", "youtube")
     report = {
         "created": datetime.now().isoformat(timespec="seconds"), **info, "models_used": models,
         "thresholds": {"QUOTE_MATCH": QUOTE_MATCH, "QUOTE_WINDOW": QUOTE_WINDOW, "DUP_OVERLAP": DUP_OVERLAP,
@@ -587,7 +621,8 @@ def finish(runs: list, failed: bool, info: dict, args, mock: bool, suffix: str =
         "runs": runs,
     }
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    run_path = unique_path(RUNS_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{'-mock' if mock else ''}{suffix}.json")
+    noheat = "-noheatmap" if heatmap_mode == "none" else ""
+    run_path = unique_path(RUNS_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{'-mock' if mock else ''}{noheat}{suffix}.json")
     run_path.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print("\nTOTAL:", json.dumps(total, ensure_ascii=False))
@@ -609,15 +644,17 @@ def finish(runs: list, failed: bool, info: dict, args, mock: bool, suffix: str =
         baseline = {
             "created": report["created"], "model": info["model"], "models_used": models,
             "duration_pref": info["duration_pref"],
-            "repeat": info["repeat"], "thresholds": report["thresholds"], "total": total,
+            "repeat": info["repeat"], **({"heatmap": heatmap_mode} if heatmap_mode != "youtube" else {}),
+            "thresholds": report["thresholds"], "total": total,
             "per_video": {code: {k: v for k, v in s.items() if k not in ("details", "label_notes", "raw_clips")}
                           for code, s in runs[-1].items()},
         }
-        BASELINE_PATH.write_text(json.dumps(baseline, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-        print(f"Baseline disimpan: {BASELINE_PATH.relative_to(REPO_ROOT)}")
+        path = baseline_path(heatmap_mode)
+        path.write_text(json.dumps(baseline, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"Baseline disimpan: {path.relative_to(REPO_ROOT)}")
 
     if args.compare:
-        return print_compare(total, models)
+        return print_compare(total, models, heatmap_mode)
     return 0
 
 
@@ -651,7 +688,7 @@ def cmd_score(args) -> int:
                   f"dup {score['duplicates']}, avoid {score['avoid_hits']}, lift {score['heat_lift']}")
         runs.append(rescored)
     info = {"model": old.get("model"), "duration_pref": old.get("duration_pref"), "repeat": old.get("repeat"),
-            "rescored_from": path.name}
+            "heatmap": old.get("heatmap", "youtube"), "rescored_from": path.name}
     return finish(runs, False, info, args, mock=old.get("model") == "mock", suffix="-rescore")
 
 
@@ -718,6 +755,13 @@ def cmd_selftest(args) -> int:
     cases.append(("kuota habis di semua model: berhenti tanpa retry, 503 tetap diulang",
                   bool(EXHAUSTED_RE.search(quota_msg)) and not EXHAUSTED_RE.search("503 UNAVAILABLE high demand")
                   and bool(TRANSIENT_RE.search("503 UNAVAILABLE high demand"))))
+    cases.append(("baseline terpisah untuk --no-heatmap, mode biasa tetap baseline.json",
+                  baseline_path("none") == BASELINE_NOHEAT_PATH and baseline_path("youtube") == BASELINE_PATH
+                  and BASELINE_NOHEAT_PATH != BASELINE_PATH))
+    cases.append(("heatmap terkirim atau tidak dibaca dari event SSE langkah 2",
+                  heatmap_sent([{"stage": "Retention Decoded"}]) is True
+                  and heatmap_sent([{"stage": "x"}, {"stage": "Dialogue Fallback"}]) is False
+                  and heatmap_sent([{"stage": "x"}]) is None))
     srt = lines_to_srt([{"text": "halo", "start": 3661.5, "duration": 2.25}])
     cases.append(("SRT jam:menit:detik,ms", "01:01:01,500 --> 01:01:03,750" in srt))
     cases.append(("hms_to_seconds", hms_to_seconds("00:13:33") == 813.0 and hms_to_seconds("01:31") == 91.0))
@@ -737,6 +781,8 @@ def main() -> int:
     p_fetch.add_argument("--only", type=lambda s: s.upper().split(","), default=None, help="Kode video, mis. A,C")
     p_run = sub.add_parser("run", help="Jalankan analisis pada fixture dan beri nilai")
     p_run.add_argument("--mock", action="store_true", help="Key mock, tanpa Gemini")
+    p_run.add_argument("--no-heatmap", action="store_true",
+                       help="Jangan kirim heatmap ke backend (video tanpa heatmap); baseline-noheatmap.json")
     p_run.add_argument("--model", default=DEFAULT_MODEL, help="Nama model Gemini, atau auto (default)")
     p_run.add_argument("--duration", default="auto", help="Preferensi durasi klip (15s/30s/60s/auto)")
     p_run.add_argument("--repeat", type=int, default=1)

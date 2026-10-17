@@ -1,0 +1,77 @@
+{
+ "created": "2026-10-17T17:19:27",
+ "model": "gemini-3.8-flash",
+ "models_used": {
+  "A": "gemini-3.8-flash",
+  "B": "gemini-3.8-flash",
+  "C": "gemini-3.8-flash"
+ },
+ "duration_pref": "auto",
+ "repeat": 2,
+ "heatmap": "none",
+ "thresholds": {
+  "QUOTE_MATCH": 0.85,
+  "QUOTE_WINDOW": 5.0,
+  "DUP_OVERLAP": 0.7,
+  "AVOID_SHARE": 0.5,
+  "REF_TOLERANCE": 5.0
+ },
+ "total": {
+  "clips": 30.5,
+  "grounded": 100.0,
+  "misplaced": 0.0,
+  "fabricated": 0.0,
+  "valid_time": 100.0,
+  "duplicates": 0.0,
+  "avoid_hits": 0.5,
+  "heat_lift": 1.23,
+  "ref_recall": 83.3
+ },
+ "per_video": {
+  "A": {
+   "clips": 10,
+   "grounded": 100.0,
+   "quotes": 18,
+   "misplaced": 0,
+   "fabricated": 0,
+   "valid_time": 100.0,
+   "duplicates": 0,
+   "avoid_hits": 0,
+   "heat_lift": 1.051,
+   "ref_recall": 50.0,
+   "seconds": 17.0,
+   "model_used": "gemini-3.8-flash",
+   "heatmap_sent": false
+  },
+  "B": {
+   "clips": 11,
+   "grounded": 100.0,
+   "quotes": 22,
+   "misplaced": 0,
+   "fabricated": 0,
+   "valid_time": 100.0,
+   "duplicates": 0,
+   "avoid_hits": 0,
+   "heat_lift": 1.129,
+   "ref_recall": 100.0,
+   "seconds": 126.0,
+   "model_used": "gemini-3.8-flash",
+   "heatmap_sent": false
+  },
+  "C": {
+   "clips": 10,
+   "grounded": 100.0,
+   "quotes": 17,
+   "misplaced": 0,
+   "fabricated": 0,
+   "valid_time": 100.0,
+   "duplicates": 0,
+   "avoid_hits": 1,
+   "heat_lift": 1.314,
+   "ref_recall": 100.0,
+   "seconds": 37.5,
+   "model_used": "gemini-3.8-flash",
+   "heatmap_sent": false
+  }
+ }
+}
