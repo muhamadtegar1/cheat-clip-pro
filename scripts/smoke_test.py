@@ -10,6 +10,7 @@ Cek yang dijalankan:
      Klien palsu juga mengembalikan klip di luar durasi: guardrail membuang semuanya lalu fallback heatmap dipakai,
      tanpa rentang dan dengan `range_start`/`range_end` (task #29: klip di dalam rentang, sepanjang target).
      Task #30: pada video sintetis kedua (120 s), klip fallback `auto` tidak saling tumpang tindih dan tidak ada yang < 10 s.
+     Task #33: heatmap energi audio kosong untuk video tanpa audio, file rusak, dan nada rata; berpuncak di bagian keras.
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
@@ -95,13 +96,15 @@ def build_srt(lines=None) -> str:
     return "\n\n".join(blocks) + "\n"
 
 
-def make_synthetic_video(path: Path, duration: int = VIDEO_DURATION, size: str = "1280x720") -> None:
+def make_synthetic_video(path: Path, duration: int = VIDEO_DURATION, size: str = "1280x720",
+                         audio: bool = True, audio_filter: str = "") -> None:
+    sine = f"sine=frequency=440:sample_rate=44100:duration={duration}" + (f",{audio_filter}" if audio_filter else "")
     cmd = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-f", "lavfi", "-i", f"testsrc2=size={size}:rate=30:duration={duration}",
-        "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=44100:duration={duration}",
+        *(["-f", "lavfi", "-i", sine] if audio else []),
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-shortest", str(path),
+        *(["-c:a", "aac", "-shortest"] if audio else []), str(path),
     ]
     subprocess.run(cmd, check=True, capture_output=True, timeout=120)
 
@@ -335,6 +338,36 @@ def run_fallback_overlap_check(client, analyze_mod, uploads_dir: Path, work_dir:
         if original is not None:
             restore_gemini(analyze_mod, original)
         video_path.unlink(missing_ok=True)
+
+
+def run_audio_heatmap_check(tone_video: Path, work_dir: Path) -> None:
+    """Task #33: compute_audio_energy_heatmap tidak pernah membuat data buatan."""
+    name = "heatmap energi audio tanpa data buatan"
+    try:
+        from backend.video_engine import compute_audio_energy_heatmap
+        noaudio, loud, broken = work_dir / "heat_noaudio.mp4", work_dir / "heat_loud.mp4", work_dir / "heat_broken.mp4"
+        make_synthetic_video(noaudio, 20, "320x180", audio=False)
+        make_synthetic_video(loud, 40, "320x180", audio_filter="volume='if(between(t,20,26),1.0,0.15)':eval=frame")
+        broken.write_bytes(b"bukan video")
+        problem = ""
+        for label, path, dur in (("tanpa audio", noaudio, 20.0), ("file rusak", broken, 20.0),
+                                 ("nada rata", tone_video, float(VIDEO_DURATION))):
+            if compute_audio_energy_heatmap(path, dur) != []:
+                problem = f"{label}: heatmap tidak kosong"
+                break
+        if not problem:
+            heat = compute_audio_energy_heatmap(loud, 40.0)
+            if len(heat) != 100:
+                problem = f"bagian keras: {len(heat)} titik, seharusnya 100"
+            else:
+                values = [p["value"] for p in heat]
+                inside = sum(values[50:65]) / 15
+                outside = (sum(values) - sum(values[50:65])) / 85
+                if not inside > outside + 0.5:
+                    problem = f"bagian keras tidak menonjol: rata-rata 20-26 s {inside:.2f}, lainnya {outside:.2f}"
+        report(name, not problem, problem or "tanpa audio, rusak, nada rata = []; bagian keras 20-26 s berpuncak")
+    except Exception as e:
+        report(name, False, repr(e))
 
 
 def run_render_check(client, render_service, is_valid_mp4, exports_dir: Path, video_name: str, use_gpu: bool):
@@ -643,6 +676,7 @@ def main() -> int:
 
         run_analyze_checks(client, analyze_mod, video_name, build_srt())
         run_fallback_overlap_check(client, analyze_mod, config.UPLOADS_DIR, work_dir)
+        run_audio_heatmap_check(work_dir / video_name, work_dir)
         batch_id = run_render_check(
             client, render_service, config.is_valid_mp4, config.EXPORTS_DIR, video_name, args.gpu
         )

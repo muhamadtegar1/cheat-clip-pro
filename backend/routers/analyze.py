@@ -350,14 +350,25 @@ async def analyze_video(request: AnalyzeRequest):
             })
             try:
                 heatmap = await asyncio.to_thread(compute_audio_energy_heatmap, uploaded_file_path, duration)
-                yield _sse({
-                    "step": 2,
-                    "step_progress": 100,
-                    "overall_progress": 50,
-                    "stage": "Acoustic Peaks Decoded",
-                    "detail": f"Acoustic engagement heatmap parsed — {len(heatmap)} audience interest data points generated.",
-                    "message": f"Acoustic energy heatmap loaded ({len(heatmap)} points)."
-                })
+                if heatmap:
+                    yield _sse({
+                        "step": 2,
+                        "step_progress": 100,
+                        "overall_progress": 50,
+                        "stage": "Acoustic Peaks Decoded",
+                        "detail": f"Acoustic engagement heatmap parsed — {len(heatmap)} audience interest data points generated.",
+                        "message": f"Acoustic energy heatmap loaded ({len(heatmap)} points)."
+                    })
+                else:
+                    # Task #33: tanpa trek audio, gagal dibaca, atau volume rata -> tidak ada heatmap, bukan data buatan
+                    yield _sse({
+                        "step": 2,
+                        "step_progress": 100,
+                        "overall_progress": 50,
+                        "stage": "Dialogue Fallback",
+                        "detail": "No usable audio energy (no audio track, unreadable, or flat volume) — relying on transcript content analysis.",
+                        "message": "No usable audio energy — will rely on transcript content analysis."
+                    })
             except Exception as e:
                 logger.warning(f"Heatmap calculation error: {e}")
                 heatmap = []

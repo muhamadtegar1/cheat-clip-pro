@@ -4,25 +4,25 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 ---
 # Analisis AI
 
-`POST /api/analyze` adalah **satu generator async sepanjang ±1300 baris** (`analyze_video`, L225-1541) yang mengalirkan progres lewat SSE lalu mengirim `{"done": true, "result": AnalyzeResponse}`. Catatan ini mencakup langkah 4 (prompt + Gemini) dan pasca-proses. Langkah 1 sampai 3 ada di [[sumber-video]] dan [[transkrip]].
+`POST /api/analyze` adalah **satu generator async sepanjang ±1300 baris** (`analyze_video`, L225-1552) yang mengalirkan progres lewat SSE lalu mengirim `{"done": true, "result": AnalyzeResponse}`. Catatan ini mencakup langkah 4 (prompt + Gemini) dan pasca-proses. Langkah 1 sampai 3 ada di [[sumber-video]] dan [[transkrip]].
 
 ## File dan fungsi kunci
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | `analyze_video` | L225-1541 | Endpoint SSE, berisi semua langkah |
+| `backend/routers/analyze.py` | `analyze_video` | L225-1552 | Endpoint SSE, berisi semua langkah |
 | `backend/routers/analyze.py` | cek API key + mode mock | L229-234 | Key `mock` mengaktifkan data contoh tanpa Gemini |
-| `backend/routers/analyze.py` | mock short-circuit | L828-893 | Klip dan heatmap contoh, lalu `done` |
-| `backend/routers/analyze.py` | target jumlah klip | L896-947 | `target_clip_count` atau otomatis berdasarkan durasi. Sejak #12 rentang adalah batas atas ("QUALITY OVER QUANTITY"), boleh lebih sedikit |
-| `backend/routers/analyze.py` | bahasa + dump transkrip + durasi | L949-995 | `detect_transcript_language`, batas 2000/3500 baris, `duration_instruction`, `custom_prompt` |
-| `backend/routers/analyze.py` | teks prompt | L997-1040 | Prompt utama: konteks, aturan bahasa, aturan judul, transkrip dalam `<TRANSCRIPT_DATA>` (data, bukan instruksi), aturan kutipan satu potongan bersambung di dalam klip (#12) |
-| `backend/routers/analyze.py` | pilih model + daftar fallback | L1042-1079 | Model diminta, lalu model Flash lain, dipotong maksimal 4 total |
-| `backend/routers/analyze.py` | panggilan Gemini + retry | L1081-1304 | `generate_content` dengan `response_schema=VideoAnalysis`, timeout 120 s, heartbeat SSE |
-| `backend/routers/analyze.py` | batas 90 s + guardrail | L1306-1343 | `guard_clips` (fungsi lokal): urutkan start/end, jepit ke `start_bound`/`end_bound` (catat `clamped`), batas 90 s (mode auto), lalu `apply_guardrails` (#12) |
-| `backend/routers/analyze.py` | klip fallback dari heatmap | L1345-1433 | Kalau AI mengembalikan 0 klip atau guardrail membuang semuanya. `pick_fallback_spans` (fungsi lokal): kandidat urut engagement, dijepit ke `start_bound` (#29), jarak awal >= 25 s, akhir `min(end_bound, start + target)` dengan target per klip yang diterima, kandidat yang menimpa klip lain atau < 10 s dilewati (turun ke 5 s bila tidak ada klip sama sekali), maks 5 (#30). Klip fallback ikut lewat `guard_clips` (`fallback_clips` di ringkasan) |
-| `backend/routers/analyze.py` | SSE verifikasi + guardrail | L1435-1458 | Event "Clip Verification & Alignment" (jumlah setelah guardrail) dan "Clip Guardrails" (`guardrails`) |
-| `backend/routers/analyze.py` | rekonstruksi klip final | L1460-1490 | Transkrip per klip, sanitasi judul, hashtag huruf kecil, `guardrail_notes` |
-| `backend/routers/analyze.py` | susun `AnalyzeResponse` | L1491-1531 | Maks 200 klip, heatmap, transkrip, ringkasan |
+| `backend/routers/analyze.py` | mock short-circuit | L839-904 | Klip dan heatmap contoh, lalu `done` |
+| `backend/routers/analyze.py` | target jumlah klip | L907-958 | `target_clip_count` atau otomatis berdasarkan durasi. Sejak #12 rentang adalah batas atas ("QUALITY OVER QUANTITY"), boleh lebih sedikit |
+| `backend/routers/analyze.py` | bahasa + dump transkrip + durasi | L960-1006 | `detect_transcript_language`, batas 2000/3500 baris, `duration_instruction`, `custom_prompt` |
+| `backend/routers/analyze.py` | teks prompt | L1008-1051 | Prompt utama: konteks, aturan bahasa, aturan judul, transkrip dalam `<TRANSCRIPT_DATA>` (data, bukan instruksi), aturan kutipan satu potongan bersambung di dalam klip (#12) |
+| `backend/routers/analyze.py` | pilih model + daftar fallback | L1053-1090 | Model diminta, lalu model Flash lain, dipotong maksimal 4 total |
+| `backend/routers/analyze.py` | panggilan Gemini + retry | L1092-1315 | `generate_content` dengan `response_schema=VideoAnalysis`, timeout 120 s, heartbeat SSE |
+| `backend/routers/analyze.py` | batas 90 s + guardrail | L1317-1354 | `guard_clips` (fungsi lokal): urutkan start/end, jepit ke `start_bound`/`end_bound` (catat `clamped`), batas 90 s (mode auto), lalu `apply_guardrails` (#12) |
+| `backend/routers/analyze.py` | klip fallback dari heatmap | L1356-1444 | Kalau AI mengembalikan 0 klip atau guardrail membuang semuanya. `pick_fallback_spans` (fungsi lokal): kandidat urut engagement, dijepit ke `start_bound` (#29), jarak awal >= 25 s, akhir `min(end_bound, start + target)` dengan target per klip yang diterima, kandidat yang menimpa klip lain atau < 10 s dilewati (turun ke 5 s bila tidak ada klip sama sekali), maks 5 (#30). Klip fallback ikut lewat `guard_clips` (`fallback_clips` di ringkasan) |
+| `backend/routers/analyze.py` | SSE verifikasi + guardrail | L1446-1469 | Event "Clip Verification & Alignment" (jumlah setelah guardrail) dan "Clip Guardrails" (`guardrails`) |
+| `backend/routers/analyze.py` | rekonstruksi klip final | L1471-1501 | Transkrip per klip, sanitasi judul, hashtag huruf kecil, `guardrail_notes` |
+| `backend/routers/analyze.py` | susun `AnalyzeResponse` | L1502-1542 | Maks 200 klip, heatmap, transkrip, ringkasan |
 | `backend/routers/analyze.py` | `parse_lenient_json_analysis` | L88-175 | Perbaiki JSON rusak/terpotong dari model |
 | `backend/routers/analyze.py` | `_format_parsed_dict` | L63-85 | Normalisasi hasil parse |
 | `backend/routers/analyze.py` | `health_check` | L182-208 | `GET /api/health` |
@@ -46,7 +46,7 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 - Konsumen: `handleAnalyze` di [[frontend-app]] membaca stream dan menyimpan hasil ke cache `localStorage`.
 
 ## Risiko
-- Fungsi raksasa. Ubah per potongan, jangan pindahkan blok tanpa alasan. Semua langkah berbagi variabel lokal (`duration`, `heatmap`, `enriched_transcript`, `is_mock`). Dengan `range_start`/`range_end`, `duration` berubah menjadi panjang relatif (`end_bound - start_bound`, L811) sedangkan timestamp transkrip tetap absolut: batas klip harus memakai `start_bound`/`end_bound`, bukan `duration` (bug #29).
+- Fungsi raksasa. Ubah per potongan, jangan pindahkan blok tanpa alasan. Semua langkah berbagi variabel lokal (`duration`, `heatmap`, `enriched_transcript`, `is_mock`). Dengan `range_start`/`range_end`, `duration` berubah menjadi panjang relatif (`end_bound - start_bound`, L822) sedangkan timestamp transkrip tetap absolut: batas klip harus memakai `start_bound`/`end_bound`, bukan `duration` (bug #29).
 - Skor saat ini hanya satu angka `virality_score` 1-100 (target task #1, #2). Validasi kutipan, overlap, dan timestamp ada di `clip_guardrails.py` (#12) dan berlaku untuk klip Gemini maupun JSON toleran, tetapi tidak untuk mode mock (short-circuit lebih awal). Ambang kutipan sengaja sama dengan penilai [[golden-fixtures]]; mengubah salah satunya membuat ukuran tidak setara.
 - Mengubah deskripsi field di `ViralClipGemini` berarti mengubah prompt. Setiap perubahan prompt wajib diukur dengan [[golden-fixtures]] (`run --repeat 2 --compare`). Skrip itu mengganti `fetch_video_metadata`, `fetch_transcript`, dan `download_youtube_audio_file` di modul ini, jadi nama dan cara impornya jangan diubah.
 - Aturan bahasa (zero-translation) dan aturan judul ditulis berulang di prompt dan di skema.

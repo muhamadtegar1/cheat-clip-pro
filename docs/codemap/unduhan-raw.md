@@ -10,13 +10,13 @@ Dua kebutuhan: (1) segmen klip mentah untuk render ([[render-server]], [[render-
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/video_engine.py` | `download_clip_segment` | L688-1016 | Potong satu segmen, 4 metode fallback |
-| `backend/video_engine.py` | potong file lokal | L707-778 | Sumber upload/Drive: cari file, potong dengan FFmpeg |
-| `backend/video_engine.py` | metode 1: `--download-sections` sampai 2160p | L806-850 | Format di L811 |
-| `backend/video_engine.py` | metode 2: URL stream + FFmpeg | L851-911 | Format di L863 |
-| `backend/video_engine.py` | metode 3: 720p | L912-954 | Format di L924 |
-| `backend/video_engine.py` | metode 4: 480p | L955-1016 | Format di L967 |
-| `backend/video_engine.py` | `download_full_raw_video` | L1019-1120 | Video utuh, format di L1060 |
+| `backend/video_engine.py` | `download_clip_segment` | L695-1023 | Potong satu segmen, 4 metode fallback |
+| `backend/video_engine.py` | potong file lokal | L714-785 | Sumber upload/Drive: cari file, potong dengan FFmpeg |
+| `backend/video_engine.py` | metode 1: `--download-sections` sampai 2160p | L813-857 | Format di L811 |
+| `backend/video_engine.py` | metode 2: URL stream + FFmpeg | L858-918 | Format di L863 |
+| `backend/video_engine.py` | metode 3: 720p | L919-961 | Format di L924 |
+| `backend/video_engine.py` | metode 4: 480p | L962-1023 | Format di L967 |
+| `backend/video_engine.py` | `download_full_raw_video` | L1026-1127 | Video utuh, format di L1060 |
 | `backend/video_engine.py` | `get_yt_dlp_base_cmd` | L392-434 | Argumen dasar yt-dlp (proxy, cookies, header) |
 | `backend/video_engine.py` | `format_section_time` | L372-381 | Format waktu untuk `--download-sections` |
 | `backend/services/download_service.py` | `run_raw_download_job` | L28-85 | Job background unduh video utuh |
@@ -33,7 +33,7 @@ Dua kebutuhan: (1) segmen klip mentah untuk render ([[render-server]], [[render-
 - Output: MP4 di `backend/temp_clips/` (segmen render) atau `EXPORTS_DIR` (unduhan raw, permanen, default `~/CheatClip`), status job di dict memori `raw_download_jobs` / `raw_clip_download_jobs`.
 
 ## Risiko
-- Batas kualitas `height<=2160` di L811, L863, L1060 (task #9). Fallback 720p/480p (L924, L967) jangan diubah.
+- Batas kualitas `height<=2160` di L818, L870, L1067 (task #9). Fallback 720p/480p (L931, L974) jangan diubah.
 - **YouTube praktis hanya 360p** (ditemukan di task #9, target task #28): dengan `player_client=android,ios,web_embedded,mweb,web` di `get_yt_dlp_base_cmd` hanya format 18 yang tersedia. Menambah `default` memunculkan format HD klien `android_vr`, tetapi ffmpeg (dipakai `--download-sections` dan metode 2) mendapat 403 karena format itu wajib diambil per potongan 10 MB (`http_chunk_size`); downloader native yt-dlp berhasil. Akibatnya semua metode gagal berantai dan unduhan bisa > 20 menit. Sumber upload/Drive tidak terdampak (dipotong lokal di resolusi aslinya).
 - Timeout dinamis (300 s + 5 s per detik klip, maks 20 menit). Unduhan lama menahan antrean render karena semaphore di [[render-server]].
 - Cookies dicoba dulu, lalu mode tamu bila ditolak. Lihat [[cookies-dan-proxy]].

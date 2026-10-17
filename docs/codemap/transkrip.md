@@ -10,10 +10,10 @@ Langkah 3 dari `POST /api/analyze`. Menghasilkan `transcript_lines` berformat `[
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | transkrip upload (Whisper) | L373-468 | Subtitle manual atau `transcribe_local_video_file` |
-| `backend/routers/analyze.py` | transkrip YouTube | L559-777 | Subtitle manual → `fetch_transcript` → fallback Whisper |
-| `backend/routers/analyze.py` | fallback Whisper YouTube | L665-777 | Unduh audio lalu transkripsi lokal |
-| `backend/routers/analyze.py` | potong rentang + skor engagement | L778-827 | `range_start`/`range_end`, gabung dengan heatmap |
+| `backend/routers/analyze.py` | transkrip upload (Whisper) | L384-479 | Subtitle manual atau `transcribe_local_video_file` |
+| `backend/routers/analyze.py` | transkrip YouTube | L570-788 | Subtitle manual → `fetch_transcript` → fallback Whisper |
+| `backend/routers/analyze.py` | fallback Whisper YouTube | L676-788 | Unduh audio lalu transkripsi lokal |
+| `backend/routers/analyze.py` | potong rentang + skor engagement | L789-838 | `range_start`/`range_end`, gabung dengan heatmap |
 | `backend/services/youtube_service.py` | `fetch_transcript` | L607-801 | Orkestrator 7 tier (Supadata, proxy, langsung) |
 | `backend/services/youtube_service.py` | `fetch_transcript_supadata` | L294-363 | Tier 1, API Supadata dengan rotasi key |
 | `backend/services/youtube_service.py` | `get_supadata_usage_data` | L422-472 | Kuota Supadata (`GET /api/supadata-usage`) |
@@ -22,7 +22,7 @@ Langkah 3 dari `POST /api/analyze`. Menghasilkan `transcript_lines` berformat `[
 | `backend/services/youtube_service.py` | `prioritize_transcripts` | L86-118 | Urutkan trek: bahasa asli video dulu, manual sebelum otomatis |
 | `backend/services/youtube_service.py` | `normalize_transcript` | L35-83 | Seragamkan format semua tier |
 | `backend/services/youtube_service.py` | `download_youtube_audio_file` | L544-604 | Audio untuk fallback Whisper |
-| `backend/video_engine.py` | `transcribe_local_video_file` | L638-685 | Whisper untuk transkrip penuh |
+| `backend/video_engine.py` | `transcribe_local_video_file` | L645-692 | Whisper untuk transkrip penuh |
 | `backend/video_engine.py` | `get_whisper_model` | L251-261 | Muat model Whisper `base` secara lazy |
 | `backend/video_engine.py` | `release_whisper_model` | L264-275 | Lepas model dari RAM |
 | `backend/utils/text.py` | `parse_manual_subtitles` | L28-114 | Parser SRT/TXT dari user |

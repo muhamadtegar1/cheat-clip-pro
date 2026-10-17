@@ -570,63 +570,70 @@ def get_video_file_metadata(file_path: Union[str, Path]) -> Dict[str, Any]:
     }
 
 
+AUDIO_FLAT_SPREAD = 0.10  # selisih RMS < 10% dari maksimum = volume rata (nada konstan terukur 6,2%), heatmap tidak berarti
+
+
 def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, num_points: int = 100) -> List[Dict[str, float]]:
     """
-    Analyzes audio RMS energy / amplitude across the video timeline to generate realistic
-    heatmap engagement telemetry matching YouTube's replay heatmap format (0.0 to 1.0).
+    Heatmap pengganti dari energi audio (RMS per 1% durasi, 0.1-1.0) untuk video tanpa heatmap YouTube.
+    Mengembalikan [] bila audio tidak bisa diukur (tanpa trek audio, file rusak, gagal/timeout), senyap,
+    atau volumenya rata, supaya Gemini tidak menerima data buatan (task #33). Pemanggil lalu memakai
+    jalur "No audience interest data".
     """
     p = Path(file_path)
     if duration <= 0:
         duration = 60.0
-    
     seg_dur = duration / max(1, num_points)
-    raw_scores = [0.2] * num_points
-    
+    # Ekstraksi audio 1 jam 720p terukur ±5 s; batas longgar sebanding durasi, minimal 30 s, maksimal 15 menit.
+    timeout = max(30.0, min(900.0, duration / 10.0))
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "-i", str(p),
+        "-vn", "-ac", "1", "-ar", "8000",
+        "-f", "s16le", "-",
+    ]
     try:
-        temp_wav = TEMP_DIR / f"temp_heat_{p.stem}_{int(time.time())}.wav"
-        cmd = [
-            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-            "-i", str(p),
-            "-vn", "-ac", "1", "-ar", "8000",
-            "-f", "wav",
-            str(temp_wav)
-        ]
-        res = subprocess.run(cmd, capture_output=True, timeout=30)
-        if res.returncode == 0 and temp_wav.exists() and temp_wav.stat().st_size > 100:
-            import wave
-            import numpy as np
-            with wave.open(str(temp_wav), "rb") as wf:
-                n_frames = wf.getnframes()
-                audio_bytes = wf.readframes(n_frames)
-                audio_data = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
-                
-                if len(audio_data) > 0:
-                    samples_per_seg = int(len(audio_data) / num_points)
-                    if samples_per_seg > 0:
-                        for i in range(num_points):
-                            chunk = audio_data[i * samples_per_seg : (i + 1) * samples_per_seg]
-                            if len(chunk) > 0:
-                                rms = float(np.sqrt(np.mean(chunk**2)))
-                                raw_scores[i] = rms
-            try:
-                temp_wav.unlink()
-            except Exception:
-                pass
+        res = subprocess.run(cmd, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        logger.warning(f"Audio energy heatmap skipped: audio extraction timed out after {timeout:.0f}s ({p.name})")
+        return []
     except Exception as e:
-        logger.warning(f"Audio energy heatmap calculation fallback used: {e}")
+        logger.warning(f"Audio energy heatmap skipped: audio extraction failed for {p.name}: {e}")
+        return []
+
+    if res.returncode != 0:
+        err = (res.stderr or b"").decode("utf-8", "replace").strip().splitlines()
+        logger.warning(f"Audio energy heatmap skipped: no usable audio track in {p.name} "
+                       f"({err[-1] if err else f'ffmpeg exit {res.returncode}'})")
+        return []
+
+    import numpy as np
+    pcm = res.stdout[: len(res.stdout) // 2 * 2]
+    audio = np.frombuffer(pcm, dtype=np.int16).astype(np.float32)
+    samples_per_seg = len(audio) // num_points
+    if samples_per_seg == 0:
+        logger.warning(f"Audio energy heatmap skipped: audio too short in {p.name} ({len(audio)} samples)")
+        return []
+    raw_scores = [float(np.sqrt(np.mean(audio[i * samples_per_seg:(i + 1) * samples_per_seg] ** 2)))
+                  for i in range(num_points)]
 
     min_v = min(raw_scores)
     max_v = max(raw_scores)
+    if max_v < 1.0:
+        logger.warning(f"Audio energy heatmap skipped: audio is silent in {p.name}")
+        return []
+    spread = (max_v - min_v) / max_v
+    if spread < AUDIO_FLAT_SPREAD:
+        logger.warning(f"Audio energy heatmap skipped: audio volume is flat in {p.name} "
+                       f"(spread {spread:.1%} < {AUDIO_FLAT_SPREAD:.0%})")
+        return []
+
     diff = max_v - min_v
-    
     heatmap = []
     for i in range(num_points):
         st = round(i * seg_dur, 2)
         et = round(min(duration, (i + 1) * seg_dur), 2)
-        if diff > 0.0001:
-            val = round(0.1 + 0.9 * ((raw_scores[i] - min_v) / diff), 3)
-        else:
-            val = round(0.3 + 0.4 * (0.5 + 0.5 * math.sin(i * 0.2)), 3)
+        val = round(0.1 + 0.9 * ((raw_scores[i] - min_v) / diff), 3)
         heatmap.append({
             "start_time": st,
             "end_time": et,

@@ -12,10 +12,10 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 | --- | --- | --- | --- |
 | `backend/routers/analyze.py` | cabang Google Drive | L242-281 | Unduh file Drive dengan progres lewat antrean SSE |
 | `backend/routers/analyze.py` | deteksi upload | L282-289 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
-| `backend/routers/analyze.py` | cabang upload lokal | L291-468 | Probe metadata, transkrip via subtitle manual atau Whisper |
-| `backend/routers/analyze.py` | heatmap akustik (upload) | L342-372 | Heatmap dari energi audio karena tidak ada data retensi |
-| `backend/routers/analyze.py` | cabang YouTube: metadata | L469-530 | `extract_video_id`, `fetch_video_metadata`, mock fallback |
-| `backend/routers/analyze.py` | cabang YouTube: heatmap | L531-558 | Langkah 2, kurva retensi dari metadata |
+| `backend/routers/analyze.py` | cabang upload lokal | L291-479 | Probe metadata, transkrip via subtitle manual atau Whisper |
+| `backend/routers/analyze.py` | heatmap akustik (upload) | L342-383 | Heatmap dari energi audio karena tidak ada data retensi |
+| `backend/routers/analyze.py` | cabang YouTube: metadata | L480-541 | `extract_video_id`, `fetch_video_metadata`, mock fallback |
+| `backend/routers/analyze.py` | cabang YouTube: heatmap | L542-569 | Langkah 2, kurva retensi dari metadata |
 | `backend/services/youtube_service.py` | `fetch_video_metadata` | L218-274 | yt-dlp JSON: judul, channel, durasi, heatmap |
 | `backend/services/youtube_service.py` | `get_youtube_oembed_title` | L166-215 | Fallback judul via oEmbed |
 | `backend/services/gdrive_service.py` | `is_google_drive_url` | L14-19 | Deteksi link Drive |
@@ -27,7 +27,7 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 | `backend/routers/media.py` | `get_video_file` | L186-256 | `GET /api/video/{file_name}`, streaming dengan Range |
 | `backend/routers/media.py` | `_is_safe_path` | L34-41 | Cegah path traversal |
 | `backend/video_engine.py` | `get_video_file_metadata` | L496-570 | ffprobe: durasi, resolusi, audio |
-| `backend/video_engine.py` | `compute_audio_energy_heatmap` | L573-635 | Heatmap pengganti dari energi audio |
+| `backend/video_engine.py` | `compute_audio_energy_heatmap` | L576-642 | Heatmap pengganti dari energi audio (RMS per 1% durasi). Mengembalikan `[]` bila tanpa trek audio, file rusak, gagal/timeout (batas `max(30, durasi/10)` s, maks 900), senyap, atau volume rata (`AUDIO_FLAT_SPREAD` 10%); tidak pernah membuat data buatan (#33) |
 | `backend/utils/heatmap.py` | `get_average_heatmap_value` | L3-31 | Skor engagement per baris transkrip |
 | `backend/utils/text.py` | `extract_video_id` | L116-134 | ID YouTube dari URL |
 | `backend/utils/text.py` | `is_safe_remote_url` | L414-452 | Validasi URL remote (anti SSRF) |
