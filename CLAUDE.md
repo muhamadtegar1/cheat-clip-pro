@@ -57,7 +57,7 @@ venv\Scripts\python.exe scripts\golden_fixtures.py run --no-heatmap --repeat 2 -
 - Stage file satu per satu (`git add <file>`). **Jangan `git add .`**, dan jangan commit `package-lock.json` kecuali task memang mengubah dependensi.
 - Jalankan `git status` sebelum commit. Hanya file dalam scope kontrak yang boleh ikut.
 - Setiap perubahan kode wajib memperbarui catatan `docs/codemap/` yang terdampak (rentang baris, fungsi, risiko), lalu `scripts/check_codemap.py` harus lulus.
-- Perubahan prompt AI (teks prompt, deskripsi field `ViralClipGemini`/`VideoAnalysis`, pasca-proses klip) wajib lulus golden fixtures: `golden_fixtures.py run --repeat 2 --compare` exit 0, hasilnya dicatat di laporan implementer.
+- Perubahan prompt AI (teks prompt, deskripsi field `ViralClipGemini`/`VideoAnalysis`, pasca-proses klip) wajib lulus golden fixtures di kedua mode: `golden_fixtures.py run --repeat 2 --compare` dan `run --no-heatmap --repeat 2 --compare`, keduanya exit 0, hasilnya dicatat di laporan implementer. Bila kuota Gemini habis, mode `--no-heatmap` boleh ditunda dengan catatan jelas "belum diukur tanpa heatmap" di laporan; reviewer wajib menandainya dan task tidak boleh `DONE` sebelum pengukuran itu dijalankan.
 - Review dilakukan di sesi Claude Code baru, hanya dari kontrak + `git diff` + hasil test. Task berisiko tinggi (#7, #12, #16) wajib `/review` di sesi yang benar-benar baru.
 - Setelah menyimpan `TASKS.md`, baca ulang untuk memastikan tidak tertimpa proses lain.
 - Jangan sentuh `backend/exports`, `EXPORTS_DIR` (`~/CheatClip`), `backend/temp_clips`, `venv`, `node_modules`.
