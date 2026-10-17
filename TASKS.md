@@ -11,7 +11,7 @@
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      1
 status:          1 REVIEW
-langkah_berikut: Pemilik mencoba #1, /review 1 di sesi baru (wajib, prompt + skema), lalu /done 1. Sebelum #1b/#2/#3: bahas temuan skor tidak membedakan pilihan pemilik. #32 bersama/setelah #1
+langkah_berikut: Review #1 PASS. Pemilik mencoba #1 dan mengulang golden --no-heatmap dengan 3.8-flash saat kuota pulih, lalu /done 1. Sebelum #1b/#2/#3: bahas temuan skor tidak membedakan pilihan pemilik. #32 bersama/setelah #1
 blocker:         #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
@@ -207,6 +207,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-17 | 1b | TODO | Dipecah dari #1 atas persetujuan pemilik: #1 = backend + golden, #1b = tampilan skor di kartu klip |
 | 2026-10-17 | 5 | TODO | Diperluas atas permintaan pemilik: dari "provider AI kedua" menjadi pilihan multi-provider (Gemini, Claude, GPT, dll.) + cadangan otomatis, dengan baseline golden dan kalibrasi skor per provider. Setelah #1, #1b, #2, #3 |
 | 2026-10-17 | 1 | REVIEW | Skor 7 dimensi di respons API (skor datar dari Gemini, total/label/urutan dihitung backend, `prompt_match` hanya dengan fokus). Golden dua mode exit 0 dengan 3.8-flash (`ref_recall_independen` 83,3 / 75,0 = baseline). Smoke 13/13. TEMUAN: skor menggelembung (semua strong, 83-95) dan tidak membedakan momen yang disetujui vs ditolak pemilik (selisih 1-2 poin). Kalibrasi skala lewat prompt dicoba lalu dikembalikan: golden memburuk (tanpa heatmap independen 75 -> 58,35, avoid naik) tanpa perbaikan pemisahan. #1b/#2/#3 perlu dibahas ulang |
+| 2026-10-17 | 1 | REVIEW | Review sesi baru: PASS. Smoke 13/13, codemap lulus, golden biasa exit 0 (3.8-flash, independen 83,3). Golden tanpa heatmap tidak bisa diulang setara (kuota 3.8-flash habis, jatuh ke 3.6-flash, exit 3); diterima dari laporan implementer, ulangi sebelum DONE. Semua klip tetap `strong` (85-93) |
 
 ***
 
