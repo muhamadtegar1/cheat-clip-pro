@@ -11,8 +11,8 @@
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      —
 status:          30 DONE
-langkah_berikut: /mulai 1 (skor 7 dimensi) setelah K3 Tahap 2 siap, kemudian #2 dan #3 (preset bobot memakai skor #1)
-blocker:         #1/#2 butuh K3 Tahap 2 (Shorts resmi + pilihan pemilik); #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
+langkah_berikut: /mulai 1 (skor 7 dimensi, K3 Tahap 2 selesai), kemudian #2 dan #3 (preset bobot memakai skor #1)
+blocker:         #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
 ***
@@ -140,7 +140,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | -- | ------------------------------------------------------------- | ------- |
 | K1 | Akun GitHub untuk fork                                        | muhamadtegar1 |
 | K2 | GPU komputer (NVIDIA / AMD / Intel) untuk optimasi encoder #9 | AMD Radeon(TM) Graphics (iGPU, driver 31.0.12044.3). `h264_amf` diuji jalan 1080×1920. Tanpa NVENC/QSV |
-| K3 | 2–3 video golden fixtures + momen terbaiknya (untuk 17b)      | Tahap 1 (2026-10-13): A `hbZbPHjE8NE` (Colin and Samir, podcast EN, 52:26), B `094y1Z2wpJg` (Veritasium, edukasi EN, 22:09), C `YzDyjAsd4Z8` (Billy Samuel, gaming ID, 29:16), masing-masing 3 rentang "jangan dipilih" (dibantu Gemini, diverifikasi pemilik). Transkrip disimpan lokal (di-ignore git), analisis memakai model flash. Tahap 2 (Shorts resmi + pilihan pemilik) menyusul sebelum #1/#2 |
+| K3 | 2–3 video golden fixtures + momen terbaiknya (untuk 17b)      | Tahap 1 (2026-10-13): A `hbZbPHjE8NE` (Colin and Samir, podcast EN, 52:26), B `094y1Z2wpJg` (Veritasium, edukasi EN, 22:09), C `YzDyjAsd4Z8` (Billy Samuel, gaming ID, 29:16), masing-masing 3 rentang "jangan dipilih" (dibantu Gemini, diverifikasi pemilik). Transkrip disimpan lokal (di-ignore git), analisis memakai model flash. Tahap 2 (2026-10-17): 12 referensi (4 per video) di `labels.json`, dinilai pemilik dengan 5 cek; kandidat 6 dari Gemini, 6 dari puncak heatmap, B memakai Short resmi `8fNFd2Xswjs` (00:00-00:04 + 00:21-00:46 + 01:05-01:43). Shorts resmi A dan C tidak ditemukan. Baseline `ref_recall` 70,85% |
 | K4 | Campaign pertama untuk titik uji (platform + niche)           | <br />  |
 
 ***
@@ -188,6 +188,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-13 | 30 | TODO | Ditambahkan atas permintaan pemilik dari temuan #29: klip fallback heatmap tumpang tindih (jarak kandidat 25 s vs target sampai 85 s). Rentang 60-110 `auto`: hanya 1 klip 105-110 (5 s) karena 65-110 digabung guardrail. Tanpa rentang `auto`: 55-100 dan 80-115 ditandai overlap. Kontrak ditulis lewat `/mulai 30` |
 | 2026-10-13 | 30 | REVIEW | `pick_fallback_spans`: kandidat yang menimpa klip terpilih atau < 10 s dilewati (5 s bila tidak ada klip sama sekali), target `auto` per klip yang diterima. Rentang 60-110 `auto`: 65-90, 90-110 (dulu 1 klip 5 s); tanpa merge/overlap di semua durasi; `15s` tanpa rentang identik kecuali klip < 10 s. Smoke test 11/11 dengan cek baru video 120 s (gagal di kode lama), ±26 s |
 | 2026-10-14 | 30 | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-17 | K3 | — | Tahap 2 selesai: 12 referensi di `tests/golden/labels.json` (A 4, B 4, C 4), dinilai pemilik dari transkrip/visual. Batas dirapikan ke kalimat utuh dari transkrip. Run 20261013-150232 dinilai ulang dengan `score --save-baseline`: metrik lain sama, `ref_recall` baseline 70,85% (terlewat: A masa kecil, B analogi saham, C kuyang sekali tembak, C happy ending 1 ulangan). Blocker #1/#2 dibuka |
 
 ***
 
