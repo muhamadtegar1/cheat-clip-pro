@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      —
-status:          33 DONE
-langkah_berikut: /mulai 1 (skor 7 dimensi; golden wajib dengan dan tanpa heatmap, ±12 analisis Gemini), kemudian #2 dan #3. #32 bersama/setelah #1
+task_aktif:      1
+status:          1 REVIEW
+langkah_berikut: Pemilik mencoba #1, /review 1 di sesi baru (wajib, prompt + skema), lalu /done 1. Sebelum #1b/#2/#3: bahas temuan skor tidak membedakan pilihan pemilik. #32 bersama/setelah #1
 blocker:         #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
@@ -62,7 +62,8 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | ID | Upgrade                                                                                                                                                                                                                                     | Area kode                                                                                                                | Selesai jika                                                       | Status |
 | -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------ |
 | 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | DONE   |
-| 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±945–1110), kartu klip di `src/App.tsx` | Setiap klip menampilkan 7 skor + penjelasan yang merujuk transkrip | TODO   |
+| 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±1008–1051), golden fixtures. UI dipecah ke #1b | Respons API memuat 7 skor + penjelasan yang merujuk transkrip + kode label + `needs_context`, golden dua mode exit 0 | REVIEW |
+| 1b | Tampilan skor 7 dimensi di kartu klip: label (Kuat/Layak/Lemah), total, 7 skor, penjelasan, lencana "butuh konteks"; disembunyikan bila klip tanpa skor (cache lama, fallback). Dipecah dari #1 | `src/types.ts`, kartu klip di `src/App.tsx`, `src/locales/id.ts`, `src/locales/en.ts` | Kartu menampilkan skor dari respons #1 (id dan en), klip tanpa skor tidak rusak, `npm run build` lulus | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | TODO   |
 | 12 | Guardrail output: kutipan dicek ke transkrip, timestamp di dalam durasi, overlap > 70% digabung (40–70% ditinjau), transkrip dibungkus `<TRANSCRIPT_DATA>`, jumlah klip tidak dipaksa saat momen bagus sedikit                              | `backend/routers/analyze.py` (prompt + validasi setelah parse, termasuk logika target jumlah klip ±895–945)              | Golden fixtures lulus: tanpa kutipan karangan, tanpa duplikat      | DONE   |
 | 29 | Klip fallback heatmap saat rentang khusus: batas akhir memakai `duration` relatif sehingga klip terbalik lalu dijepit guardrail jadi satu klip panjang. Temuan review #12 | `backend/routers/analyze.py` (klip fallback heatmap ±1345–1420), `scripts/smoke_test.py` | Klip fallback dengan rentang berada di dalam rentang dan sepanjang target | DONE   |
@@ -107,7 +108,7 @@ Jalankan satu campaign dari awal sampai submit. Catat di bawah, lalu putuskan ur
 | -- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------ |
 | 23 | Campaign ledger (menyerap #14): campaign, klip, URL, views hari ke-1/3/7, status, pendapatan, acceptance rate | Korelasi skor AI vs views nyata bisa dilihat | TODO   |
 | 24 | Antrean multi-source                                                                                          | 10 video diproses tanpa ditunggui            | TODO   |
-| 5  | Provider AI kedua + circuit breaker                                                                           | Analisis tetap jalan saat kuota Gemini habis | TODO   |
+| 5  | Multi-provider AI + circuit breaker (diperluas 2026-10-17 atas permintaan pemilik): pemilik bisa memilih provider analisis (Gemini, Claude, GPT, dll.) dan ada cadangan otomatis ke provider lain saat kuota/error. Perlu: lapisan penghubung per provider (structured output tiap provider berbeda dari `response_schema` Gemini), API key tiap provider disimpan di backend seperti #7, baseline golden per provider (data K3 dipakai ulang), kalibrasi skor 7 dimensi (#1) dan label/preset (#1b, #3) dicek per provider karena skala skor tiap model berbeda. Dikerjakan setelah #1, #1b, #2, #3 stabil; boleh dimajukan dari Fase 4 atas persetujuan pemilik (aturan no. 6) | Analisis jalan dengan minimal 2 provider yang dipilih pemilik dan tetap jalan saat kuota provider utama habis; golden tiap provider exit 0 terhadap baseline-nya sendiri | TODO   |
 
 ***
 
@@ -203,6 +204,9 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-17 | 33 | REVIEW | Review subagent FIX_REQUIRED: rujukan "Format di L..." di `unduhan-raw.md` basi. Diperbaiki, plus atas permintaan pemilik ambang volume rata 10% -> 15% dan log "file cannot be read" vs "no usable audio track"; semua rujukan `video_engine.py` di codemap digeser +2 dan dicocokkan ke kode. Smoke 12/12, codemap lulus |
 | 2026-10-17 | 33 | REVIEW | Review ulang subagent: PASS. Risiko tersisa: derau beramplitudo konstan lolos ambang 15% (bisa dibahas bersama #32) |
 | 2026-10-17 | 33 | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-17 | 1b | TODO | Dipecah dari #1 atas persetujuan pemilik: #1 = backend + golden, #1b = tampilan skor di kartu klip |
+| 2026-10-17 | 5 | TODO | Diperluas atas permintaan pemilik: dari "provider AI kedua" menjadi pilihan multi-provider (Gemini, Claude, GPT, dll.) + cadangan otomatis, dengan baseline golden dan kalibrasi skor per provider. Setelah #1, #1b, #2, #3 |
+| 2026-10-17 | 1 | REVIEW | Skor 7 dimensi di respons API (skor datar dari Gemini, total/label/urutan dihitung backend, `prompt_match` hanya dengan fokus). Golden dua mode exit 0 dengan 3.8-flash (`ref_recall_independen` 83,3 / 75,0 = baseline). Smoke 13/13. TEMUAN: skor menggelembung (semua strong, 83-95) dan tidak membedakan momen yang disetujui vs ditolak pemilik (selisih 1-2 poin). Kalibrasi skala lewat prompt dicoba lalu dikembalikan: golden memburuk (tanpa heatmap independen 75 -> 58,35, avoid naik) tanpa perbaikan pemisahan. #1b/#2/#3 perlu dibahas ulang |
 
 ***
 
