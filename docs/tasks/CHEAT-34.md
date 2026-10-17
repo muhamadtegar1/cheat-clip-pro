@@ -1,5 +1,5 @@
 # CHEAT-34: `ref_recall` per sumber referensi dan `ref_recall_independen`
-Status: REVIEW
+Status: DONE
 Risiko: rendah (hanya skrip uji dan angka baseline, backend dan prompt tidak berubah, tanpa Gemini)
 
 ## Tujuan
