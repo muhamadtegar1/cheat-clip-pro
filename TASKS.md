@@ -200,6 +200,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-17 | 34 | REVIEW | Recall per sumber: `ref_recall_independen` (heatmap + short) jadi penentu `--compare`, `ref_recall` total dan `ref_recall_gemini` info, rincian per referensi di laporan. Kedua baseline dinilai ulang tanpa Gemini, nilai lama identik: independen 83,3 (dengan heatmap) / 75,0 (tanpa), gemini 58,35 / 91,65. `cmd_score` kini menyalin `heatmap_sent` (kekurangan #31). Selftest 24/24, smoke 11/11 |
 | 2026-10-17 | 34 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-17 | 33 | REVIEW | Heatmap akustik tanpa data buatan: pola sinus dihapus, `[]` untuk tanpa audio, file rusak, gagal/timeout, senyap, dan volume rata (< 10%); batas waktu sebanding durasi; pipe PCM tanpa file sementara; SSE upload jujur saat kosong. Terukur: ekstraksi audio 1 jam 5 s (timeout bukan penyebab utama). Smoke 12/12 (cek baru gagal di kode lama); cek fallback #30 bergeser karena video smoke bernada rata kini tanpa heatmap, tetap lulus |
+| 2026-10-17 | 33 | REVIEW | Review subagent FIX_REQUIRED: rujukan "Format di L..." di `unduhan-raw.md` basi. Diperbaiki, plus atas permintaan pemilik ambang volume rata 10% -> 15% dan log "file cannot be read" vs "no usable audio track"; semua rujukan `video_engine.py` di codemap digeser +2 dan dicocokkan ke kode. Smoke 12/12, codemap lulus |
 
 ***
 
