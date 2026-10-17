@@ -1,5 +1,5 @@
 # CHEAT-31: Golden fixtures tanpa heatmap (`run --no-heatmap`)
-Status: REVIEW
+Status: DONE
 Risiko: rendah (hanya skrip uji, backend dan prompt tidak berubah)
 
 ## Tujuan
