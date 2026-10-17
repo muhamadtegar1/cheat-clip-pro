@@ -31,7 +31,7 @@ Alur: `fetch` (sekali) → `run` (`--model auto`: satu model flash yang menjawab
 | `scripts/golden_fixtures.py` | `lines_to_srt` | L106-114 | Transkrip tersimpan → SRT untuk `parse_manual_subtitles` |
 
 ## Input / output
-- Input: `tests/golden/labels.json` (di-commit: ID video, rentang "jangan dipilih", `references` kosong sampai Tahap 2), `tests/golden/data/<video_id>/metadata.json` + `transcript.json` (di-ignore git), `GEMINI_API_KEY` dari `backend/.env`.
+- Input: `tests/golden/labels.json` (di-commit: ID video, rentang "jangan dipilih", `references` Tahap 2: 4 momen per video yang dinilai layak pemilik, dengan `source` gemini/heatmap/short, `verified`, `kind`, `note`; skrip hanya membaca `start`/`end`), `tests/golden/data/<video_id>/metadata.json` + `transcript.json` (di-ignore git), `GEMINI_API_KEY` dari `backend/.env`.
 - Output: laporan `tests/golden/data/runs/<waktu>.json` (memuat klip mentah dan `models_used`, di-ignore git), `tests/golden/baseline.json` (di-commit, hanya angka + model per video), exit 0 / 1 (gagal) / 2 (ada metrik lebih buruk) / 3 (model berbeda dari baseline).
 
 ## Risiko
@@ -41,7 +41,8 @@ Alur: `fetch` (sekali) → `run` (`--model auto`: satu model flash yang menjawab
 - Memakai kuota Gemini: ±3 analisis per run plus satu permintaan kecil per model saat `auto`, Video A (52 menit) paling besar. Gemini yang sibuk (503) atau fallback ke model lain diulang otomatis 2 kali. Kuota harian per model (free tier) bisa habis: pada 2026-10-13 `gemini-2.5-flash` 404 untuk key pemilik dan `gemini-3.8-flash` 429 setelah beberapa run, jadi `auto` memilih `gemini-3.7-flash`.
 - Backend memilih model sendiri bila model yang diminta gagal (fallback di [[analisis-ai]]). Karena itu model dicatat per video dan `--compare` exit 3 bila berbeda dari baseline. Saat model yang tersedia berganti (mis. kuota), buat ulang baseline dari prompt lama dulu sebelum mengukur perubahan prompt.
 - `score <laporan> --save-baseline` menimpa baseline dari laporan yang dinilai ulang. Pakai hanya bila penilai (bukan prompt) diubah.
-- `ref_recall` masih "n/a" sampai label Tahap 2 (Shorts resmi) diisi sebelum task #1/#2.
+- `ref_recall` aktif sejak K3 Tahap 2 (2026-10-17): baseline 70,85% (run 20261013-150232 dinilai ulang dengan `score --save-baseline`, klip dan model sama). Momen yang terlewat: A masa kecil (heatmap), B analogi saham, C kuyang sekali tembak (keduanya pilihan Gemini), C happy ending di satu ulangan. `per_video` di baseline hanya ulangan terakhir; `total` rata-rata semua ulangan.
+- Referensi bukan ground truth objektif: 12 momen, 6 dari kandidat Gemini dan 6 dari puncak heatmap, semuanya dinilai pemilik. Batas dirapikan ke kalimat utuh dari transkrip, bukan dari Gemini (Gemini sering mulai/selesai 2-14 s meleset dan salah menulis angka).
 
 ## Terkait
 [[index]] · [[analisis-ai]] · [[transkrip]] · [[sumber-video]]

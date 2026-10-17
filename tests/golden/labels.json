@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Label golden fixtures task 17b (K3 Tahap 1). Rentang 'avoid' dibantu Gemini dan diverifikasi pemilik. 'references' (Shorts resmi, pilihan pemilik) diisi di Tahap 2 sebelum task #1/#2. Transkrip TIDAK disimpan di sini; jalankan `golden_fixtures.py fetch` untuk mengisi tests/golden/data/ (di-ignore git).",
+  "notes": "Label golden fixtures task 17b (K3). Tahap 1: rentang 'avoid' dibantu Gemini dan diverifikasi pemilik. Tahap 2 (2026-10-17): 'references' = momen yang dinilai layak oleh pemilik (5 cek: hook, berdiri sendiri, isi, penutup, betah). 'source' = asal kandidat (gemini, heatmap = puncak most-replayed, short = Short resmi); batas dirapikan ke kalimat utuh dari transkrip. Skrip hanya membaca start/end. Transkrip TIDAK disimpan di sini; jalankan `golden_fixtures.py fetch` untuk mengisi tests/golden/data/ (di-ignore git).",
   "videos": [
     {
       "code": "A",
@@ -15,7 +15,12 @@
         {"start": "00:13:33", "end": "00:15:06", "kind": "sponsor", "note": "Segmen sponsor Microsoft Copilot"},
         {"start": "00:52:04", "end": "00:52:26", "kind": "outro", "note": "Penutup acara dan ucapan terima kasih"}
       ],
-      "references": []
+      "references": [
+        {"start": "00:03:59", "end": "00:05:13", "title": "Head of Failure: tempat terbaik untuk gagal", "source": "gemini", "verified": "pemilik", "kind": "insight", "note": "Dibuka kutipan Bezos agar setup (takut rugi, berhenti bereksperimen) ikut; rentang awal Gemini 04:39 dimulai di tengah alur"},
+        {"start": "00:15:08", "end": "00:16:37", "title": "Masa kecil: rasa malu, dikeluarkan lalu diterima lagi di sekolah", "source": "heatmap", "verified": "pemilik", "kind": "cerita", "note": "Puncak heatmap 2,6x; jawaban atas pertanyaan 13:16 yang terpotong segmen sponsor, mulai 2 s setelah zona sponsor"},
+        {"start": "00:42:52", "end": "00:44:14", "title": "Sistem pre-watch dengan eye-tracking", "source": "gemini", "verified": "pemilik", "kind": "insight", "note": "Dimulai dari pertanyaan host agar hook ikut"},
+        {"start": "00:48:11", "end": "00:49:31", "title": "Cerita Ash main paddle: kepercayaan diri sementara", "source": "heatmap", "verified": "pemilik", "kind": "cerita", "note": "Puncak heatmap 3,0x; berhenti di pelajaran, lanjutan setelahnya topik baru"}
+      ]
     },
     {
       "code": "B",
@@ -30,7 +35,12 @@
         {"start": "00:01:23", "end": "00:01:32", "kind": "low-context", "note": "Penjelasan loop 4-2-1 yang butuh aturan dasar sebelumnya"},
         {"start": "00:20:42", "end": "00:22:09", "kind": "sponsor", "note": "Promosi berbayar Brilliant"}
       ],
-      "references": []
+      "references": [
+        {"start": "00:00:21", "end": "00:01:45", "title": "Aturan 3x+1 dan bunyi konjekturnya", "source": "short+heatmap", "verified": "pemilik", "kind": "penjelasan", "url": "https://www.youtube.com/shorts/8fNFd2Xswjs", "note": "Short resmi = 00:00-00:04 + 00:21-00:46 + 01:05-01:43 (dicocokkan ke transkrip). Beririsan 9 s dengan zona avoid 01:23-01:32 (11%), sengaja: klip ini memuat aturan dasarnya"},
+        {"start": "00:04:16", "end": "00:05:10", "title": "3x+1 acak seperti pasar saham", "source": "gemini", "verified": "pemilik", "kind": "insight", "note": "Dibuka pertanyaan 'Were there any patterns?'"},
+        {"start": "00:05:53", "end": "00:06:50", "title": "Hukum Benford dan deteksi kecurangan", "source": "gemini", "verified": "pemilik", "kind": "fakta", "note": "Dimulai dari distribusi digit agar 'this pattern' terjelaskan di dalam klip"},
+        {"start": "00:16:09", "end": "00:16:54", "title": "2^68 belum apa-apa: contoh tandingan Polya", "source": "heatmap", "verified": "pemilik", "kind": "fakta", "note": "Puncak heatmap 3,8x"}
+      ]
     },
     {
       "code": "C",
@@ -45,7 +55,12 @@
         {"start": "00:08:48", "end": "00:09:30", "kind": "low-context", "note": "Transisi antar segmen ending yang membingungkan tanpa narasi awal"},
         {"start": "00:27:48", "end": "00:29:16", "kind": "outro", "note": "Penutup, ajakan subscribe, musik outro"}
       ],
-      "references": []
+      "references": [
+        {"start": "00:07:30", "end": "00:08:26", "title": "Happy ending: ayah tidak marah", "source": "gemini", "verified": "pemilik", "kind": "ending", "note": "Rujukan 'ending sebelumnya' dijelaskan Billy di dalam klip"},
+        {"start": "00:14:34", "end": "00:15:15", "title": "Salah kode, dimakan kuyang, ngeles", "source": "heatmap", "verified": "pemilik", "kind": "jumpscare", "note": "Puncak heatmap 4,4x"},
+        {"start": "00:15:50", "end": "00:16:22", "title": "Kuyang ibu mati sekali tembak", "source": "gemini", "verified": "pemilik", "kind": "aksi", "note": "Panik lalu antiklimaks"},
+        {"start": "00:19:19", "end": "00:20:30", "title": "Twist ending Teby the Killer", "source": "heatmap", "verified": "pemilik", "kind": "ending", "note": "Puncak heatmap 6,3x; payoff dari keputusan rute pembunuh di 09:32"}
+      ]
     }
   ]
 }

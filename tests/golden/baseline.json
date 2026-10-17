@@ -1,5 +1,5 @@
 {
- "created": "2026-10-13T15:15:33",
+ "created": "2026-10-17T17:04:58",
  "model": "gemini-3.8-flash",
  "models_used": {
   "A": "gemini-3.8-flash",
@@ -24,7 +24,7 @@
   "duplicates": 0.0,
   "avoid_hits": 0.5,
   "heat_lift": 1.496,
-  "ref_recall": null
+  "ref_recall": 70.85
  },
  "per_video": {
   "A": {
@@ -37,7 +37,7 @@
    "duplicates": 0,
    "avoid_hits": 0,
    "heat_lift": 1.208,
-   "ref_recall": null,
+   "ref_recall": 75.0,
    "seconds": 74.0,
    "model_used": "gemini-3.8-flash"
   },
@@ -51,7 +51,7 @@
    "duplicates": 0,
    "avoid_hits": 0,
    "heat_lift": 1.26,
-   "ref_recall": null,
+   "ref_recall": 75.0,
    "seconds": 75.1,
    "model_used": "gemini-3.8-flash"
   },
@@ -65,7 +65,7 @@
    "duplicates": 0,
    "avoid_hits": 0,
    "heat_lift": 1.906,
-   "ref_recall": null,
+   "ref_recall": 75.0,
    "seconds": 86.6,
    "model_used": "gemini-3.8-flash"
   }
