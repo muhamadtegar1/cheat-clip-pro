@@ -11,6 +11,7 @@ Cek yang dijalankan:
      tanpa rentang dan dengan `range_start`/`range_end` (task #29: klip di dalam rentang, sepanjang target).
      Task #30: pada video sintetis kedua (120 s), klip fallback `auto` tidak saling tumpang tindih dan tidak ada yang < 10 s.
      Task #33: heatmap energi audio kosong untuk video tanpa audio, file rusak, dan nada rata; berpuncak di bagian keras.
+     Task #1: skor 7 dimensi dari klien palsu (JSON utuh, dengan fokus pencarian, terpotong) dan mock: total, label, urutan.
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
@@ -68,6 +69,23 @@ OUT_OF_RANGE_JSON = json.dumps({"summary": "Out of range #SmokeTest", "clips": [
     {"title": "Also beyond", "start_time": 200.0, "end_time": 230.0, "hook_time": 201.0, "virality_score": 80,
      "key_quotes": ["neither was this"], "title_suggestion": "", "caption_suggestion": "", "hashtag_suggestion": ""},
 ]})
+
+# Task #1: skor 7 dimensi datar dari Gemini. Klip kedua lebih kuat agar urutan dari backend terlihat.
+SCORED_CLIPS = [
+    {"title": "Luck versus data", "start_time": 5.0, "end_time": 15.0, "hook_time": 5.5,
+     "score_prompt_match": 40, "score_hook": 70, "score_retention": 60, "score_clarity": 80, "score_emotional_pull": 50,
+     "score_payoff": 60, "score_editability": 70, "score_reason": "Opens with 'pure luck' then answers it with data.",
+     "needs_context": False, "key_quotes": ["you can measure attention with data"],
+     "title_suggestion": "", "caption_suggestion": "", "hashtag_suggestion": ""},
+    {"title": "The one trick editors use", "start_time": 15.0, "end_time": 25.0, "hook_time": 15.5,
+     "score_prompt_match": 100, "score_hook": 90, "score_retention": 85, "score_clarity": 88, "score_emotional_pull": 80,
+     "score_payoff": 92, "score_editability": 85, "score_reason": "Promise of 'the one trick' is paid off at 20s.",
+     "needs_context": True, "key_quotes": ["Short clips with a strong payoff keep viewers watching"],
+     "title_suggestion": "", "caption_suggestion": "", "hashtag_suggestion": ""},
+]
+SCORED_JSON = json.dumps({"summary": "Scored #SmokeTest", "clips": SCORED_CLIPS})
+# Terpotong di tengah klip ketiga: json.loads gagal, parser toleran harus membaca skor datar lewat regex.
+SCORED_TRUNCATED = SCORED_JSON[:-2] + ', {"title": "Cut off", "start_time": 30.0, "score_hook": 4'
 
 RESULTS = []
 
@@ -136,7 +154,8 @@ def read_sse_events(client, payload: dict) -> list:
 
 
 class FakeGeminiClient:
-    """Pengganti `genai.Client` untuk skenario error. `mode` = 'rate_limit', 'malformed_json', atau 'out_of_range'."""
+    """Pengganti `genai.Client` untuk skenario error. `mode` = 'rate_limit', 'malformed_json', 'out_of_range',
+    'scored' atau 'scored_truncated' (#1)."""
 
     calls = []
 
@@ -150,6 +169,10 @@ class FakeGeminiClient:
             raise Exception("429 RESOURCE_EXHAUSTED. Quota exceeded for this API key (smoke test).")
         if self.mode == "out_of_range":
             return SimpleNamespace(parsed=None, text=OUT_OF_RANGE_JSON)
+        if self.mode == "scored":
+            return SimpleNamespace(parsed=None, text=SCORED_JSON)
+        if self.mode == "scored_truncated":
+            return SimpleNamespace(parsed=None, text=SCORED_TRUNCATED)
         return SimpleNamespace(parsed=None, text=MALFORMED_JSON)
 
 
@@ -338,6 +361,58 @@ def run_fallback_overlap_check(client, analyze_mod, uploads_dir: Path, work_dir:
         if original is not None:
             restore_gemini(analyze_mod, original)
         video_path.unlink(missing_ok=True)
+
+
+def run_score_check(client, analyze_mod, video_name: str, srt: str) -> None:
+    """Task #1: total = rata-rata dimensi (prompt_match hanya dengan fokus pencarian), label, urutan, mock dan JSON terpotong."""
+    name = "skor 7 dimensi dihitung backend"
+    base = {"url": video_name, "duration": "15s", "subtitles": srt, "subtitles_filename": "smoke.srt", "api_key": "smoke-fake-key"}
+    dims = ("hook", "retention", "clarity", "emotional_pull", "payoff", "editability")
+    problem, info = "", []
+    try:
+        for mode, extra, with_focus in (("scored", {}, False), ("scored", {"custom_prompt": "editing tips"}, True),
+                                        ("scored_truncated", {}, False)):
+            original = patch_gemini(analyze_mod, mode)
+            try:
+                events = read_sse_events(client, {**base, **extra})
+            finally:
+                restore_gemini(analyze_mod, original)
+            done = [e for e in events if e.get("done")]
+            if not done:
+                problem = f"{mode}: event done tidak ditemukan"
+                break
+            clips = done[-1]["result"].get("clips") or []
+            if len(clips) != 2:
+                problem = f"{mode}: {len(clips)} klip, seharusnya 2"
+                break
+            totals = []
+            for c, src in zip(clips, (SCORED_CLIPS[1], SCORED_CLIPS[0])):
+                values = [src[f"score_{d}"] for d in dims] + ([src["score_prompt_match"]] if with_focus else [])
+                expect = int(round(sum(values) / len(values)))
+                label = "strong" if expect >= 80 else ("fair" if expect >= 60 else "weak")
+                sc = c.get("scores") or {}
+                if c["title"] != src["title"]:
+                    problem = f"{mode}: urutan salah ({[x['title'] for x in clips]})"
+                elif c["virality_score"] != expect or c.get("score_label") != label:
+                    problem = f"{mode}: {c['title']} total {c['virality_score']}/{c.get('score_label')}, seharusnya {expect}/{label}"
+                elif (sc.get("prompt_match") is None) == with_focus or any(sc.get(d) != src[f"score_{d}"] for d in dims):
+                    problem = f"{mode}: scores tidak sesuai ({sc})"
+                elif c.get("needs_context") is not src["needs_context"] or not c.get("score_reason"):
+                    problem = f"{mode}: needs_context/score_reason tidak terbawa"
+                if problem:
+                    break
+                totals.append(c["virality_score"])
+            if problem:
+                break
+            info.append(f"{mode}{'+fokus' if with_focus else ''} {totals}")
+        if not problem:
+            events = read_sse_events(client, {**base, "api_key": "mock"})
+            mock = (([e for e in events if e.get("done")] or [{}])[-1].get("result") or {}).get("clips") or []
+            if not mock or any(not c.get("scores") or not c.get("score_label") for c in mock):
+                problem = "mock: klip tanpa scores/score_label"
+        report(name, not problem, problem or "; ".join(info) + "; mock bertanda skor")
+    except Exception as e:
+        report(name, False, repr(e))
 
 
 def run_audio_heatmap_check(tone_video: Path, work_dir: Path) -> None:
@@ -677,6 +752,7 @@ def main() -> int:
         run_analyze_checks(client, analyze_mod, video_name, build_srt())
         run_fallback_overlap_check(client, analyze_mod, config.UPLOADS_DIR, work_dir)
         run_audio_heatmap_check(work_dir / video_name, work_dir)
+        run_score_check(client, analyze_mod, video_name, build_srt())
         batch_id = run_render_check(
             client, render_service, config.is_valid_mp4, config.EXPORTS_DIR, video_name, args.gpu
         )

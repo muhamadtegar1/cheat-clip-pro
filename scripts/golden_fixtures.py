@@ -561,7 +561,8 @@ def cmd_run(args) -> int:
                     print(f"[FAIL] run {r + 1} {v['code']}: backend {'menerima' if score['heatmap_sent'] else 'tidak menerima'} "
                           f"heatmap, padahal mode {'tanpa' if args.no_heatmap else 'dengan'} heatmap")
                 score["raw_clips"] = [{k: c.get(k) for k in ("title", "start_time", "end_time", "hook_time",
-                                                             "virality_score", "key_quotes")} for c in clips]
+                                                             "virality_score", "key_quotes", "scores", "score_reason",
+                                                             "needs_context", "score_label")} for c in clips]
                 score["label_notes"] = check_labels(v, duration, transcript)
                 per_video[v["code"]] = score
                 print(f"[ok]   run {r + 1} {v['code']} {vid}: {score['clips']} klip, grounded {score['grounded']}% "

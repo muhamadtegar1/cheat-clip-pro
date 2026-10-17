@@ -13,15 +13,15 @@ Alur: `fetch` (sekali) → `run` (`--model auto`: satu model flash yang menjawab
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
 | `scripts/golden_fixtures.py` | `cmd_fetch` | L319-347 | Ambil metadata, heatmap ([[sumber-video]]) dan transkrip ([[transkrip]]) lewat fungsi backend yang sama dengan app |
-| `scripts/golden_fixtures.py` | `cmd_run` | L445-582 | `POST /api/analyze` lewat `TestClient`, transkrip sebagai `subtitles`, `fetch_video_metadata` diganti data tersimpan, `fetch_transcript`/unduh audio diblokir. `--no-heatmap` (#31): heatmap kosong dikirim ke backend, dicek lewat `heatmap_sent`; run gagal bila backend tetap menerima heatmap. Retry untuk error Gemini sementara dan bila backend fallback ke model lain. Kuota habis di semua model (`EXHAUSTED_RE`): berhenti tanpa retry, video sisanya dilewati |
+| `scripts/golden_fixtures.py` | `cmd_run` | L445-583 | `POST /api/analyze` lewat `TestClient`, transkrip sebagai `subtitles`, `fetch_video_metadata` diganti data tersimpan, `fetch_transcript`/unduh audio diblokir. `--no-heatmap` (#31): heatmap kosong dikirim ke backend, dicek lewat `heatmap_sent`; run gagal bila backend tetap menerima heatmap. Retry untuk error Gemini sementara dan bila backend fallback ke model lain. Kuota habis di semua model (`EXHAUSTED_RE`): berhenti tanpa retry, video sisanya dilewati |
 | `scripts/golden_fixtures.py` | `resolve_model` | L388-406 | `auto`: model flash pertama (urutan `get_flash_models_for_key`) yang menjawab permintaan kecil; model 404/429 dilewati |
 | `scripts/golden_fixtures.py` | `model_used` | L409-414 | Model yang benar-benar menjawab, dari event SSE langkah 4 "Clip Verification & Alignment" (`successful_model`) |
 | `scripts/golden_fixtures.py` | `model_mismatch` | L417-419 | Video yang modelnya berbeda dari `models_used` baseline |
 | `scripts/golden_fixtures.py` | `heatmap_sent` | L422-429 | Dari event SSE langkah 2: `Retention Decoded` = backend menerima heatmap, `Dialogue Fallback` = tidak |
 | `scripts/golden_fixtures.py` | `baseline_path` | L432-434 | Mode `none` (`--no-heatmap`) memakai `tests/golden/baseline-noheatmap.json`, mode biasa `tests/golden/baseline.json` |
 | `scripts/golden_fixtures.py` | `unique_path` | L437-442 | Nama laporan run tidak saling menimpa |
-| `scripts/golden_fixtures.py` | `cmd_score` | L692-724 | Nilai ulang `raw_clips` dari laporan run tanpa Gemini, mengikuti mode heatmap laporan; `heatmap_sent` disalin dari laporan lama |
-| `scripts/golden_fixtures.py` | `cmd_selftest` | L729-822 | 24 kasus buatan untuk semua metrik, `compare` (termasuk penentu `ref_recall_independen`), recall per sumber, deteksi model, kuota habis, baseline per mode heatmap, dan `heatmap_sent` |
+| `scripts/golden_fixtures.py` | `cmd_score` | L693-725 | Nilai ulang `raw_clips` dari laporan run tanpa Gemini, mengikuti mode heatmap laporan; `heatmap_sent` disalin dari laporan lama |
+| `scripts/golden_fixtures.py` | `cmd_selftest` | L730-823 | 24 kasus buatan untuk semua metrik, `compare` (termasuk penentu `ref_recall_independen`), recall per sumber, deteksi model, kuota habis, baseline per mode heatmap, dan `heatmap_sent` |
 | `scripts/golden_fixtures.py` | `ref_group` | L181-188 | Sumber referensi → `independen` (memuat heatmap/short), `gemini`, atau `None` (tanpa sumber, hanya dihitung di total) |
 | `scripts/golden_fixtures.py` | `labels_refs` | L191-194 | Referensi label dalam detik beserta `title` dan `source` (dipakai `cmd_run` dan `cmd_score`) |
 | `scripts/golden_fixtures.py` | `score_video` | L197-266 | Semua metrik satu video: grounded/misplaced/fabricated, valid_time, duplicates, avoid_hits, heat_lift, ref_recall (total), ref_recall_independen, ref_recall_gemini, rincian per referensi di `details.ref_hits` |
@@ -29,14 +29,14 @@ Alur: `fetch` (sekali) → `run` (`--model auto`: satu model flash yang menjawab
 | `scripts/golden_fixtures.py` | `quote_fragments` | L126-130 | Kutipan bersambung "..." dipecah per potongan (≥ 3 kata) |
 | `scripts/golden_fixtures.py` | `text_contains` | L133-150 | Cocok persis atau fuzzy (`QUOTE_MATCH` 0,85) dengan jendela kata |
 | `scripts/golden_fixtures.py` | `compare` | L290-314 | Rate turun > `WORSE_RATE` (5 poin) atau hitungan naik > `COUNT_NOISE` (1) = LEBIH BURUK. Recall penentu: `ref_recall_independen`; `ref_recall` total dan `ref_recall_gemini` hanya info (#34) |
-| `scripts/golden_fixtures.py` | `finish` | L637-687 | Total, laporan run (akhiran `-noheatmap` untuk mode tanpa heatmap), simpan baseline ke file sesuai mode (hanya angka + `models_used`, ditolak bila model campuran), `--compare` |
-| `scripts/golden_fixtures.py` | `print_compare` | L607-634 | Tabel selisih terhadap baseline mode yang sama. Exit 2 = ada metrik lebih buruk, exit 3 = model atau mode heatmap berbeda dari baseline (tidak setara) |
+| `scripts/golden_fixtures.py` | `finish` | L638-688 | Total, laporan run (akhiran `-noheatmap` untuk mode tanpa heatmap), simpan baseline ke file sesuai mode (hanya angka + `models_used`, ditolak bila model campuran), `--compare` |
+| `scripts/golden_fixtures.py` | `print_compare` | L608-635 | Tabel selisih terhadap baseline mode yang sama. Exit 2 = ada metrik lebih buruk, exit 3 = model atau mode heatmap berbeda dari baseline (tidak setara) |
 | `scripts/golden_fixtures.py` | `check_labels` | L359-372 | Cek kewajaran label (dalam durasi, tidak tumpang tindih), hanya dicatat |
 | `scripts/golden_fixtures.py` | `lines_to_srt` | L113-121 | Transkrip tersimpan → SRT untuk `parse_manual_subtitles` |
 
 ## Input / output
 - Input: `tests/golden/labels.json` (di-commit: ID video, rentang "jangan dipilih", `references` Tahap 2: 4 momen per video yang dinilai layak pemilik, dengan `source` gemini/heatmap/short, `verified`, `kind`, `note`; skrip hanya membaca `start`/`end`), `tests/golden/data/<video_id>/metadata.json` + `transcript.json` (di-ignore git), `GEMINI_API_KEY` dari `backend/.env`.
-- Output: laporan `tests/golden/data/runs/<waktu>.json` (memuat klip mentah dan `models_used`, di-ignore git), `tests/golden/baseline.json` (di-commit, hanya angka + model per video), `tests/golden/baseline-noheatmap.json` (sama, untuk `--no-heatmap`, mencatat `heatmap: "none"`), exit 0 / 1 (gagal) / 2 (ada metrik lebih buruk) / 3 (model berbeda dari baseline).
+- Output: laporan `tests/golden/data/runs/<waktu>.json` (memuat klip mentah termasuk `scores`/`score_reason`/`needs_context`/`score_label` sejak #1, dan `models_used`, di-ignore git), `tests/golden/baseline.json` (di-commit, hanya angka + model per video), `tests/golden/baseline-noheatmap.json` (sama, untuk `--no-heatmap`, mencatat `heatmap: "none"`), exit 0 / 1 (gagal) / 2 (ada metrik lebih buruk) / 3 (model berbeda dari baseline).
 
 ## Risiko
 - Transkrip milik channel lain: jangan pernah commit `tests/golden/data/`. Hilang bila folder dihapus; `fetch --force` mengambil ulang, tetapi caption otomatis YouTube bisa sedikit berbeda dan baseline perlu dibuat ulang.
