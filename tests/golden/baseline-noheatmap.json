@@ -1,5 +1,5 @@
 {
- "created": "2026-10-17T17:19:27",
+ "created": "2026-10-17T19:51:24",
  "model": "gemini-3.8-flash",
  "models_used": {
   "A": "gemini-3.8-flash",
@@ -25,7 +25,9 @@
   "duplicates": 0.0,
   "avoid_hits": 0.5,
   "heat_lift": 1.23,
-  "ref_recall": 83.3
+  "ref_recall": 83.3,
+  "ref_recall_independen": 75.0,
+  "ref_recall_gemini": 91.65
  },
  "per_video": {
   "A": {
@@ -39,6 +41,8 @@
    "avoid_hits": 0,
    "heat_lift": 1.051,
    "ref_recall": 50.0,
+   "ref_recall_independen": 0.0,
+   "ref_recall_gemini": 100.0,
    "seconds": 17.0,
    "model_used": "gemini-3.8-flash",
    "heatmap_sent": false
@@ -54,6 +58,8 @@
    "avoid_hits": 0,
    "heat_lift": 1.129,
    "ref_recall": 100.0,
+   "ref_recall_independen": 100.0,
+   "ref_recall_gemini": 100.0,
    "seconds": 126.0,
    "model_used": "gemini-3.8-flash",
    "heatmap_sent": false
@@ -69,6 +75,8 @@
    "avoid_hits": 1,
    "heat_lift": 1.314,
    "ref_recall": 100.0,
+   "ref_recall_independen": 100.0,
+   "ref_recall_gemini": 100.0,
    "seconds": 37.5,
    "model_used": "gemini-3.8-flash",
    "heatmap_sent": false

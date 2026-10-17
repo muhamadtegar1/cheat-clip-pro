@@ -29,7 +29,10 @@ Metrik (per video, lalu total):
   duplicates : jumlah pasangan klip dengan overlap > DUP_OVERLAP dari klip yang lebih pendek.
   avoid_hits : jumlah klip yang > AVOID_SHARE durasinya berada di rentang "jangan dipilih".
   heat_lift  : rata-rata heatmap klip terpilih dibagi rata-rata heatmap video (informasi).
-  ref_recall : persen momen referensi yang tertangkap (Tahap 2, "n/a" bila label kosong).
+  ref_recall : persen momen referensi yang tertangkap (Tahap 2, "n/a" bila label kosong). Informasi.
+  ref_recall_independen : sama, hanya referensi bersumber heatmap/short (tidak dipilih Gemini). Penentu
+               --compare (#34), karena recall total bisa naik hanya karena Gemini cocok dengan pilihannya sendiri.
+  ref_recall_gemini : sama, hanya referensi yang kandidatnya dari Gemini (informasi).
 
 `--compare`: rate turun > WORSE_RATE poin atau hitungan naik > COUNT_NOISE = LEBIH BURUK (exit 2).
 Model per video berbeda dari baseline = perbandingan tidak setara (exit 3), apa pun nilai metriknya.
@@ -175,6 +178,22 @@ def heat_mean(heatmap: list, start: float, end: float):
     return total / weight if weight else None
 
 
+def ref_group(source: str):
+    """'independen' bila sumber memuat heatmap/short, 'gemini' bila hanya gemini, None bila tanpa sumber (label lama)."""
+    parts = {p.strip() for p in (source or "").lower().split("+") if p.strip()}
+    if parts & {"heatmap", "short"}:
+        return "independen"
+    if parts == {"gemini"}:
+        return "gemini"
+    return None
+
+
+def labels_refs(v: dict) -> list:
+    """Referensi label dalam detik, membawa judul dan sumber (#34)."""
+    return [{"start": hms_to_seconds(x["start"]), "end": hms_to_seconds(x["end"]),
+             "title": x.get("title", ""), "source": x.get("source", "")} for x in v.get("references") or []]
+
+
 def score_video(clips: list, transcript: list, duration: float, heatmap: list, avoid: list, references: list) -> dict:
     """Nilai satu hasil analisis. `transcript` = [{start, end, text}], `avoid`/`references` = [{start, end}] detik."""
     quotes_total = quotes_ok = 0
@@ -216,13 +235,18 @@ def score_video(clips: list, transcript: list, duration: float, heatmap: list, a
             lift = round((sum(clip_means) / len(clip_means)) / video_mean, 3)
 
     recall = None
+    ref_hits = []
     if references:
-        hit = 0
         for r in references:
-            if any(overlap(float(c["start_time"]) - REF_TOLERANCE, float(c["end_time"]) + REF_TOLERANCE, r["start"], r["end"])
-                   >= 0.5 * (r["end"] - r["start"]) for c in clips):
-                hit += 1
-        recall = round(100.0 * hit / len(references), 1)
+            hit = any(overlap(float(c["start_time"]) - REF_TOLERANCE, float(c["end_time"]) + REF_TOLERANCE, r["start"], r["end"])
+                      >= 0.5 * (r["end"] - r["start"]) for c in clips)
+            ref_hits.append({"title": r.get("title", ""), "source": r.get("source", ""), "group": ref_group(r.get("source", "")),
+                             "start": r["start"], "end": r["end"], "hit": hit})
+        recall = round(100.0 * sum(h["hit"] for h in ref_hits) / len(ref_hits), 1)
+
+    def group_recall(group):
+        hits = [h["hit"] for h in ref_hits if h["group"] == group]
+        return round(100.0 * sum(hits) / len(hits), 1) if hits else None
 
     n = len(clips)
     return {
@@ -236,7 +260,9 @@ def score_video(clips: list, transcript: list, duration: float, heatmap: list, a
         "avoid_hits": len(avoid_hits),
         "heat_lift": lift,
         "ref_recall": recall,
-        "details": {"ungrounded": ungrounded, "duplicate_pairs": duplicates, "avoid_clips": avoid_hits},
+        "ref_recall_independen": group_recall("independen"),
+        "ref_recall_gemini": group_recall("gemini"),
+        "details": {"ungrounded": ungrounded, "duplicate_pairs": duplicates, "avoid_clips": avoid_hits, "ref_hits": ref_hits},
     }
 
 
@@ -256,6 +282,8 @@ def summarize(per_video: dict) -> dict:
                             / max(1, sum(1 for v in per_video.values() if v["heat_lift"] is not None)), 3)
                       if any(v["heat_lift"] is not None for v in per_video.values()) else None),
         "ref_recall": mean("ref_recall"),
+        "ref_recall_independen": mean("ref_recall_independen"),
+        "ref_recall_gemini": mean("ref_recall_gemini"),
     }
 
 
@@ -264,7 +292,8 @@ def compare(current: dict, baseline: dict) -> list:
     rows = []
     for key, kind in (("grounded", "rate"), ("fabricated", "count"), ("misplaced", "count"),
                       ("valid_time", "rate"), ("duplicates", "count"),
-                      ("avoid_hits", "count"), ("heat_lift", "info"), ("ref_recall", "rate"), ("clips", "info")):
+                      ("avoid_hits", "count"), ("heat_lift", "info"), ("ref_recall_independen", "rate"),
+                      ("ref_recall", "info"), ("ref_recall_gemini", "info"), ("clips", "info")):
         cur, base = current.get(key), baseline.get(key)
         if cur is None or base is None:
             rows.append((key, base, cur, "", "n/a"))
@@ -482,7 +511,7 @@ def cmd_run(args) -> int:
                 meta, lines, transcript = fixtures[vid]
                 duration = float(meta["duration"])
                 avoid = [{"start": hms_to_seconds(a["start"]), "end": hms_to_seconds(a["end"])} for a in v["avoid"]]
-                refs = [{"start": hms_to_seconds(x["start"]), "end": hms_to_seconds(x["end"])} for x in v.get("references") or []]
+                refs = labels_refs(v)
                 payload = {"url": f"https://www.youtube.com/watch?v={vid}", "duration": args.duration,
                            "api_key": api_key, "model": model, "target_clip_count": "auto",
                            "subtitles": lines_to_srt(lines), "subtitles_filename": f"{vid}.srt"}
@@ -538,7 +567,7 @@ def cmd_run(args) -> int:
                 print(f"[ok]   run {r + 1} {v['code']} {vid}: {score['clips']} klip, grounded {score['grounded']}% "
                       f"(salah tempat {score['misplaced']}, karangan {score['fabricated']}), "
                       f"valid {score['valid_time']}%, dup {score['duplicates']}, avoid {score['avoid_hits']}, "
-                      f"lift {score['heat_lift']}, {elapsed}s, model {score['model_used']}")
+                      f"lift {score['heat_lift']}, ref ind {score['ref_recall_independen']}%, {elapsed}s, model {score['model_used']}")
                 if score["model_used"] != model:
                     print(f"       PERINGATAN: backend pindah dari {model} ke {score['model_used']} (fallback)")
                 for note in score["label_notes"]:
@@ -677,15 +706,18 @@ def cmd_score(args) -> int:
             v = labels[code]
             meta, _, transcript = load_fixture(v)
             avoid = [{"start": hms_to_seconds(a["start"]), "end": hms_to_seconds(a["end"])} for a in v["avoid"]]
-            refs = [{"start": hms_to_seconds(x["start"]), "end": hms_to_seconds(x["end"])} for x in v.get("references") or []]
+            refs = labels_refs(v)
             score = score_video(s["raw_clips"], transcript, float(meta["duration"]), meta.get("heatmap") or [], avoid, refs)
             score["raw_clips"] = s["raw_clips"]
             score["seconds"] = s.get("seconds")
             score["model_used"] = s.get("model_used") or "?"
+            if "heatmap_sent" in s:
+                score["heatmap_sent"] = s["heatmap_sent"]
             rescored[code] = score
             print(f"[ok]   run {r + 1} {code}: {score['clips']} klip, grounded {score['grounded']}% "
                   f"(salah tempat {score['misplaced']}, karangan {score['fabricated']}), valid {score['valid_time']}%, "
-                  f"dup {score['duplicates']}, avoid {score['avoid_hits']}, lift {score['heat_lift']}")
+                  f"dup {score['duplicates']}, avoid {score['avoid_hits']}, lift {score['heat_lift']}, "
+                  f"ref ind {score['ref_recall_independen']}%")
         runs.append(rescored)
     info = {"model": old.get("model"), "duration_pref": old.get("duration_pref"), "repeat": old.get("repeat"),
             "heatmap": old.get("heatmap", "youtube"), "rescored_from": path.name}
@@ -743,6 +775,23 @@ def cmd_selftest(args) -> int:
                   rows["grounded"] == "LEBIH BURUK" and rows["duplicates"] == "LEBIH BURUK"
                   and rows["fabricated"] == "naik (dalam variasi)"
                   and rows["avoid_hits"] == "lebih baik" and rows["valid_time"] == "sama"))
+    refs = [{"start": 11, "end": 19, "title": "g", "source": "gemini"},
+            {"start": 26, "end": 34, "title": "h", "source": "heatmap"},
+            {"start": 41, "end": 49, "title": "s", "source": "short+heatmap"},
+            {"start": 26, "end": 34, "title": "lama", "source": ""}]
+    r = score_video([clip(10, 20, []), clip(40, 50, [])], transcript, 50, heatmap, avoid, refs)
+    cases.append(("recall per sumber: independen heatmap+short, gemini terpisah, tanpa sumber hanya total",
+                  r["ref_recall"] == 50.0 and r["ref_recall_independen"] == 50.0 and r["ref_recall_gemini"] == 100.0
+                  and [h["hit"] for h in r["details"]["ref_hits"]] == [True, False, True, False]
+                  and ref_group("short+heatmap") == "independen" and ref_group("") is None))
+    r = score_video([clip(10, 20, [])], transcript, 50, heatmap, avoid, [{"start": 11, "end": 19, "source": "gemini"}])
+    cases.append(("tanpa referensi independen: ref_recall_independen n/a", r["ref_recall_independen"] is None))
+    rows = {k: verdict for k, _, _, _, verdict in compare(
+        {"ref_recall_independen": 70.0, "ref_recall": 90.0, "ref_recall_gemini": 100.0},
+        {"ref_recall_independen": 83.3, "ref_recall": 70.0, "ref_recall_gemini": 60.0})}
+    cases.append(("compare: ref_recall_independen penentu, total dan gemini hanya info",
+                  rows["ref_recall_independen"] == "LEBIH BURUK" and rows["ref_recall"] == "info"
+                  and rows["ref_recall_gemini"] == "info"))
     cases.append(("model berbeda dari baseline terdeteksi",
                   model_mismatch({"A": "gemini-3.8-flash", "B": "x"}, {"A": "gemini-2.5-flash", "B": "x"}) == ["A"]
                   and model_mismatch({"A": "m"}, {"A": "m"}) == []))
