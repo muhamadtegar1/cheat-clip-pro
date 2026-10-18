@@ -14,6 +14,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | `backend/temp_clips/uploads/` | upload user, unduhan Drive, BGM, SFX, watermark | Ya |
 | `backend/temp/` | file sementara lain | Ya |
 | `EXPORTS_DIR` (default `~/CheatClip`) | MP4 hasil render, unduhan raw | **Tidak** (permanen, tanpa kuota) |
+| `EXPORTS_DIR/data/` | `clip_choices.json` pilihan Pakai/Lewati pemilik (#35, [[pilihan-klip]]) | **Tidak** (permanen) |
 | `backend/exports/` | fallback `EXPORTS_DIR` bila folder default gagal dibuat | Tidak |
 | `backend/fonts/` | font bawaan + font upload | Tidak (dilindungi) |
 | `cookies.txt` (backend atau root) | cookies lama | Tidak (dilindungi) |
@@ -22,7 +23,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/main.py` | `background_storage_cleanup_worker` | L51-70 | Tunggu 15 s, lalu loop tiap `CLEANUP_INTERVAL_SECONDS` (1800) |
+| `backend/main.py` | `background_storage_cleanup_worker` | L52-71 | Tunggu 15 s, lalu loop tiap `CLEANUP_INTERVAL_SECONDS` (1800) |
 | `backend/services/system_service.py` | `auto_cleanup_expired_files` | L149-272 | Pass 1 TTL (`TEMP_MAX_AGE_SECONDS`, 3600), pass 2 kuota (`TEMP_STORAGE_QUOTA_GB`, 5 GB → turun ke 80%), hapus folder kosong |
 | `backend/services/system_service.py` | daftar folder target | L165 | `TEMP_DIR`, `backend/temp`, `UPLOADS_DIR` (tanpa `EXPORTS_DIR`) |
 | `backend/services/system_service.py` | pengaman `is_permanent_output` | L166-173 | Lewati file di dalam `EXPORTS_DIR` walau folder itu diarahkan ke dalam folder cache |
@@ -34,7 +35,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | `backend/routers/system.py` | `api_trigger_auto_cleanup` | L213-222 | `POST /api/auto-cleanup` manual |
 | `backend/video_engine.py` | konstanta folder | L21-26 | Definisi path. `EXPORTS_DIR` dari env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip` (L23) |
 | `backend/video_engine.py` | pembuatan folder | L152-162 | `mkdir` saat impor. Gagal membuat `EXPORTS_DIR` → fallback `backend/exports` + log peringatan |
-| `src/App.tsx` | `executeGlobalClearTemp` | L659-680 | Tombol Clear Temp di header |
+| `src/App.tsx` | `executeGlobalClearTemp` | L661-682 | Tombol Clear Temp di header |
 
 ## Input / output
 - Input: variabel `.env` `CHEAT_CLIP_EXPORTS_DIR`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`.

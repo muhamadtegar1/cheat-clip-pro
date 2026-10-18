@@ -40,6 +40,32 @@ export interface ViralClip {
   score_label?: 'strong' | 'fair' | 'weak' | null;
 }
 
+// Task #35: pilihan pemilik per klip, disimpan permanen di backend (EXPORTS_DIR/data/clip_choices.json)
+export type ClipChoice = 'use' | 'skip';
+
+export interface ClipChoiceRecord {
+  video_id: string;
+  video_title?: string | null;
+  video_url?: string | null;
+  source_type?: string | null;
+  start_time: number;
+  end_time: number;
+  clip_title?: string | null;
+  choice: ClipChoice;
+  reason?: string | null;
+  scores?: ClipScores | null;
+  virality_score?: number | null;
+  rank?: number | null;
+  rank_total?: number | null;
+  tier?: 'priority' | 'backup' | null;
+  needs_context?: boolean | null;
+  heatmap_avg?: number | null;
+  heatmap_source?: string | null;
+  model?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AnalyzeResponse {
   video_id: string;
   title: string;

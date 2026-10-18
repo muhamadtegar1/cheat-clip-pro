@@ -12,6 +12,8 @@ import { renderClipClientSide, triggerBrowserDownload } from './services/clientR
 import { useLanguage } from './locales';
 import { ClipScorePanel, ClipTierBadges } from './components/ClipScorePanel';
 import { clipKey, computeClipTiers } from './utils/clipScores';
+import { ClipChoiceControls } from './components/ClipChoiceControls';
+import { downloadClipChoicesExport, useClipChoices } from './utils/clipChoices';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
 
 // Declare YT global variables for TypeScript
@@ -2267,6 +2269,13 @@ Transcript:
   // Sort the filtered clips based on selected sortBy
   // Task #1b: label relatif dari semua klip hasil analisis, bukan daftar yang difilter
   const clipTiers = useMemo(() => computeClipTiers(result?.clips), [result?.clips]);
+  // Task #35: pilihan Pakai/Lewati pemilik, disimpan permanen di backend
+  const clipChoices = useClipChoices(result, clipTiers);
+  const handleExportChoices = async (format: 'json' | 'csv') => {
+    const ok = await downloadClipChoicesExport(format);
+    setToastMessage(ok ? t.results.exportChoicesDone : t.results.exportChoicesError);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const sortedClips = useMemo(() => {
     return [...filteredClips].sort((a, b) => {
@@ -4494,6 +4503,26 @@ Transcript:
                       </button>
                     </>
                   )}
+                  <span style={{ color: 'var(--border-color)' }}>|</span>
+                  <button
+                    type="button"
+                    className="action-link-btn"
+                    title={t.results.exportChoicesTooltip}
+                    onClick={() => handleExportChoices('csv')}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    {t.results.exportChoicesCsv}
+                  </button>
+                  <span style={{ color: 'var(--border-color)' }}>|</span>
+                  <button
+                    type="button"
+                    className="action-link-btn"
+                    title={t.results.exportChoicesTooltip}
+                    onClick={() => handleExportChoices('json')}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    {t.results.exportChoicesJson}
+                  </button>
                 </div>
               </div>
             </div>
@@ -4646,6 +4675,13 @@ Transcript:
                       )}
 
                       <ClipScorePanel clip={clip} />
+
+                      <ClipChoiceControls
+                        record={clipChoices.records[clipKey(clip)]}
+                        status={clipChoices.statuses[clipKey(clip)]}
+                        onChoose={(choice, reason) => clipChoices.save(clip, choice, reason)}
+                        onClear={() => clipChoices.clear(clip)}
+                      />
 
                       {/* Suggestions: Title, Caption */}
                       {(clip.title_suggestion || clip.caption_suggestion) && (

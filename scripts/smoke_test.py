@@ -17,6 +17,7 @@ Cek yang dijalankan:
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
   7. Guardrail output (task #12): kutipan karangan diganti kalimat asli, timestamp dijepit/dibuang, overlap 80% digabung, 50% ditandai.
+  8. Pilihan klip (task #35): simpan/timpa/batal/baca/ekspor JSON-CSV di EXPORTS_DIR/data, tulis atomik, file rusak dibackup, guard lokal.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -687,6 +688,112 @@ def run_admin_check() -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def run_choices_check(config) -> None:
+    """Cek 8 (task #35): pilihan Pakai/Lewati disimpan permanen di EXPORTS_DIR/data/clip_choices.json.
+    EXPORTS_DIR dialihkan ke folder sementara, jadi pilihan asli pemilik tidak tersentuh."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    import backend.routers.choices as choices_mod
+    from backend.services import choices_service
+
+    name = "pilihan klip (#35)"
+    saved_env = {k: os.environ.get(k) for k in ("ADMIN_API_KEY", "CHEAT_CLIP_API_KEY")}
+    original_exports = config.EXPORTS_DIR
+    root = Path(tempfile.mkdtemp(prefix="cheatclip_choices_"))
+    config.EXPORTS_DIR = root
+    app = FastAPI()
+    app.include_router(choices_mod.router)
+    local = TestClient(app, client=("127.0.0.1", 50000))
+    remote = TestClient(app, client=("192.168.1.50", 50000))
+    origin = {"Origin": "http://localhost:5173"}
+    problems = []
+
+    def expect(label, resp, code):
+        if resp.status_code != code:
+            problems.append(f"{label}: {resp.status_code} (harap {code})")
+        return resp
+
+    base = {"video_id": "vidA", "video_title": "Video A", "source_type": "youtube", "start_time": 10.0,
+            "end_time": 40.5, "clip_title": "Klip 1", "virality_score": 91, "rank": 1, "rank_total": 3,
+            "tier": "priority", "needs_context": False, "heatmap_avg": 0.42, "heatmap_source": "youtube_viewers",
+            "model": "gemini-mock",
+            "scores": {"prompt_match": None, "hook": 92, "retention": 90, "clarity": 88, "emotional_pull": 91,
+                       "payoff": 93, "editability": 89}}
+    try:
+        for k in saved_env:
+            os.environ.pop(k, None)
+        path = choices_service.choices_file_path()
+        if path != root / "data" / "clip_choices.json":
+            problems.append(f"lokasi file salah: {path}")
+
+        expect("PUT dari LAN", remote.put("/api/clip-choices", json={**base, "choice": "use"}), 403)
+        expect("PUT Origin asing", local.put("/api/clip-choices", json={**base, "choice": "use"},
+                                             headers={"Origin": "https://evil.example"}), 403)
+        expect("PUT pilihan salah", local.put("/api/clip-choices", json={**base, "choice": "maybe"}), 422)
+        expect("PUT end <= start", local.put("/api/clip-choices", json={**base, "choice": "use", "end_time": 10.0}), 422)
+
+        first = expect("PUT use", local.put("/api/clip-choices", json={**base, "choice": "use"}, headers=origin), 200)
+        created = first.json().get("record", {}).get("created_at") if first.status_code == 200 else None
+        time.sleep(1.1)
+        r = expect("PUT skip (timpa)", local.put("/api/clip-choices", json={**base, "choice": "skip",
+                                                                              "reason": "  hook lemah  "}), 200)
+        expect("PUT klip tanpa skor", local.put("/api/clip-choices", json={
+            "video_id": "vidA", "start_time": 50, "end_time": 70, "choice": "use", "scores": None,
+            "virality_score": 80}), 200)
+        expect("PUT video lain", local.put("/api/clip-choices", json={**base, "video_id": "vidB", "choice": "use"}), 200)
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        records = data.get("records", [])
+        a1 = [x for x in records if x["video_id"] == "vidA" and x["start_time"] == 10.0]
+        if data.get("version") != 1 or len(records) != 3 or len(a1) != 1:
+            problems.append(f"isi file salah: {len(records)} record, {len(a1)} untuk klip 1")
+        elif (a1[0]["choice"] != "skip" or a1[0]["reason"] != "hook lemah" or a1[0]["created_at"] != created
+              or a1[0]["updated_at"] == created or a1[0]["scores"]["hook"] != 92 or a1[0]["heatmap_avg"] != 0.42):
+            problems.append(f"timpa tidak benar: {a1[0]}")
+        if list(path.parent.glob("*.tmp")):
+            problems.append("file sementara tertinggal")
+
+        got = expect("GET per video", local.get("/api/clip-choices", params={"video_id": "vidA"}), 200).json()
+        if len(got.get("records", [])) != 2:
+            problems.append(f"GET vidA: {len(got.get('records', []))} record (harap 2)")
+        expect("GET dari LAN", remote.get("/api/clip-choices"), 403)
+
+        exp = expect("ekspor JSON", local.get("/api/clip-choices/export", params={"format": "json"}), 200)
+        if exp.status_code == 200 and len(exp.json().get("records", [])) != 3:
+            problems.append("ekspor JSON tidak lengkap")
+        csv_resp = expect("ekspor CSV", local.get("/api/clip-choices/export", params={"format": "csv"}), 200)
+        lines = csv_resp.text.lstrip("﻿").splitlines()
+        if len(lines) != 4 or "score_hook" not in lines[0] or "choice" not in lines[0] or "hook lemah" not in csv_resp.text:
+            problems.append(f"ekspor CSV salah: {lines[:2]}")
+
+        r = expect("DELETE", local.delete("/api/clip-choices", params={"video_id": "vidA", "start_time": 50,
+                                                                        "end_time": 70}), 200)
+        if r.status_code == 200 and r.json().get("deleted") is not True:
+            problems.append("DELETE tidak menghapus")
+        r = local.delete("/api/clip-choices", params={"video_id": "vidA", "start_time": 50, "end_time": 70})
+        if r.status_code != 200 or r.json().get("deleted") is not False:
+            problems.append("DELETE kedua harus deleted=false")
+        if len(json.loads(path.read_text(encoding="utf-8"))["records"]) != 2:
+            problems.append("record tersisa setelah DELETE salah")
+
+        # File rusak: dibackup, tidak ditimpa diam-diam, lalu mulai kosong.
+        path.write_text("{rusak", encoding="utf-8")
+        got = expect("GET file rusak", local.get("/api/clip-choices"), 200).json()
+        backups = list(path.parent.glob("clip_choices.corrupt-*.json"))
+        if got.get("records") != [] or len(backups) != 1 or backups[0].read_text(encoding="utf-8") != "{rusak":
+            problems.append(f"file rusak tidak dibackup dengan benar ({len(backups)} backup)")
+
+        report(name, not problems, "; ".join(problems) or "simpan/timpa/batal/baca/ekspor JSON-CSV, file rusak dibackup, LAN/Origin asing ditolak")
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        config.EXPORTS_DIR = original_exports
+        for k, v in saved_env.items():
+            if v is not None:
+                os.environ[k] = v
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def run_guardrail_check() -> None:
     """Fungsi murni backend/utils/clip_guardrails.py dengan kasus buatan (tanpa jaringan, tanpa Gemini)."""
     name = "guardrail output"
@@ -803,6 +910,7 @@ def main() -> int:
         )
         run_cleanup_check(config)
         run_admin_check()
+        run_choices_check(config)
         run_guardrail_check()
     finally:
         if args.keep:

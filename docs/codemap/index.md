@@ -33,6 +33,7 @@ Browser (React, Vite :5173)                Backend (FastAPI, uvicorn :8000)
 - [[cookies-dan-proxy]]: cookies YouTube, proxy Webshare, anti bot
 - [[penyimpanan-dan-cleanup]]: folder cache dan output permanen, auto-cleanup 1 jam, kuota 5 GB
 - [[sistem-update]]: self-update (dimatikan di fork ini), restart, akses admin
+- [[pilihan-klip]]: pilihan Pakai/Lewati pemilik per klip, disimpan permanen di `EXPORTS_DIR/data` (task #35)
 
 ### Frontend
 - [[frontend-app]]: `App.tsx`, form analisis, riwayat/cache `localStorage`, player, daftar klip, ekspor

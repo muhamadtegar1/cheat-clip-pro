@@ -11,6 +11,7 @@ import backend.config
 from backend.config import logger
 from backend.routers import (
     analyze_router,
+    choices_router,
     cookies_router,
     downloads_router,
     media_router,
@@ -133,6 +134,7 @@ app.include_router(media_router)
 app.include_router(cookies_router)
 app.include_router(downloads_router)
 app.include_router(system_router)
+app.include_router(choices_router)
 
 # Mount built frontend in production container if dist/ exists
 from pathlib import Path
