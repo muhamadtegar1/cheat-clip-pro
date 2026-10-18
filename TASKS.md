@@ -11,7 +11,7 @@
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      35
 status:          35 REVIEW, 32 REVIEW (golden tanpa heatmap menunggu kuota)
-langkah_berikut: Pemilik coba #35 di analisis nyata dari riwayat (pilih beberapa klip, ekspor CSV), /review 35 di sesi baru, lalu /done 35. #32: ulangi golden --no-heatmap dengan 3.8-flash penuh saat kuota pulih, /review 32, /done 32. Setelah data pilihan cukup: rumuskan ulang #2/#3. Berikutnya Fase 3 minimal (#11, #22) (perlu izin pemilik, aturan no. 6)
+langkah_berikut: Pemilik coba #35 di analisis nyata dari riwayat (pilih beberapa klip, ekspor CSV; review sesi baru sudah PASS), lalu /done 35. #32: ulangi golden --no-heatmap dengan 3.8-flash penuh saat kuota pulih, /review 32, /done 32. Setelah data pilihan cukup: rumuskan ulang #2/#3. Berikutnya Fase 3 minimal (#11, #22) (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu data pilihan dari #35 (alat siap setelah #35 DONE). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
@@ -220,6 +220,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-18 | 1b | REVIEW | Review sesi baru: PASS |
 | 2026-10-18 | 1b | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-18 | 35 | REVIEW | Pilihan Pakai/Lewati + alasan opsional di kartu klip, disimpan permanen di `EXPORTS_DIR/data/clip_choices.json` (tulis atomik, file rusak dibackup, guard lokal) bersama skor, peringkat, label, rata-rata heatmap, model; ekspor JSON/CSV di toolbar. Router `choices`, komponen `ClipChoiceControls`, hook `useClipChoices`. Build lulus, lint tanpa error baru, smoke 15/15 (cek baru), codemap lulus (catatan baru `pilihan-klip`), uji browser dengan folder sementara |
+| 2026-10-18 | 35 | REVIEW | Review sesi baru: PASS |
 
 ***
 

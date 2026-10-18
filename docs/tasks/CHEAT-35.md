@@ -94,5 +94,19 @@ CATATAN:
 - `.claude/launch.json` (konfigurasi pratinjau) dipakai untuk uji browser, dikembalikan ke isi semula, tidak di-commit.
 
 ## Review (sesi baru)
-VERDICT: PASS | FIX_REQUIRED
+VERDICT: PASS
 ALASAN:
+- Lingkup: commit `6e74905` menyentuh 23 file, semuanya di "Area yang boleh disentuh" (router/schema/service baru, `routers/__init__.py` +2, `main.py` +2, komponen + util baru, `types.ts`, `App.tsx` +36, locale, `smoke_test.py`, `CLAUDE.md`, `docs/codemap/`, kontrak). `e0ff106` hanya `TASKS.md`. Tidak ada format ulang atau dependensi baru.
+- Tombol + record lengkap: `ClipChoiceControls.tsx` (Pakai/Lewati, klik pilihan aktif = `onClear`, alasan maks 300 disimpan saat blur/Enter); `buildRecord` di `src/utils/clipChoices.ts` mengisi semua field Desain no. 2 (video, rentang, judul klip, 7 skor, total, rank/rank_total, tier, needs_context, heatmap_avg, heatmap_source, model); backend menambah `created_at`/`updated_at`, upsert per (video_id, rentang 3 desimal) dengan `created_at` dipertahankan (`choices_service.py` `save_choice`). Path `EXPORTS_DIR/data/clip_choices.json` (`choices_file_path`). Teks id dan en ada (14 kunci di kedua locale).
+- Pemulihan setelah restart: `useClipChoices` memuat `GET /api/clip-choices?video_id=` setiap `video_id` berubah, data dari file permanen. Terbukti di smoke (GET per video setelah PUT); pemulihan di UI nyata perlu dicek pemilik.
+- Ekspor: `GET /api/clip-choices/export?format=json|csv`; `CSV_COLUMNS` memuat skor per dimensi, virality_score, rank, tier, heatmap_avg/source, model, choice, reason, waktu, plus BOM untuk Excel. Smoke: ekspor JSON 3 record, CSV header + 3 baris.
+- Atomik/rusak: `_write_records` tulis `.tmp` + fsync + `os.replace` di bawah `threading.Lock`; `_load_records` memindah file tak terbaca ke `clip_choices.corrupt-<waktu>.json` dan mencatat log (terlihat di output smoke). File berada di `EXPORTS_DIR`, di luar folder auto-cleanup.
+- Guard: semua endpoint `Depends(verify_admin_access)`; smoke: PUT/GET dari LAN dan Origin asing 403.
+- Tanpa skor / backend mati: `scores: null` bila `!hasClipScores`, schema semua opsional; smoke menyimpan klip tanpa skor. Fetch gagal hanya memberi status "error"/toast, tidak melempar ke render kartu.
+- Test yang saya jalankan: `npm run build` lulus (hanya peringatan ukuran chunk lama); `scripts/smoke_test.py` 15/15 LULUS, exit 0, termasuk "[PASS] pilihan klip (#35)"; `check_codemap.py` SEMUA CEK LULUS (17 catatan, 255 simbol); eslint 5 file baru/diubah selain App.tsx bersih, `App.tsx` 27 masalah sesudah = 27 sebelum task (`git show 6e74905~1:src/App.tsx | eslint --stdin`).
+- Codemap: catatan baru `pilihan-klip.md` + tautan di `index.md`; `arsitektur-backend.md`, `frontend-app.md`, `penyimpanan-dan-cleanup.md` diperbarui; rentang bergeser di catatan lain ikut disesuaikan.
+- Catatan non-blokir (risiko, bukan pelanggaran kontrak):
+  - Bila `ADMIN_API_KEY` dipasang, frontend tidak mengirim key sehingga simpan/muat/ekspor pilihan 401 (sudah dicatat implementer di codemap).
+  - `_load_records` memperlakukan semua kegagalan baca (termasuk `PermissionError` sesaat karena file dikunci program lain di Windows) sebagai file rusak: file dipindah ke backup dan daftar mulai kosong. Data tidak hilang (ada di backup), tetapi pilihan lama tampak hilang sampai digabung manual. Jangan buka `clip_choices.json` di program yang mengunci file saat backend menulis.
+  - Record dengan `start_time` non-angka (hanya bila file diedit manual) membuat `_same_clip` melempar `ValueError` yang tidak ditangkap router, hasilnya 500 generik.
+- Perlu dicek pemilik: pakai di analisis nyata dari riwayat, pilih beberapa klip + alasan, restart backend dan muat ulang, pastikan tombol pulih; ekspor CSV dan buka di spreadsheet.
