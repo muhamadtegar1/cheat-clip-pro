@@ -11,7 +11,7 @@
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      11
 status:          11 REVIEW, 32 REVIEW (golden tanpa heatmap menunggu kuota)
-langkah_berikut: Pemilik coba #11 dengan render nyata (kata yang sering salah ditangkap Whisper, mode separate dan merged), /review 11 di sesi baru, lalu /done 11. Kumpulkan data pilihan Pakai/Lewati (#35). #32: ulangi golden --no-heatmap saat kuota pulih, /review 32, /done 32. Setelah data pilihan cukup: rumuskan ulang #2/#3. Fase 3 berikutnya: #22 (perlu izin pemilik, aturan no. 6)
+langkah_berikut: Pemilik coba #11 dengan render nyata (kata yang sering salah ditangkap Whisper, mode separate dan merged); review sesi baru #11 PASS, lalu /done 11. Kumpulkan data pilihan Pakai/Lewati (#35). #32: ulangi golden --no-heatmap saat kuota pulih, /review 32, /done 32. Setelah data pilihan cukup: rumuskan ulang #2/#3. Fase 3 berikutnya: #22 (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu cukup data pilihan dari #35 (alat sudah siap). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
@@ -223,6 +223,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-18 | 35 | REVIEW | Review sesi baru: PASS |
 | 2026-10-18 | 35 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-18 | 11 | REVIEW | Kamus koreksi subtitle "salah -> benar" di Clip Studio (preferensi studio), `subtitle_replacements` di `RenderSettingsModel`, diterapkan di `generate_ass_file` untuk mode separate dan merged (cocok tanpa beda huruf, tanda baca ujung dipertahankan, kosong = hapus). Build lulus, lint tanpa masalah baru, smoke 16/16 (cek baru), codemap lulus, uji render ujung ke ujung + frame video, uji browser |
+| 2026-10-19 | 11 | REVIEW | Review sesi baru: PASS |
 
 ***
 
