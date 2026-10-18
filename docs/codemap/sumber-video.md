@@ -10,12 +10,12 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | cabang Google Drive | L295-334 | Unduh file Drive dengan progres lewat antrean SSE |
-| `backend/routers/analyze.py` | deteksi upload | L335-342 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
-| `backend/routers/analyze.py` | cabang upload lokal | L344-532 | Probe metadata, transkrip via subtitle manual atau Whisper |
-| `backend/routers/analyze.py` | heatmap akustik (upload) | L395-436 | Heatmap dari energi audio karena tidak ada data retensi |
-| `backend/routers/analyze.py` | cabang YouTube: metadata | L533-594 | `extract_video_id`, `fetch_video_metadata`, mock fallback |
-| `backend/routers/analyze.py` | cabang YouTube: heatmap | L595-622 | Langkah 2, kurva retensi dari metadata |
+| `backend/routers/analyze.py` | cabang Google Drive | L307-346 | Unduh file Drive dengan progres lewat antrean SSE |
+| `backend/routers/analyze.py` | deteksi upload | L347-354 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
+| `backend/routers/analyze.py` | cabang upload lokal | L356-545 | Probe metadata, transkrip via subtitle manual atau Whisper |
+| `backend/routers/analyze.py` | heatmap akustik (upload) | L407-449 | Heatmap dari energi audio karena tidak ada data retensi; `heatmap_source = "audio"` (#32) agar prompt menyebutnya energi audio, bukan minat penonton |
+| `backend/routers/analyze.py` | cabang YouTube: metadata | L546-608 | `extract_video_id`, `fetch_video_metadata`, mock fallback; `heatmap_source = "viewer"` (#32) |
+| `backend/routers/analyze.py` | cabang YouTube: heatmap | L609-636 | Langkah 2, kurva retensi dari metadata |
 | `backend/services/youtube_service.py` | `fetch_video_metadata` | L218-274 | yt-dlp JSON: judul, channel, durasi, heatmap |
 | `backend/services/youtube_service.py` | `get_youtube_oembed_title` | L166-215 | Fallback judul via oEmbed |
 | `backend/services/gdrive_service.py` | `is_google_drive_url` | L14-19 | Deteksi link Drive |

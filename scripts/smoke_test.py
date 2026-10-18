@@ -12,6 +12,7 @@ Cek yang dijalankan:
      Task #30: pada video sintetis kedua (120 s), klip fallback `auto` tidak saling tumpang tindih dan tidak ada yang < 10 s.
      Task #33: heatmap energi audio kosong untuk video tanpa audio, file rusak, dan nada rata; berpuncak di bagian keras.
      Task #1: skor 7 dimensi dari klien palsu (JSON utuh, dengan fokus pencarian, terpotong) dan mock: total, label, urutan.
+     Task #32: prompt jalur upload memberi label energi audio pada heatmap akustik; teks heatmap YouTube/kosong tidak berubah.
   4. POST /api/render-batch untuk 1 klip, output MP4 valid 1080x1920 dengan durasi yang benar di EXPORTS_DIR.
   5. auto_cleanup_expired_files menghapus cache lama tetapi tidak menyentuh EXPORTS_DIR (TTL dan kuota).
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
@@ -158,6 +159,7 @@ class FakeGeminiClient:
     'scored' atau 'scored_truncated' (#1)."""
 
     calls = []
+    prompts = []  # task #32: isi prompt yang dikirim, untuk memeriksa teks heatmap
 
     def __init__(self, mode: str):
         self.mode = mode
@@ -165,6 +167,7 @@ class FakeGeminiClient:
 
     def generate_content(self, model=None, contents=None, config=None):
         FakeGeminiClient.calls.append(model)
+        FakeGeminiClient.prompts.append(str(contents))
         if self.mode == "rate_limit":
             raise Exception("429 RESOURCE_EXHAUSTED. Quota exceeded for this API key (smoke test).")
         if self.mode == "out_of_range":
@@ -181,6 +184,7 @@ def patch_gemini(analyze_mod, mode: str):
     analyze_mod.genai = SimpleNamespace(Client=lambda *a, **kw: FakeGeminiClient(mode))
     analyze_mod.get_flash_models_for_key = lambda client: []
     FakeGeminiClient.calls = []
+    FakeGeminiClient.prompts = []
     return original
 
 
@@ -411,6 +415,46 @@ def run_score_check(client, analyze_mod, video_name: str, srt: str) -> None:
             if not mock or any(not c.get("scores") or not c.get("score_label") for c in mock):
                 problem = "mock: klip tanpa scores/score_label"
         report(name, not problem, problem or "; ".join(info) + "; mock bertanda skor")
+    except Exception as e:
+        report(name, False, repr(e))
+
+
+# Task #32: teks heatmap prompt sebelum task, harus tetap persis sama untuk jalur YouTube dan tanpa heatmap.
+OLD_VIEWER_NOTE = "Columns: start|end|audience_interest(0-1). Prioritise high-interest peaks."
+OLD_EMPTY_NOTE = "No audience interest data. Use content hooks, energy, and story arcs."
+
+
+def run_heatmap_prompt_check(client, analyze_mod, video_name: str, srt: str) -> None:
+    """Task #32: heatmap energi audio diberi label jujur di prompt; teks YouTube dan tanpa heatmap tidak berubah."""
+    name = "label heatmap di prompt"
+    base = {"url": video_name, "duration": "15s", "subtitles": srt, "subtitles_filename": "smoke.srt", "api_key": "smoke-fake-key"}
+    problem = ""
+    try:
+        build = analyze_mod.build_heatmap_prompt_parts
+        if build(True, "viewer") != (OLD_VIEWER_NOTE, "interest"):
+            problem = f"teks heatmap YouTube berubah: {build(True, 'viewer')}"
+        elif build(False, "viewer") != (OLD_EMPTY_NOTE, "interest") or build(False, "audio") != (OLD_EMPTY_NOTE, "interest"):
+            problem = "teks tanpa heatmap berubah"
+        original_heat = analyze_mod.compute_audio_energy_heatmap
+        for label, fake_heat, want, banned in (
+                ("akustik", [{"start_time": i * 0.15, "end_time": (i + 1) * 0.15, "value": (i % 10) / 10} for i in range(100)],
+                 ("audio_energy(0-1)", "NOT viewer interest", "start|end[|energy]"), ("audience_interest", "Prioritise high-interest")),
+                ("akustik kosong", [], (OLD_EMPTY_NOTE, "start|end[|interest]"), ("audio_energy",))):
+            if problem:
+                break
+            analyze_mod.compute_audio_energy_heatmap = lambda *a, _h=fake_heat, **kw: list(_h)
+            original = patch_gemini(analyze_mod, "scored")
+            try:
+                read_sse_events(client, base)
+                prompt = FakeGeminiClient.prompts[-1] if FakeGeminiClient.prompts else ""
+            finally:
+                restore_gemini(analyze_mod, original)
+                analyze_mod.compute_audio_energy_heatmap = original_heat
+            if not prompt:
+                problem = f"{label}: prompt tidak tertangkap"
+            elif any(w not in prompt for w in want) or any(b in prompt for b in banned):
+                problem = f"{label}: teks heatmap prompt salah"
+        report(name, not problem, problem or "upload akustik = audio_energy + peringatan; YouTube dan kosong = teks lama persis")
     except Exception as e:
         report(name, False, repr(e))
 
@@ -753,6 +797,7 @@ def main() -> int:
         run_fallback_overlap_check(client, analyze_mod, config.UPLOADS_DIR, work_dir)
         run_audio_heatmap_check(work_dir / video_name, work_dir)
         run_score_check(client, analyze_mod, video_name, build_srt())
+        run_heatmap_prompt_check(client, analyze_mod, video_name, build_srt())
         batch_id = run_render_check(
             client, render_service, config.is_valid_mp4, config.EXPORTS_DIR, video_name, args.gpu
         )
