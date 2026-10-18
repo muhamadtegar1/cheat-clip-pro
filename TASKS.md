@@ -9,10 +9,10 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      1
-status:          1 REVIEW
-langkah_berikut: /done 1 (golden dua mode dan uji UI sudah lulus). Berikutnya: #32 (ukur golden di hari yang sama), #1b label relatif, #35 catat pilihan pemilik, lalu Fase 3 minimal (#11, #22) untuk titik uji campaign. #2/#3 BLOCKED menunggu data #35
-blocker:         #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
+task_aktif:      —
+status:          1 DONE
+langkah_berikut: #32 label heatmap akustik di prompt (/mulai 32; golden dua mode dengan 3.8-flash, ukur di hari yang sama), lalu #1b label relatif (Prioritas/Cadangan), #35 catat pilihan pemilik, lalu Fase 3 minimal (#11, #22) untuk titik uji campaign (perlu izin pemilik, aturan no. 6)
+blocker:         #2/#3 BLOCKED menunggu data #35. Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
 ***
@@ -62,7 +62,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | ID | Upgrade                                                                                                                                                                                                                                     | Area kode                                                                                                                | Selesai jika                                                       | Status |
 | -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------ |
 | 17b | Golden fixtures: 2–3 transkrip contoh (dari K3) dengan momen terbaik yang sudah diketahui + skrip pembanding hasil analisis. Dipecah dari task 17 | Baru: folder fixtures + skrip uji, memakai pipeline `backend/routers/analyze.py` | Satu perintah membandingkan hasil analisis dengan momen terbaik. Wajib DONE sebelum #1, #2, #12 | DONE   |
-| 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±1008–1051), golden fixtures. UI dipecah ke #1b | Respons API memuat 7 skor + penjelasan yang merujuk transkrip + kode label + `needs_context`, golden dua mode exit 0 | REVIEW |
+| 1  | Skor 7 dimensi (Prompt Match, Hook, Retention, Clarity, Emotional Pull, Payoff, Editability) + penjelasan + label skor. Aturan: kandidat beragam, skor independen, tanpa klaim "pasti viral", hook tanpa fakta baru, tandai "butuh konteks" | `backend/schemas/analyze.py` (`ViralClip`), `backend/routers/analyze.py` (prompt ±1008–1051), golden fixtures. UI dipecah ke #1b | Respons API memuat 7 skor + penjelasan yang merujuk transkrip + kode label + `needs_context`, golden dua mode exit 0 | DONE   |
 | 1b | Tampilan skor 7 dimensi di kartu klip: label RELATIF per hasil analisis (sekitar 30% teratas "Prioritas", sisanya "Cadangan"; bukan ambang absolut 80/60 karena skor Gemini menggelembung 85-93, lihat laporan #1), total, 7 skor, penjelasan, lencana "butuh konteks"; disembunyikan bila klip tanpa skor (cache lama, fallback). Label dibaca sebagai urutan prioritas, bukan vonis kualitas (uji pemilik: semua klip layak tayang). Dipecah dari #1 | `src/types.ts`, kartu klip di `src/App.tsx`, `src/locales/id.ts`, `src/locales/en.ts` | Kartu menampilkan label relatif dan skor dari respons #1 (id dan en), klip tanpa skor tidak rusak, `npm run build` lulus | TODO   |
 | 35 | Catat pilihan pemilik per klip: tombol Pakai/Lewati + alasan singkat opsional di kartu klip, disimpan permanen (file JSON di luar cache) bersama video, rentang klip, 7 skor, total, peringkat, rata-rata heatmap, model, dan waktu. Fondasi kalibrasi skor (#2, #3) dan cikal bakal ledger #23 | Baru: endpoint kecil di backend + penyimpanan JSON; tombol di kartu klip `src/App.tsx`; `src/locales/id.ts`, `src/locales/en.ts` | Pilihan tersimpan dan tetap ada setelah backend restart, bisa diekspor untuk dianalisis (skor vs pilihan), `npm run build` dan smoke test lulus | TODO   |
 | 2  | Prompt Match gate: Prompt Match < 50 → skor total × 0,85                                                                                                                                                                                    | Pasca-proses di `backend/routers/analyze.py`                                                                             | Unit test kasus di bawah dan di atas ambang lulus                  | BLOCKED (menunggu data #35: ambang absolut Prompt Match < 50 hampir tidak terpicu karena skor menggelembung; rumuskan ulang secara relatif setelah ada data pilihan pemilik) |
@@ -214,6 +214,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-18 | 2 | BLOCKED | Menunggu data #35; ambang absolut tidak bermakna dengan skor 85-93 |
 | 2026-10-18 | 3 | BLOCKED | Menunggu data #35 dan titik uji campaign; bobot preset belum bisa diturunkan dari 12 momen K3 |
 | 2026-10-18 | 1 | REVIEW | Golden --no-heatmap diulang dengan 3.8-flash (key proyek baru): exit 0, `ref_recall_independen` 75,0 = baseline. Uji UI pemilik lulus. Siap /done 1 |
+| 2026-10-18 | 1 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 

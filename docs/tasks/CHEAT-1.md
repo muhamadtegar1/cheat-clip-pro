@@ -1,5 +1,5 @@
 # CHEAT-1: Skor 7 dimensi per klip (backend dan golden)
-Status: REVIEW
+Status: DONE
 Risiko: tinggi (perubahan prompt dan skema output Gemini, wajib golden dua mode)
 
 Dipecah atas persetujuan pemilik: task ini backend + golden; tampilan kartu klip dikerjakan di #1b.
