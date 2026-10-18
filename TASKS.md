@@ -11,7 +11,7 @@
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      1
 status:          1 REVIEW
-langkah_berikut: Golden --no-heatmap #1 dengan 3.8-flash (kuota), lalu /done 1. Berikutnya: #32 (ukur golden di hari yang sama), #1b label relatif, #35 catat pilihan pemilik, lalu Fase 3 minimal (#11, #22) untuk titik uji campaign. #2/#3 BLOCKED menunggu data #35
+langkah_berikut: /done 1 (golden dua mode dan uji UI sudah lulus). Berikutnya: #32 (ukur golden di hari yang sama), #1b label relatif, #35 catat pilihan pemilik, lalu Fase 3 minimal (#11, #22) untuk titik uji campaign. #2/#3 BLOCKED menunggu data #35
 blocker:         #3 menunggu skor #1. Baseline golden gemini-3.8-flash (key kedua); key utama habis kuota s.d. ±2026-10-14 08:00
 ```
 
@@ -213,6 +213,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-18 | 35 | TODO | Task baru: catat pilihan pemilik per klip (Pakai/Lewati + alasan) sebagai data kalibrasi skor |
 | 2026-10-18 | 2 | BLOCKED | Menunggu data #35; ambang absolut tidak bermakna dengan skor 85-93 |
 | 2026-10-18 | 3 | BLOCKED | Menunggu data #35 dan titik uji campaign; bobot preset belum bisa diturunkan dari 12 momen K3 |
+| 2026-10-18 | 1 | REVIEW | Golden --no-heatmap diulang dengan 3.8-flash (key proyek baru): exit 0, `ref_recall_independen` 75,0 = baseline. Uji UI pemilik lulus. Siap /done 1 |
 
 ***
 
