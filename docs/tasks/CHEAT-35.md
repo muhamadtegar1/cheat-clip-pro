@@ -1,5 +1,5 @@
 # CHEAT-35: Catat pilihan Pakai/Lewati pemilik per klip
-Status: REVIEW
+Status: DONE
 Risiko: sedang (endpoint backend baru yang menulis file permanen; tanpa perubahan prompt AI)
 
 ## Tujuan
