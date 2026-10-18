@@ -1,5 +1,5 @@
 # CHEAT-36a: Pratinjau subtitle asli (Whisper) di Clip Studio sebelum render
-Status: REVIEW
+Status: DONE
 Risiko: sedang (endpoint baru yang menjalankan Whisper dan mengunduh segmen; `generate_ass_file` dipecah tanpa mengubah hasil `.ass`; tanpa perubahan prompt AI)
 
 ## Tujuan
