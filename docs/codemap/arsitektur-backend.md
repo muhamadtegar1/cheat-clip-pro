@@ -29,7 +29,7 @@ FastAPI dengan 7 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 | Router | Endpoint utama | Catatan |
 | --- | --- | --- |
 | `backend/routers/analyze.py` | `POST /api/analyze` (SSE), `GET /api/health`, `GET /api/models` | [[analisis-ai]] |
-| `backend/routers/render.py` | `POST /api/render-batch`, `GET /api/render-progress/{id}` (SSE), unduh hasil/ZIP | [[render-server]] |
+| `backend/routers/render.py` | `POST /api/render-batch`, `GET /api/render-progress/{id}` (SSE), unduh hasil/ZIP, `POST /api/preview-subtitles` (#36a) | [[render-server]] |
 | `backend/routers/media.py` | upload video/BGM/SFX/watermark/font, `GET /api/video/...`, `GET /api/detect-face` | [[sumber-video]], [[face-tracking]], [[subtitle-dan-judul]] |
 | `backend/routers/cookies.py` | `POST/GET/DELETE /api/cookies` | [[cookies-dan-proxy]] |
 | `backend/routers/downloads.py` | unduh video/segmen asli | [[unduhan-raw]] |

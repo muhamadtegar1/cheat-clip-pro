@@ -141,6 +141,25 @@ export interface SubtitleReplacement {
   to: string;
 }
 
+// Task #36a: subtitle asli untuk pratinjau Clip Studio (POST /api/preview-subtitles), waktu relatif awal klip
+export interface SubtitlePreviewEvent {
+  start: number;
+  end: number;
+  words: string[];
+  active: number;
+}
+
+export interface SubtitlePreviewResponse {
+  video_id: string;
+  start_time: number;
+  end_time: number;
+  source: 'whisper' | 'transcript' | 'none';
+  cached: boolean;
+  elapsed_seconds: number;
+  words: Array<{ word: string; start: number; end: number }>;
+  events: SubtitlePreviewEvent[];
+}
+
 export interface RenderSettings {
   renderEngine?: 'server' | 'client';
   aspectRatio: AspectRatioOption;

@@ -12,30 +12,33 @@ Alur per klip: unduh segmen ([[unduhan-raw]]) → transkripsi kata + file `.ass`
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/render.py` | `start_batch_render` | L37-98 | `POST /api/render-batch`, buat status awal, jadwalkan background task |
-| `backend/routers/render.py` | `retry_batch_rendering` | L102-146 | `POST /api/render-batch/{id}/retry` |
-| `backend/routers/render.py` | `get_render_progress` | L150-185 | `GET /api/render-progress/{id}` (SSE) |
-| `backend/routers/render.py` | `download_rendered_file` | L189-202 | `GET /api/download-rendered/{file}` |
-| `backend/routers/render.py` | `download_batch_zip` | L206-233 | `GET /api/download-batch-zip/{id}` |
-| `backend/routers/render.py` | `get_hardware_acceleration_status` | L237-278 | `GET /api/hardware-accel` |
+| `backend/routers/render.py` | `start_batch_render` | L39-100 | `POST /api/render-batch`, buat status awal, jadwalkan background task |
+| `backend/routers/render.py` | `retry_batch_rendering` | L104-148 | `POST /api/render-batch/{id}/retry` |
+| `backend/routers/render.py` | `get_render_progress` | L152-187 | `GET /api/render-progress/{id}` (SSE) |
+| `backend/routers/render.py` | `download_rendered_file` | L191-204 | `GET /api/download-rendered/{file}` |
+| `backend/routers/render.py` | `download_batch_zip` | L208-235 | `GET /api/download-batch-zip/{id}` |
+| `backend/routers/render.py` | `get_hardware_acceleration_status` | L239-280 | `GET /api/hardware-accel` |
+| `backend/routers/render.py` | `preview_clip_subtitles` | L285-292 | #36a: `POST /api/preview-subtitles` (422 rentang tidak valid, 500 dengan detail). Lihat [[subtitle-dan-judul]] |
 | `backend/services/render_service.py` | state job di memori | L23-26 | `RENDER_BATCHES`, `BATCH_REQUESTS`, `_RENDER_SEMAPHORE = Semaphore(1)` |
-| `backend/services/render_service.py` | `process_batch_rendering` | L537-589 | Normalisasi URL sumber, mode `separate` atau `merged` |
-| `backend/services/render_service.py` | `render_single_batch_clip` | L29-243 | Satu klip: unduh (L54), subtitle/judul (L74), render (L174) |
-| `backend/services/render_service.py` | `render_merged_batch_clips` | L298-534 | Gabung beberapa segmen jadi satu video highlight |
-| `backend/services/render_service.py` | `update_batch_summary_and_zip` | L246-295 | ZIP hasil (di `TEMP_DIR`, L259) + status akhir batch |
-| `backend/services/render_service.py` | `process_batch_retry` | L592-645 | Render ulang klip yang gagal |
+| `backend/services/render_service.py` | `process_batch_rendering` | L555-595 | Normalisasi URL sumber (`resolve_source_url`), mode `separate` atau `merged` |
+| `backend/services/render_service.py` | `resolve_source_url` | L29-44 | #36a: normalisasi URL sumber (upload/gdrive -> `/api/video/<id>`, selain itu URL watch YouTube), dipakai render dan pratinjau subtitle. `process_batch_retry` masih punya salinan sendiri |
+| `backend/services/render_service.py` | `render_single_batch_clip` | L47-261 | Satu klip: unduh (L72), subtitle/judul (L92), render (L192) |
+| `backend/services/render_service.py` | `render_merged_batch_clips` | L316-552 | Gabung beberapa segmen jadi satu video highlight |
+| `backend/services/render_service.py` | `update_batch_summary_and_zip` | L264-313 | ZIP hasil (di `TEMP_DIR`, L277) + status akhir batch |
+| `backend/services/render_service.py` | `process_batch_retry` | L598-651 | Render ulang klip yang gagal |
 | `backend/schemas/render.py` | `RenderSettingsModel` | L10-62 | Semua opsi render dari Clip Studio, termasuk `subtitle_replacements` (#11, model `SubtitleReplacement` L5-8). Lihat [[subtitle-dan-judul]] |
+| `backend/schemas/render.py` | `PreviewSubtitlesRequest` | L73-81 | #36a: `video_url`, `video_id`, rentang, `transcript`, `cookies`, `subtitle_replacements`, `text_case` |
 | `backend/schemas/render.py` | `RenderBatchRequest` | L64-70 | `video_url`, `video_id`, `clips`, `settings`, `transcript`, `cookies` |
-| `backend/video_engine.py` | `render_clip_to_mp4` | L2910-3245 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
-| `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2576-2891 | Layout, crop, background blur, preset streamer, rasio aspek |
-| `backend/video_engine.py` | `check_has_audio` | L2894-2907 | Cek trek audio sumber |
+| `backend/video_engine.py` | `render_clip_to_mp4` | L2936-3271 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
+| `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2602-2917 | Layout, crop, background blur, preset streamer, rasio aspek |
+| `backend/video_engine.py` | `check_has_audio` | L2920-2933 | Cek trek audio sumber |
 | `backend/video_engine.py` | `is_valid_mp4` | L437-493 | Validasi output dengan ffprobe/decode |
 | `backend/video_engine.py` | `ENCODER_CONFIGS` | L292-297 | Argumen nvenc/amf/qsv/cpu. AMF di L294: `-quality balanced -rc vbr_peak -b:v 12M -maxrate 16M -bufsize 24M` (task #9, sebelumnya `speed`/`cbr` 6M). Ikut dipakai metode 2 unduhan dan trim lokal lewat `ACTIVE_ENCODER_ARGS` |
 | `backend/video_engine.py` | `detect_hardware_support` | L302-328 | Deteksi GPU, hasil di-cache |
 | `backend/video_engine.py` | `get_preferred_video_encoder` | L331-346 | Pilih encoder saat modul diimpor |
 | `backend/video_engine.py` | `resolve_encoder` | L349-365 | Encoder sesuai pilihan `hardware_accel` user |
 | `backend/video_engine.py` | `check_encoder_support` | L278-289 | Uji encoder dengan kanvas 1080x1920 |
-| `backend/video_engine.py` | `extract_clip_frame` | L3248-3384 | Frame pratinjau (`GET /api/clip-frame`) |
+| `backend/video_engine.py` | `extract_clip_frame` | L3274-3410 | Frame pratinjau (`GET /api/clip-frame`) |
 
 ## Input / output
 - Input: `RenderBatchRequest` dari `handleStartBatchRender` di [[frontend-app]] (pengaturan dari [[clip-studio]]).

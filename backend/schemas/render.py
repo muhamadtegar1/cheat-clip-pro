@@ -69,6 +69,17 @@ class RenderBatchRequest(BaseModel):
     transcript: Optional[List[Dict[str, Any]]] = None
     cookies: Optional[str] = None
 
+# Task #36a: subtitle asli (Whisper) untuk pratinjau Clip Studio sebelum render
+class PreviewSubtitlesRequest(BaseModel):
+    video_url: Optional[str] = None
+    video_id: str = Field(..., min_length=1, max_length=300)
+    start_time: float = Field(..., ge=0)
+    end_time: float = Field(..., gt=0)
+    transcript: Optional[List[Dict[str, Any]]] = None
+    cookies: Optional[str] = None
+    subtitle_replacements: Optional[List[SubtitleReplacement]] = Field(None, max_length=100)
+    text_case: str = "uppercase"
+
 class RetryBatchRequest(BaseModel):
     clip_indices: Optional[List[int]] = None
     cookies: Optional[str] = None

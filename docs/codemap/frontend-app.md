@@ -10,7 +10,7 @@ React 19 + Vite. Hampir semua UI dan state ada di satu komponen `App` (`src/App.
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `src/App.tsx` | `App` | L31-4996 | Komponen utama |
+| `src/App.tsx` | `App` | L31-4997 | Komponen utama |
 | `src/App.tsx` | state form + preferensi | L32-143 | URL, sumber, draf input API key + `geminiKeyStatus` (L55-60), model, durasi, jumlah klip, rentang, subtitle manual |
 | `src/App.tsx` | `handleAnalyze` | L1351-1721 | Upload audio (bila upload), cek cache, `POST /api/analyze`, baca stream SSE, simpan cache |
 | `src/App.tsx` | kirim request + baca stream SSE | L1560-1676 | `fetch('/api/analyze')`, `response.body.getReader()`, parsing event |
@@ -36,8 +36,8 @@ React 19 + Vite. Hampir semua UI dan state ada di satu komponen `App` (`src/App.
 | `src/App.tsx` | JSX riwayat | L3317-3682 | Daftar analisis sebelumnya |
 | `src/App.tsx` | JSX progres | L3811-4016 | Bar progres + stepper 4 langkah (saat `loading`) |
 | `src/App.tsx` | JSX dashboard hasil | L4017-4862 | Player, heatmap, ringkasan AI, kartu klip (L4351-4862; `ClipTierBadges` di header L4649 dan `ClipScorePanel` sesudah kutipan L4678, #1b; `ClipChoiceControls` L4680, #35; tombol Pilihan CSV/JSON di toolbar L4507-4526) |
-| `src/App.tsx` | JSX Clip Studio + modal | L4885-4993 | `ClipStudioSection`, `CookiesModal`, `AppUpdateModal`, `ClipTrimmerModal` |
-| `src/types.ts` | tipe bersama | L1-224 | `AnalyzeResponse`, `ViralClip` (dengan `scores`, `score_reason`, `needs_context`, `score_label` dari #1), `ClipScores`, `ClipChoice`/`ClipChoiceRecord` (#35), `SubtitleReplacement` + `RenderSettings.subtitleReplacements` (#11), `BatchRenderProgress` |
+| `src/App.tsx` | JSX Clip Studio + modal | L4885-4994 | `ClipStudioSection` (dengan `transcript` untuk pratinjau subtitle #36a, L4907), `CookiesModal`, `AppUpdateModal`, `ClipTrimmerModal` |
+| `src/types.ts` | tipe bersama | L1-243 | `AnalyzeResponse`, `ViralClip` (dengan `scores`, `score_reason`, `needs_context`, `score_label` dari #1), `ClipScores`, `ClipChoice`/`ClipChoiceRecord` (#35), `SubtitleReplacement` + `RenderSettings.subtitleReplacements` (#11), `SubtitlePreviewEvent`/`SubtitlePreviewResponse` (#36a), `BatchRenderProgress` |
 | `src/components/ClipScorePanel.tsx` | `ClipTierBadges` | L19-52 | #1b: pil label relatif Prioritas/Cadangan + lencana "Butuh konteks" di header kartu |
 | `src/components/ClipScorePanel.tsx` | `ClipScorePanel` | L54-96 | #1b: bar 6-7 skor dimensi + `score_reason`; tidak dirender untuk klip tanpa skor |
 | `src/utils/clipScores.ts` | `computeClipTiers` | L23-34 | #1b: sekitar 30% teratas klip bertanda skor (ceil, minimal 1, skor sama dengan batas ikut) = `priority`, sisanya `backup`; kunci `clipKey` = `start_end` |

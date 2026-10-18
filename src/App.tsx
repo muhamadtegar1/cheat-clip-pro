@@ -4904,6 +4904,7 @@ Transcript:
           }}
           onRetryClip={handleRetryBatchClip}
           allowAppUpdates={allowAppUpdates}
+          transcript={result.transcript}
         />
       )}
 

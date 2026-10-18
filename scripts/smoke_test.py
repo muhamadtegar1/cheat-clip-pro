@@ -899,6 +899,97 @@ def run_subtitle_fix_check(work_dir: Path) -> None:
         report(name, False, repr(e))
 
 
+def run_subtitle_preview_check(client, config, video_name: str, work_dir: Path) -> None:
+    """Task #36a: build_subtitle_events = baris Dialogue render (hash acuan dari kode sebelum #36a), dan endpoint
+    POST /api/preview-subtitles pada video sintetis dengan Whisper dipalsukan (cache, kamus, fallback, segmen dihapus)."""
+    name = "pratinjau subtitle (#36a)"
+    try:
+        import hashlib
+        import re
+        from backend.video_engine import build_subtitle_events, format_ass_timestamp, generate_ass_file
+        import backend.services.subtitle_preview_service as preview_svc
+
+        problems = []
+        words = [{"word": w, "start": s, "end": e} for w, s, e in [
+            ("halo", 0.0, 0.4), ("Yutub,", 0.5, 0.9), ("eh", 1.0, 1.2), ("channel", 1.3, 1.7), ("ini", 1.75, 1.9),
+            ("sangat", 1.95, 2.1), ("menarik.", 2.15, 2.4), ("Kenapa?", 3.2, 3.6), ("karena", 3.65, 3.9),
+            ("kita", 3.95, 4.1), ("semua", 4.12, 4.3), ("suka", 4.35, 4.6), ("konten", 4.62, 5.0),
+            ("panjangbanget123456789", 5.05, 5.6), ("ok", 5.61, 5.62)]]
+        cases = (("viral_pop", "uppercase", None),
+                 ("clean_minimal", "none", [{"from": "yutub", "to": "YouTube"}, {"from": "eh", "to": ""}]),
+                 ("fire_red", "capitalize", None))
+        blocks = []
+        for i, (style, text_case, reps) in enumerate(cases):
+            ass_path = work_dir / f"preview36_{i}.ass"
+            generate_ass_file(words=words, style_preset=style, font_name="Outfit", output_ass_path=str(ass_path),
+                              text_case=text_case, duration_seconds=6.0, word_replacements=reps)
+            lines = [ln for ln in ass_path.read_text(encoding="utf-8").splitlines() if ln.startswith("Dialogue: 0,")]
+            blocks.append("\n".join(lines))
+            events = build_subtitle_events(words, text_case, reps)
+            if len(events) != len(lines):
+                problems.append(f"{style}: {len(events)} event vs {len(lines)} baris Dialogue")
+                continue
+            for ev, ln in zip(events, lines):
+                parts = ln.split(",", 3)
+                text = re.sub(r"\{[^}]*\}", "", ln.split(",,", 1)[-1].split("}", 1)[-1])
+                if (parts[1], parts[2]) != (format_ass_timestamp(ev["start"]), format_ass_timestamp(ev["end"])) \
+                        or text.split() != " ".join(ev["words"]).split():
+                    problems.append(f"{style}: event tidak sama dengan baris Dialogue ({ln[:60]})")
+                    break
+        digest = hashlib.sha256("\n----\n".join(blocks).encode()).hexdigest()
+        if digest != "c1560aac716f62901fda0306e87ae71de3d36c8db68e3703b5ac14509b60a9fd":
+            problems.append(f"baris Dialogue berubah dari acuan sebelum #36a (hash {digest[:12]})")
+
+        calls = []
+        fake_words = [{"word": "halo", "start": 0.1, "end": 0.5}, {"word": "yutub", "start": 0.6, "end": 1.0},
+                      {"word": "semua.", "start": 1.1, "end": 1.6}]
+
+        def fake_transcribe(path, fallback, start, end):
+            calls.append(path)
+            if path:
+                return [] if start >= 20 else [dict(w) for w in fake_words]
+            return [{"word": "dari", "start": 0.0, "end": 0.5}, {"word": "transkrip", "start": 0.5, "end": 1.0}] if fallback else []
+
+        original = preview_svc.transcribe_clip_words
+        preview_svc.transcribe_clip_words = fake_transcribe
+        preview_svc._WORDS_CACHE.clear()
+        try:
+            body = {"video_url": f"/api/video/{video_name}", "video_id": Path(video_name).stem, "start_time": 5.0,
+                    "end_time": 15.0, "text_case": "uppercase", "subtitle_replacements": [{"from": "yutub", "to": "YouTube"}],
+                    "transcript": [{"start": 20.0, "end": 25.0, "text": "dari transkrip"}]}
+            r1 = client.post("/api/preview-subtitles", json=body)
+            d1 = r1.json() if r1.status_code == 200 else {}
+            if r1.status_code != 200 or d1.get("source") != "whisper" or d1.get("cached"):
+                problems.append(f"panggilan pertama: HTTP {r1.status_code}, {str(d1)[:120]}")
+            elif d1["events"] != build_subtitle_events(fake_words, "uppercase", [{"from": "yutub", "to": "YouTube"}]):
+                problems.append("event endpoint tidak sama dengan build_subtitle_events")
+            elif "YOUTUBE" not in " ".join(" ".join(e["words"]) for e in d1["events"]):
+                problems.append("kamus #11 tidak diterapkan")
+            r2 = client.post("/api/preview-subtitles", json={**body, "text_case": "lowercase"})
+            d2 = r2.json() if r2.status_code == 200 else {}
+            if r2.status_code != 200 or not d2.get("cached") or len(calls) != 1:
+                problems.append(f"cache tidak kena (HTTP {r2.status_code}, transcribe dipanggil {len(calls)}x)")
+            elif "youtube" not in " ".join(" ".join(e["words"]) for e in d2["events"]):
+                problems.append("text_case lowercase tidak diterapkan dari cache")
+            r3 = client.post("/api/preview-subtitles", json={**body, "start_time": 20.0, "end_time": 30.0})
+            d3 = r3.json() if r3.status_code == 200 else {}
+            if r3.status_code != 200 or d3.get("source") != "transcript" or not d3.get("events"):
+                problems.append(f"fallback transkrip: HTTP {r3.status_code}, {str(d3)[:120]}")
+            r4 = client.post("/api/preview-subtitles", json={**body, "start_time": 9.0, "end_time": 9.0})
+            if r4.status_code != 422:
+                problems.append(f"rentang kosong tidak ditolak (HTTP {r4.status_code})")
+        finally:
+            preview_svc.transcribe_clip_words = original
+            preview_svc._WORDS_CACHE.clear()
+        leftover = [p.name for p in Path(config.TEMP_DIR).glob("preview_*")]
+        if leftover:
+            problems.append(f"segmen pratinjau tertinggal: {leftover}")
+        report(name, not problems, "; ".join(problems) or
+               "event = baris Dialogue di 3 gaya, hash acuan sama, endpoint whisper/cache/text_case/fallback transkrip/422, segmen dihapus")
+    except Exception as e:
+        report(name, False, repr(e))
+
+
 def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
     targets = list(paths)
     if batch_id:
@@ -969,6 +1060,7 @@ def main() -> int:
         run_choices_check(config)
         run_guardrail_check()
         run_subtitle_fix_check(work_dir)
+        run_subtitle_preview_check(client, config, video_name, work_dir)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

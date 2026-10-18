@@ -26,6 +26,24 @@ BATCH_REQUESTS: Dict[str, RenderBatchRequest] = {}
 _RENDER_SEMAPHORE = asyncio.Semaphore(1)
 
 
+def resolve_source_url(video_url: Optional[str], video_id: Optional[str]) -> str:
+    """Normalize video URL for history or direct URL (dipakai render dan pratinjau subtitle #36a)."""
+    target_url = (video_url or "").strip()
+    if not target_url:
+        if video_id and (video_id.startswith("gdrive_") or video_id.startswith("upload_")):
+            target_url = f"/api/video/{video_id}"
+        elif video_id:
+            target_url = f"https://www.youtube.com/watch?v={video_id}"
+    elif not target_url.startswith("http") and not target_url.startswith("/api/video/"):
+        if video_id and (video_id.startswith("gdrive_") or video_id.startswith("upload_")):
+            target_url = f"/api/video/{video_id}"
+        elif video_id:
+            target_url = f"https://www.youtube.com/watch?v={video_id}"
+        else:
+            target_url = f"https://www.youtube.com/watch?v={target_url}"
+    return target_url
+
+
 async def render_single_batch_clip(
     batch_id: str,
     idx: int,
@@ -544,19 +562,7 @@ async def process_batch_rendering(batch_id: str, request: RenderBatchRequest):
         settings = request.settings
 
         # Normalize video URL for history or direct URL
-        target_url = (request.video_url or "").strip()
-        if not target_url:
-            if request.video_id and (request.video_id.startswith("gdrive_") or request.video_id.startswith("upload_")):
-                target_url = f"/api/video/{request.video_id}"
-            elif request.video_id:
-                target_url = f"https://www.youtube.com/watch?v={request.video_id}"
-        elif not target_url.startswith("http") and not target_url.startswith("/api/video/"):
-            if request.video_id and (request.video_id.startswith("gdrive_") or request.video_id.startswith("upload_")):
-                target_url = f"/api/video/{request.video_id}"
-            elif request.video_id:
-                target_url = f"https://www.youtube.com/watch?v={request.video_id}"
-            else:
-                target_url = f"https://www.youtube.com/watch?v={target_url}"
+        target_url = resolve_source_url(request.video_url, request.video_id)
 
         cookies_content = getattr(request, "cookies", None)
         is_merged = bool(settings and getattr(settings, "render_mode", "separate") == "merged")

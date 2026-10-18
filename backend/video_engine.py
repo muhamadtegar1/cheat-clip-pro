@@ -1734,6 +1734,114 @@ def apply_word_replacement(raw_text: str, mapping: Dict[str, str]) -> str:
     return replacement.rstrip(_REPLACEMENT_TRAILING_PUNCT) + raw_text[len(core):]
 
 
+def build_subtitle_events(
+    words: List[Dict[str, Any]],
+    text_case: str = "uppercase",
+    word_replacements: Optional[List[Any]] = None
+) -> List[Dict[str, Any]]:
+    """
+    Task #36a: langkah A-D subtitle karaoke dari generate_ass_file sebagai fungsi murni, dipakai render (.ass)
+    dan pratinjau Clip Studio (/api/preview-subtitles) agar keduanya identik.
+    Mengembalikan event {"start", "end", "words": [teks, belum di-escape ASS], "active": indeks kata aktif},
+    waktu relatif awal klip, urut sesuai baris Dialogue yang ditulis generate_ass_file.
+    """
+    events: List[Dict[str, Any]] = []
+    if not words:
+        return events
+    # Step A: Sanitize and sort all word timestamps
+    valid_words = []
+    # Task #11: kamus koreksi kata dari Clip Studio, diterapkan sebelum kapitalisasi text_case
+    replacement_map = build_word_replacement_map(word_replacements)
+    for w in words:
+        raw_text = clean_caption_text(w.get("word", "").strip())
+        raw_text = apply_word_replacement(raw_text, replacement_map)
+        if not raw_text:
+            continue
+        w_text = apply_text_case(raw_text, text_case)
+        st = max(0.0, float(w.get("start", 0.0)))
+        et = max(st + 0.15, float(w.get("end", st + 0.25)))
+        valid_words.append({"word_text": w_text, "start": st, "end": et, "raw": w})
+
+    valid_words.sort(key=lambda x: x["start"])
+
+    # Step B: Pack into compact chunks (1 to 3 words, max 22 chars) to strictly guarantee 1 single line
+    # Split on natural speech pauses (>= 0.38s) or sentence-ending punctuation so words don't hang over silences
+    chunks = []
+    current_chunk = []
+    current_chars = 0
+    for item in valid_words:
+        w_len = len(item["word_text"])
+        has_pause = bool(current_chunk and (item["start"] - current_chunk[-1]["end"] >= 0.38))
+        ends_sentence = bool(current_chunk and any(current_chunk[-1]["word_text"].endswith(p) for p in [".", "?", "!"]))
+        if len(current_chunk) >= 3 or has_pause or ends_sentence or (current_chunk and (current_chars + w_len > 22)):
+            chunks.append(current_chunk)
+            current_chunk = [item]
+            current_chars = w_len
+        else:
+            current_chunk.append(item)
+            current_chars += w_len + 1
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    # Step C: Enforce strictly non-overlapping, monotonically increasing chunk boundaries
+    chunk_bounds = []
+    for chunk in chunks:
+        c_start = chunk[0]["start"]
+        c_end = max(c_start + 0.35, chunk[-1]["end"] + 0.12)
+        if chunk_bounds:
+            prev_end = chunk_bounds[-1][1]
+            if c_start < prev_end:
+                c_start = prev_end
+            if c_end <= c_start:
+                c_end = c_start + 0.28
+        chunk_bounds.append((c_start, c_end))
+
+    # Clamp against subsequent chunk start times to eliminate any inter-chunk overlaps
+    for i in range(len(chunk_bounds) - 1):
+        cur_s, cur_e = chunk_bounds[i]
+        nxt_s, nxt_e = chunk_bounds[i + 1]
+        if cur_e > nxt_s:
+            split_pt = max(cur_s + 0.28, nxt_s)
+            chunk_bounds[i] = (cur_s, split_pt)
+            if nxt_s < split_pt:
+                chunk_bounds[i + 1] = (split_pt, max(split_pt + 0.28, nxt_e))
+
+    # Step D: Partition each chunk into strictly contiguous active-word time slices
+    for chunk_idx, chunk in enumerate(chunks):
+        c_start, c_end = chunk_bounds[chunk_idx]
+        if c_end <= c_start:
+            c_end = c_start + 0.25
+        num_words = len(chunk)
+
+        if num_words == 1:
+            time_slices = [(c_start, c_end)]
+        else:
+            points = [c_start]
+            for w_i in range(1, num_words):
+                raw_st = chunk[w_i]["start"]
+                # Enforce minimum 0.16s per word to eliminate micro-flickering while preserving acoustic sync
+                min_allowed = points[-1] + 0.16
+                max_allowed = c_end - 0.16 * (num_words - w_i)
+                if min_allowed > max_allowed:
+                    pt = points[-1] + (c_end - points[-1]) / (num_words - w_i + 1)
+                else:
+                    pt = max(min_allowed, min(max_allowed, raw_st))
+                points.append(pt)
+            points.append(c_end)
+            time_slices = [(points[k], points[k + 1]) for k in range(num_words)]
+
+        for active_idx, (w_start, w_end) in enumerate(time_slices):
+            if w_end <= w_start:
+                continue
+            events.append({
+                "start": w_start,
+                "end": w_end,
+                "words": [item["word_text"] for item in chunk],
+                "active": active_idx,
+            })
+    return events
+
+
 def generate_ass_file(
     words: List[Dict[str, Any]],
     style_preset: str,
@@ -2004,106 +2112,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     # 4. Add Subtitle Events if captions are enabled (guaranteed ZERO vertical glitch / jumping)
     if words and style_preset != "none":
-        # Step A: Sanitize and sort all word timestamps
-        valid_words = []
-        # Task #11: kamus koreksi kata dari Clip Studio, diterapkan sebelum kapitalisasi text_case
-        replacement_map = build_word_replacement_map(word_replacements)
-        for w in words:
-            raw_text = clean_caption_text(w.get("word", "").strip())
-            raw_text = apply_word_replacement(raw_text, replacement_map)
-            if not raw_text:
-                continue
-            w_text = escape_ass_text(apply_text_case(raw_text, text_case))
-            st = max(0.0, float(w.get("start", 0.0)))
-            et = max(st + 0.15, float(w.get("end", st + 0.25)))
-            valid_words.append({"word_text": w_text, "start": st, "end": et, "raw": w})
+        # Task #36a: langkah A-D ada di build_subtitle_events (dipakai juga oleh pratinjau Clip Studio)
+        for sub_event in build_subtitle_events(words, text_case, word_replacements):
+            w_start, w_end = sub_event["start"], sub_event["end"]
+            active_idx = sub_event["active"]
+            line_parts = []
+            for idx, word_text in enumerate(sub_event["words"]):
+                w_txt = escape_ass_text(word_text)
+                if idx == active_idx:
+                    # Highlight active word with color only (no font scale or bold toggle so metrics stay 100% identical)
+                    line_parts.append(r"{\c" + highlight_color + r"\3c" + outline_color + r"}" + w_txt + r"{\c" + primary_color + r"\3c" + outline_color + r"}")
+                else:
+                    line_parts.append(w_txt)
 
-        valid_words.sort(key=lambda x: x["start"])
-
-        # Step B: Pack into compact chunks (1 to 3 words, max 22 chars) to strictly guarantee 1 single line
-        # Split on natural speech pauses (>= 0.38s) or sentence-ending punctuation so words don't hang over silences
-        chunks = []
-        current_chunk = []
-        current_chars = 0
-        for item in valid_words:
-            w_len = len(item["word_text"])
-            has_pause = bool(current_chunk and (item["start"] - current_chunk[-1]["end"] >= 0.38))
-            ends_sentence = bool(current_chunk and any(current_chunk[-1]["word_text"].endswith(p) for p in [".", "?", "!"]))
-            if len(current_chunk) >= 3 or has_pause or ends_sentence or (current_chunk and (current_chars + w_len > 22)):
-                chunks.append(current_chunk)
-                current_chunk = [item]
-                current_chars = w_len
-            else:
-                current_chunk.append(item)
-                current_chars += w_len + 1
-        if current_chunk:
-            chunks.append(current_chunk)
-
-        # Step C: Enforce strictly non-overlapping, monotonically increasing chunk boundaries
-        chunk_bounds = []
-        for chunk in chunks:
-            c_start = chunk[0]["start"]
-            c_end = max(c_start + 0.35, chunk[-1]["end"] + 0.12)
-            if chunk_bounds:
-                prev_end = chunk_bounds[-1][1]
-                if c_start < prev_end:
-                    c_start = prev_end
-                if c_end <= c_start:
-                    c_end = c_start + 0.28
-            chunk_bounds.append((c_start, c_end))
-
-        # Clamp against subsequent chunk start times to eliminate any inter-chunk overlaps
-        for i in range(len(chunk_bounds) - 1):
-            cur_s, cur_e = chunk_bounds[i]
-            nxt_s, nxt_e = chunk_bounds[i + 1]
-            if cur_e > nxt_s:
-                split_pt = max(cur_s + 0.28, nxt_s)
-                chunk_bounds[i] = (cur_s, split_pt)
-                if nxt_s < split_pt:
-                    chunk_bounds[i + 1] = (split_pt, max(split_pt + 0.28, nxt_e))
-
-        # Step D: Partition each chunk into strictly contiguous active-word time slices
-        for chunk_idx, chunk in enumerate(chunks):
-            c_start, c_end = chunk_bounds[chunk_idx]
-            if c_end <= c_start:
-                c_end = c_start + 0.25
-            num_words = len(chunk)
-
-            if num_words == 1:
-                time_slices = [(c_start, c_end)]
-            else:
-                points = [c_start]
-                for w_i in range(1, num_words):
-                    raw_st = chunk[w_i]["start"]
-                    # Enforce minimum 0.16s per word to eliminate micro-flickering while preserving acoustic sync
-                    min_allowed = points[-1] + 0.16
-                    max_allowed = c_end - 0.16 * (num_words - w_i)
-                    if min_allowed > max_allowed:
-                        pt = points[-1] + (c_end - points[-1]) / (num_words - w_i + 1)
-                    else:
-                        pt = max(min_allowed, min(max_allowed, raw_st))
-                    points.append(pt)
-                points.append(c_end)
-                time_slices = [(points[k], points[k + 1]) for k in range(num_words)]
-
-            for active_idx, (w_start, w_end) in enumerate(time_slices):
-                if w_end <= w_start:
-                    continue
-
-                line_parts = []
-                for idx, item in enumerate(chunk):
-                    w_txt = item["word_text"]
-                    if idx == active_idx:
-                        # Highlight active word with color only (no font scale or bold toggle so metrics stay 100% identical)
-                        line_parts.append(r"{\c" + highlight_color + r"\3c" + outline_color + r"}" + w_txt + r"{\c" + primary_color + r"\3c" + outline_color + r"}")
-                    else:
-                        line_parts.append(w_txt)
-
-                styled_line = " ".join(line_parts)
-                # Lock position to sub_y with \q2\an{sub_align}\pos(center_x, sub_y)
-                events.append(
-                    f"Dialogue: 0,{format_ass_timestamp(w_start)},{format_ass_timestamp(w_end)},SubStyle,,0,0,0,,{{\\q2\\an{sub_align}\\pos({center_x},{sub_y})}}{styled_line}"
-                )
+            styled_line = " ".join(line_parts)
+            # Lock position to sub_y with \q2\an{sub_align}\pos(center_x, sub_y)
+            events.append(
+                f"Dialogue: 0,{format_ass_timestamp(w_start)},{format_ass_timestamp(w_end)},SubStyle,,0,0,0,,{{\\q2\\an{sub_align}\\pos({center_x},{sub_y})}}{styled_line}"
+            )
 
     ass_content = ass_header + "\n".join(events) + "\n"
     os.makedirs(os.path.dirname(os.path.abspath(output_ass_path)), exist_ok=True)

@@ -1,6 +1,14 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLanguage } from '../locales';
 import { resilientFetch } from '../utils/api';
+import { getStoredCookies } from '../utils/cookieUtils';
+import {
+  SUBTITLE_HIGHLIGHT_COLORS,
+  fetchSubtitlePreview,
+  findActiveSubtitleEvent,
+  groupSubtitleChunks,
+  subtitlePreviewSignature,
+} from '../utils/subtitlePreview';
 import type {
   ViralClip,
   RenderSettings,
@@ -19,8 +27,13 @@ import type {
   HardwareAccelOption,
   HardwareAccelInfo,
   SubtitleReplacement,
+  SubtitlePreviewResponse,
+  TranscriptLine,
   FontItem,
 } from '../types';
+
+// Task #36a: status subtitle pratinjau per klip
+type SubtitlePreviewEntry = { status: 'loading' | 'ready' | 'error'; data?: SubtitlePreviewResponse; error?: string; signature?: string };
 
 interface ClipStudioSectionProps {
   videoUrl: string;
@@ -36,6 +49,8 @@ interface ClipStudioSectionProps {
   onDismissProgress?: () => void;
   onRetryClip?: (clipIndex?: number) => void;
   allowAppUpdates?: boolean;
+  /** Task #36a: transkrip analisis, fallback pratinjau subtitle bila Whisper tidak tersedia */
+  transcript?: TranscriptLine[];
 }
 
 function getFriendlyErrorMessage(rawMsg: string): string {
@@ -280,6 +295,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   onDismissProgress,
   onRetryClip,
   allowAppUpdates = false,
+  transcript,
 }) => {
   const { t } = useLanguage();
   // Directly reflect marked clips (supports selecting 0 clips)
@@ -512,6 +528,40 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
 
   const currentPreviewClip = allClips[previewClipIndex] || allClips[0] || null;
   const clipStart = currentPreviewClip ? currentPreviewClip.start_time : 0;
+
+  // Task #36a: subtitle asli (Whisper) per klip untuk pratinjau; kunci = rentang klip, jadi klip yang di-trim mulai dari awal
+  const [subtitlePreviews, setSubtitlePreviews] = useState<Record<string, SubtitlePreviewEntry>>({});
+  const previewSubtitleKey = currentPreviewClip ? `${currentPreviewClip.start_time}_${currentPreviewClip.end_time}` : '';
+  const previewSubtitleEntry = previewSubtitleKey ? subtitlePreviews[previewSubtitleKey] : undefined;
+  const previewSubtitleEvents = previewSubtitleEntry?.data?.events;
+  const subtitleSignature = useMemo(() => subtitlePreviewSignature(activeSubtitleReplacements, textCase), [activeSubtitleReplacements, textCase]);
+
+  const requestSubtitlePreview = useCallback((clip: ViralClip) => {
+    const key = `${clip.start_time}_${clip.end_time}`;
+    setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'loading', error: undefined } }));
+    // .then/.catch (bukan try/catch) agar React Compiler tetap menganalisis komponen ini
+    return fetchSubtitlePreview({
+      videoUrl,
+      videoId,
+      startTime: clip.start_time,
+      endTime: clip.end_time,
+      transcript,
+      cookies: getStoredCookies(),
+      replacements: activeSubtitleReplacements,
+      textCase,
+    })
+      .then(data => setSubtitlePreviews(prev => ({ ...prev, [key]: { status: 'ready', data, signature: subtitleSignature } })))
+      .catch(err => setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'error', error: err instanceof Error ? err.message : String(err) } })));
+  }, [videoUrl, videoId, transcript, activeSubtitleReplacements, textCase, subtitleSignature]);
+
+  // Kamus #11 atau kapitalisasi berubah: hitung ulang event klip yang sedang dipratinjau (backend memakai cache, tanpa Whisper ulang)
+  useEffect(() => {
+    if (!currentPreviewClip || previewSubtitleEntry?.status !== 'ready' || previewSubtitleEntry.signature === subtitleSignature) return;
+    const timer = setTimeout(() => requestSubtitlePreview(currentPreviewClip), 400);
+    return () => clearTimeout(timer);
+  }, [currentPreviewClip, previewSubtitleEntry, subtitleSignature, requestSubtitlePreview]);
+  const previewSubtitleChunks = useMemo(() => groupSubtitleChunks(previewSubtitleEvents || []), [previewSubtitleEvents]);
+  const activeSubtitleEventIndex = previewSubtitleEvents ? findActiveSubtitleEvent(previewSubtitleEvents, currentTime - clipStart) : -1;
   const clipEnd = currentPreviewClip ? currentPreviewClip.end_time : 60;
   const clipDuration = Math.max(1, clipEnd - clipStart);
 
@@ -4141,6 +4191,19 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         display: 'inline-block',
                       }}
                     >
+                      {/* Task #36a: subtitle asli bila sudah dibuat untuk klip ini, selain itu contoh gaya */}
+                      {previewSubtitleEvents ? (
+                        activeSubtitleEventIndex >= 0 &&
+                        previewSubtitleEvents[activeSubtitleEventIndex].words.map((word, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 && ' '}
+                            <span style={{ color: i === previewSubtitleEvents[activeSubtitleEventIndex].active ? SUBTITLE_HIGHLIGHT_COLORS[captionStyle] : '#ffffff' }}>
+                              {word}
+                            </span>
+                          </React.Fragment>
+                        ))
+                      ) : (
+                      <>
                       {captionStyle === 'viral_pop' && (
                         <>
                           <span style={{ color: '#ffffff' }}>{applyLetterCase('VIRAL', textCase)}</span>{' '}
@@ -4181,6 +4244,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         <span style={{ color: '#ffffff' }}>
                           {applyLetterCase('CLEAN SUBTITLE', textCase)}
                         </span>
+                      )}
+                      </>
                       )}
                     </span>
                   </div>
@@ -4310,6 +4375,62 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 </div>
               </div>
             </div>
+            {/* Task #36a: subtitle asli (Whisper) untuk klip yang dipratinjau, sebelum render */}
+            {captionStyle !== 'none' && currentPreviewClip && (
+              <div className="studio-render-history-card">
+                <div className="history-card-header" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span className="history-card-title">{t.studio.subtitlePreviewTitle}</span>
+                  <button
+                    type="button"
+                    className="pill-btn"
+                    disabled={previewSubtitleEntry?.status === 'loading'}
+                    onClick={() => requestSubtitlePreview(currentPreviewClip)}
+                    style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem', opacity: previewSubtitleEntry?.status === 'loading' ? 0.6 : 1 }}
+                  >
+                    {previewSubtitleEntry?.status === 'loading'
+                      ? t.studio.subtitlePreviewLoading
+                      : previewSubtitleEntry?.data
+                      ? t.studio.subtitlePreviewRegenerate
+                      : t.studio.subtitlePreviewGenerate}
+                  </button>
+                </div>
+                <p style={{ margin: '0.35rem 0', fontSize: '0.74rem', color: previewSubtitleEntry?.status === 'error' ? '#f87171' : 'var(--text-muted)' }}>
+                  {previewSubtitleEntry?.status === 'error'
+                    ? t.studio.subtitlePreviewError(previewSubtitleEntry.error || '')
+                    : previewSubtitleEntry?.status === 'loading'
+                    ? t.studio.subtitlePreviewLoadingHint
+                    : previewSubtitleEntry?.data
+                    ? t.studio.subtitlePreviewSource(previewSubtitleEntry.data.source, previewSubtitleChunks.length)
+                    : t.studio.subtitlePreviewHint}
+                </p>
+                {previewSubtitleChunks.length > 0 && (
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                    {previewSubtitleChunks.map((chunk, i) => {
+                      const isActive = activeSubtitleEventIndex >= chunk.firstEvent && activeSubtitleEventIndex <= chunk.lastEvent;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          title={`${formatDuration(chunk.start)} · ${t.studio.subtitlePreviewSeek}`}
+                          onClick={() => handleSeek(clipStart + chunk.start)}
+                          style={{
+                            fontSize: '0.74rem',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            border: `1px solid ${isActive ? SUBTITLE_HIGHLIGHT_COLORS[captionStyle] : 'rgba(255,255,255,0.12)'}`,
+                            background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                            color: isActive ? SUBTITLE_HIGHLIGHT_COLORS[captionStyle] : 'var(--text-secondary)',
+                          }}
+                        >
+                          {chunk.text}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Studio Render History & Specs Card (under player controls so it won't be empty) */}
             <div className="studio-render-history-card">
               <div className="history-card-header">

@@ -19,6 +19,7 @@ from backend.config import (
     logger,
 )
 from backend.schemas.render import (
+    PreviewSubtitlesRequest,
     RenderBatchRequest,
     RenderSettingsModel,
     RetryBatchRequest,
@@ -29,6 +30,7 @@ from backend.services.render_service import (
     process_batch_rendering,
     process_batch_retry,
 )
+from backend.services.subtitle_preview_service import preview_subtitles
 
 router = APIRouter(tags=["Render"])
 
@@ -276,3 +278,15 @@ def get_hardware_acceleration_status():
             },
         ],
     }
+
+
+# Task #36a: subtitle asli (Whisper) untuk pratinjau Clip Studio, pemotongan sama dengan render
+@router.post("/api/preview-subtitles")
+async def preview_clip_subtitles(request: PreviewSubtitlesRequest):
+    try:
+        return await preview_subtitles(request)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.warning(f"[Subtitle Preview] Gagal membuat subtitle pratinjau: {e}")
+        raise HTTPException(status_code=500, detail=str(e) or e.__class__.__name__)
