@@ -27,7 +27,7 @@ Alur per klip: unduh segmen ([[unduhan-raw]]) → transkripsi kata + file `.ass`
 | `backend/services/render_service.py` | `update_batch_summary_and_zip` | L264-313 | ZIP hasil (di `TEMP_DIR`, L277) + status akhir batch |
 | `backend/services/render_service.py` | `process_batch_retry` | L598-651 | Render ulang klip yang gagal |
 | `backend/schemas/render.py` | `RenderSettingsModel` | L10-62 | Semua opsi render dari Clip Studio, termasuk `subtitle_replacements` (#11, model `SubtitleReplacement` L5-8). Lihat [[subtitle-dan-judul]] |
-| `backend/schemas/render.py` | `PreviewSubtitlesRequest` | L73-81 | #36a: `video_url`, `video_id`, rentang, `transcript`, `cookies`, `subtitle_replacements`, `text_case` |
+| `backend/schemas/render.py` | `PreviewSubtitlesRequest` | L73-83 | #36a: `video_url`, `video_id`, rentang, `transcript`, `cookies`, `subtitle_replacements`, `text_case`, `force` (lewati cache, tombol "Buat ulang") |
 | `backend/schemas/render.py` | `RenderBatchRequest` | L64-70 | `video_url`, `video_id`, `clips`, `settings`, `transcript`, `cookies` |
 | `backend/video_engine.py` | `render_clip_to_mp4` | L2936-3271 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
 | `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2602-2917 | Layout, crop, background blur, preset streamer, rasio aspek |

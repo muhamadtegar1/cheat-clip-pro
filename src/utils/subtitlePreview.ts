@@ -18,6 +18,8 @@ export interface SubtitlePreviewRequest {
   cookies?: string;
   replacements: SubtitleReplacement[];
   textCase: TextCaseOption;
+  /** Lewati cache backend dan jalankan Whisper lagi (tombol "Buat ulang") */
+  force?: boolean;
 }
 
 /** Warna kata aktif per gaya, sama dengan highlight_color di generate_ass_file (backend/video_engine.py). */
@@ -49,6 +51,7 @@ export const fetchSubtitlePreview = async (req: SubtitlePreviewRequest): Promise
       cookies: req.cookies || undefined,
       subtitle_replacements: req.replacements.length > 0 ? req.replacements : undefined,
       text_case: req.textCase,
+      force: req.force || undefined,
     }),
   });
   if (!res.ok) {

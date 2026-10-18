@@ -79,6 +79,8 @@ class PreviewSubtitlesRequest(BaseModel):
     cookies: Optional[str] = None
     subtitle_replacements: Optional[List[SubtitleReplacement]] = Field(None, max_length=100)
     text_case: str = "uppercase"
+    # True = lewati cache dan jalankan Whisper lagi (tombol "Buat ulang")
+    force: bool = False
 
 class RetryBatchRequest(BaseModel):
     clip_indices: Optional[List[int]] = None

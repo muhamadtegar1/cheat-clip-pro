@@ -971,6 +971,10 @@ def run_subtitle_preview_check(client, config, video_name: str, work_dir: Path) 
                 problems.append(f"cache tidak kena (HTTP {r2.status_code}, transcribe dipanggil {len(calls)}x)")
             elif "youtube" not in " ".join(" ".join(e["words"]) for e in d2["events"]):
                 problems.append("text_case lowercase tidak diterapkan dari cache")
+            r5 = client.post("/api/preview-subtitles", json={**body, "force": True})
+            d5 = r5.json() if r5.status_code == 200 else {}
+            if r5.status_code != 200 or d5.get("cached") or len(calls) != 2:
+                problems.append(f"force tidak menjalankan Whisper ulang (HTTP {r5.status_code}, transcribe dipanggil {len(calls)}x)")
             r3 = client.post("/api/preview-subtitles", json={**body, "start_time": 20.0, "end_time": 30.0})
             d3 = r3.json() if r3.status_code == 200 else {}
             if r3.status_code != 200 or d3.get("source") != "transcript" or not d3.get("events"):
@@ -985,7 +989,7 @@ def run_subtitle_preview_check(client, config, video_name: str, work_dir: Path) 
         if leftover:
             problems.append(f"segmen pratinjau tertinggal: {leftover}")
         report(name, not problems, "; ".join(problems) or
-               "event = baris Dialogue di 3 gaya, hash acuan sama, endpoint whisper/cache/text_case/fallback transkrip/422, segmen dihapus")
+               "event = baris Dialogue di 3 gaya, hash acuan sama, endpoint whisper/cache/text_case/force/fallback transkrip/422, segmen dihapus")
     except Exception as e:
         report(name, False, repr(e))
 

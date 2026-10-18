@@ -536,7 +536,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const previewSubtitleEvents = previewSubtitleEntry?.data?.events;
   const subtitleSignature = useMemo(() => subtitlePreviewSignature(activeSubtitleReplacements, textCase), [activeSubtitleReplacements, textCase]);
 
-  const requestSubtitlePreview = useCallback((clip: ViralClip) => {
+  const requestSubtitlePreview = useCallback((clip: ViralClip, force = false) => {
     const key = `${clip.start_time}_${clip.end_time}`;
     setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'loading', error: undefined } }));
     // .then/.catch (bukan try/catch) agar React Compiler tetap menganalisis komponen ini
@@ -549,6 +549,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       cookies: getStoredCookies(),
       replacements: activeSubtitleReplacements,
       textCase,
+      force,
     })
       .then(data => setSubtitlePreviews(prev => ({ ...prev, [key]: { status: 'ready', data, signature: subtitleSignature } })))
       .catch(err => setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'error', error: err instanceof Error ? err.message : String(err) } })));
@@ -4384,7 +4385,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     type="button"
                     className="pill-btn"
                     disabled={previewSubtitleEntry?.status === 'loading'}
-                    onClick={() => requestSubtitlePreview(currentPreviewClip)}
+                    onClick={() => requestSubtitlePreview(currentPreviewClip, Boolean(previewSubtitleEntry?.data))}
                     style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem', opacity: previewSubtitleEntry?.status === 'loading' ? 0.6 : 1 }}
                   >
                     {previewSubtitleEntry?.status === 'loading'

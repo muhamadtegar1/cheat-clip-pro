@@ -3,7 +3,7 @@
 Memakai jalur yang sama dengan render: normalisasi URL sumber, download_clip_segment, transcribe_clip_words,
 lalu build_subtitle_events (pemotongan yang juga dipakai generate_ass_file), sehingga pratinjau sama dengan video.
 Kata mentah di-cache di memori per (video, rentang klip); kamus koreksi (#11) dan text_case diterapkan tiap
-permintaan tanpa Whisper ulang. Whisper/FFmpeg memakai _RENDER_SEMAPHORE agar tidak berjalan bersamaan dengan render.
+permintaan tanpa Whisper ulang. force=True (tombol "Buat ulang") melewati cache dan menimpanya. Whisper/FFmpeg memakai _RENDER_SEMAPHORE agar tidak berjalan bersamaan dengan render.
 """
 import asyncio
 import os
@@ -46,13 +46,13 @@ def _transcribe_segment(raw_path: str, transcript: Optional[List[Dict[str, Any]]
 
 async def _load_words(req: PreviewSubtitlesRequest) -> Tuple[Dict[str, Any], bool]:
     key = _cache_key(req.video_id, req.start_time, req.end_time)
-    cached = _WORDS_CACHE.get(key)
+    cached = None if req.force else _WORDS_CACHE.get(key)
     if cached is not None:
         _WORDS_CACHE.move_to_end(key)
         return cached, True
 
     async with _RENDER_SEMAPHORE:
-        cached = _WORDS_CACHE.get(key)
+        cached = None if req.force else _WORDS_CACHE.get(key)
         if cached is not None:
             return cached, True
 
