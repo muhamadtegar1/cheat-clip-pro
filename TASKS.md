@@ -233,6 +233,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 36a | REVIEW | Review sesi baru: PASS |
 | 2026-10-19 | 36a | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-19 | 36b | REVIEW | Render memakai kata pratinjau/suntingan (`subtitle_words`) tanpa Whisper (separate, merged, retry); sunting per baris di Clip Studio (ketik ulang, pecah, gabung, hapus, kembalikan); `build_subtitle_events` mendukung `group` (tanpa group .ass identik, 500 masukan acak). Build lulus, lint identik, smoke 18/18, codemap lulus, uji browser dengan Whisper sungguhan |
+| 2026-10-19 | 36b | REVIEW | Review sesi baru: PASS |
 
 ***
 
