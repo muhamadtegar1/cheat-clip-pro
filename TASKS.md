@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      —
-status:          36a DONE, 32 REVIEW (golden tanpa heatmap menunggu kuota)
-langkah_berikut: #36b (sunting subtitle per klip, render memakai kata pratinjau tanpa Whisper ulang): /mulai 36b. Prioritas: uji pemilik 2026-10-19 menunjukkan Whisper base memberi hasil pratinjau dan render yang berbeda di sekitar separuh baris, jadi pratinjau #36a baru akurat setelah #36b. Pertimbangkan task terpisah untuk model Whisper lebih besar + bahasa Indonesia dikunci (ukur dulu waktu/RAM). #32: ulangi golden --no-heatmap saat kuota pulih, /review 32, /done 32. Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Lalu #22 (perlu izin pemilik, aturan no. 6)
+task_aktif:      36b
+status:          36b REVIEW, 32 REVIEW (golden tanpa heatmap menunggu kuota)
+langkah_berikut: Pemilik ulangi uji 2026-10-19 di video nyata (Buat subtitle, render tanpa sunting lalu dengan sunting, bandingkan teks; coba juga merged), /review 36b di sesi baru, lalu /done 36b. Pertimbangkan task terpisah untuk model Whisper lebih besar + bahasa Indonesia dikunci (ukur dulu waktu/RAM). #32: ulangi golden --no-heatmap saat kuota pulih, /review 32, /done 32. Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Lalu #22 (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu cukup data pilihan dari #35 (alat sudah siap). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
@@ -88,7 +88,7 @@ Preset lain: lihat `D:\Clipper\clipper app\foundation\06_SCORING_SYSTEM.md` §7�
 | 21 | Compliance checker: durasi, credit/hashtag persis, source resmi, musik/overlay terlarang                                                                                         | Baru: `backend/services/compliance_service.py` + panel ✓/⚠️ di UI                                                     | Klip yang melanggar brief tertandai sebelum ekspor             | TODO   |
 | 11 | Koreksi subtitle sebelum render                                                                                                                                                  | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `generate_ass_file` di `backend/video_engine.py` | Kata yang dikoreksi muncul benar di video hasil render         | DONE   |
 | 36a | Pratinjau subtitle asli di Clip Studio: tombol "Buat subtitle" menjalankan Whisper per kata pada segmen klip sebelum render (proses sama dengan render, dimajukan), kamus #11 diterapkan ke hasilnya, lalu subtitle karaoke tampil di pratinjau mengikuti gaya/font/posisi yang dipilih dan sinkron dengan pemutar pratinjau. Hasil disimpan sementara per klip; ditandai usang bila klip di-trim | Baru: endpoint pratranskripsi di backend (memakai `transcribe_clip_words` + segmen klip); `src/components/ClipStudioSection.tsx` (pratinjau); `src/locales/id.ts`, `src/locales/en.ts` | Kata yang akan dibakar ke video terlihat di pratinjau sebelum render, sama dengan hasil render | DONE |
-| 36b | Sunting subtitle per klip sebelum render: daftar kata/potongan dari #36a bisa diketik ulang, dihapus, dipecah, digabung (waktu kata dipertahankan); render memakai kata hasil suntingan tanpa menjalankan Whisper lagi | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `backend/services/render_service.py` (pakai kata dari request bila ada) | Kata yang dikoreksi di pratinjau muncul persis sama di video hasil render, mode separate dan merged | TODO |
+| 36b | Sunting subtitle per klip sebelum render: daftar kata/potongan dari #36a bisa diketik ulang, dihapus, dipecah, digabung (waktu kata dipertahankan); render memakai kata hasil suntingan tanpa menjalankan Whisper lagi | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `backend/services/render_service.py` (pakai kata dari request bila ada) | Kata yang dikoreksi di pratinjau muncul persis sama di video hasil render, mode separate dan merged | REVIEW |
 | 22 | Posting kit (menyerap #19 dan #6): per klip MP4 + SRT + `metadata.json` (skor, prompt, versi prompt, model) + caption per platform, dibuat setelah klip dipilih                  | `backend/services/render_service.py`, `backend/routers/analyze.py`                                                    | Satu folder per klip siap unggah ke TikTok, Reels, Shorts, X   | TODO   |
 
 ### 🚦 Titik uji — 1 campaign nyata
@@ -232,6 +232,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 36a | REVIEW | Perbaikan temuan reviewer: tombol "Buat ulang" mengirim `force` sehingga Whisper benar-benar dijalankan lagi (lewati cache); smoke 17/17 dengan cek `force` |
 | 2026-10-19 | 36a | REVIEW | Review sesi baru: PASS |
 | 2026-10-19 | 36a | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-19 | 36b | REVIEW | Render memakai kata pratinjau/suntingan (`subtitle_words`) tanpa Whisper (separate, merged, retry); sunting per baris di Clip Studio (ketik ulang, pecah, gabung, hapus, kembalikan); `build_subtitle_events` mendukung `group` (tanpa group .ass identik, 500 masukan acak). Build lulus, lint identik, smoke 18/18, codemap lulus, uji browser dengan Whisper sungguhan |
 
 ***
 
