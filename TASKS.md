@@ -230,6 +230,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 36a/36b | TODO | Task baru atas permintaan pemilik: subtitle Whisper tampil di pratinjau Clip Studio sebelum render (36a), lalu bisa disunting per klip dan dipakai langsung saat render (36b). Lanjutan #11 (kamus koreksi tetap dipakai) |
 | 2026-10-19 | 36a | REVIEW | Pratinjau subtitle asli di Clip Studio: tombol "Buat subtitle" -> `POST /api/preview-subtitles` (segmen + Whisper, cache memori, `_RENDER_SEMAPHORE`), overlay karaoke sinkron pemutar + daftar potongan yang bisa diklik, kamus #11/`text_case` tanpa Whisper ulang. Langkah A-D `generate_ass_file` dipindah ke `build_subtitle_events` (.ass identik pada 400 masukan acak). Build lulus, lint identik, smoke 17/17, codemap lulus, uji browser dengan Whisper sungguhan |
 | 2026-10-19 | 36a | REVIEW | Perbaikan temuan reviewer: tombol "Buat ulang" mengirim `force` sehingga Whisper benar-benar dijalankan lagi (lewati cache); smoke 17/17 dengan cek `force` |
+| 2026-10-19 | 36a | REVIEW | Review sesi baru: PASS |
 
 ***
 
