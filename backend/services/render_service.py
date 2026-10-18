@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import os
 import re
 import subprocess
@@ -19,6 +20,7 @@ from backend.config import (
     transcribe_clip_words,
 )
 from backend.schemas.render import RenderBatchRequest, RenderSettingsModel
+from backend.video_engine import build_subtitle_events
 
 RENDER_BATCHES: Dict[str, Dict[str, Any]] = {}
 BATCH_REQUESTS: Dict[str, RenderBatchRequest] = {}
@@ -42,6 +44,78 @@ def resolve_source_url(video_url: Optional[str], video_id: Optional[str]) -> str
         else:
             target_url = f"https://www.youtube.com/watch?v={target_url}"
     return target_url
+
+
+SUBTITLE_WORDS_MAX = 3000
+SUBTITLE_WORD_MAX_CHARS = 60
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def clip_subtitle_words(clip: Dict[str, Any], duration_sec: float) -> Optional[List[Dict[str, Any]]]:
+    """
+    Task #36b: kata subtitle dari pratinjau Clip Studio (`clip["subtitle_words"]`, waktu relatif awal klip).
+    None = tidak ada (render menjalankan Whisper seperti biasa); list kosong = klip tanpa subtitle.
+    Melempar ValueError bila strukturnya tidak valid, supaya klip gagal jelas dan tidak diam-diam kembali ke Whisper.
+    """
+    raw = clip.get("subtitle_words")
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise ValueError("subtitle_words harus berupa list")
+    if len(raw) > SUBTITLE_WORDS_MAX:
+        raise ValueError(f"subtitle_words maksimal {SUBTITLE_WORDS_MAX} kata")
+    # Kata fallback transkrip bisa melewati akhir klip (baris disebar rata), jadi batasnya longgar; hanya cek kewajaran
+    limit = max(0.0, float(duration_sec)) + 60.0
+    words: List[Dict[str, Any]] = []
+    with_group = 0
+    for i, w in enumerate(raw):
+        if not isinstance(w, dict):
+            raise ValueError(f"subtitle_words[{i}] harus berupa objek")
+        text = w.get("word")
+        if not isinstance(text, str) or len(text) > SUBTITLE_WORD_MAX_CHARS:
+            raise ValueError(f"subtitle_words[{i}].word harus teks maksimal {SUBTITLE_WORD_MAX_CHARS} karakter")
+        start, end = w.get("start"), w.get("end")
+        if not _is_number(start) or not _is_number(end) or not (0.0 <= start <= end <= limit):
+            raise ValueError(f"subtitle_words[{i}] waktu tidak valid (0 <= start <= end <= {limit:.2f})")
+        item: Dict[str, Any] = {"word": text, "start": float(start), "end": float(end)}
+        group = w.get("group")
+        if group is not None:
+            if not isinstance(group, int) or isinstance(group, bool):
+                raise ValueError(f"subtitle_words[{i}].group harus bilangan bulat")
+            item["group"] = group
+            with_group += 1
+        words.append(item)
+    if 0 < with_group < len(words):
+        raise ValueError("group harus diisi untuk semua kata atau tidak sama sekali")
+    return words
+
+
+def _with_groups(words: List[Dict[str, Any]], settings: RenderSettingsModel) -> List[Dict[str, Any]]:
+    """
+    Task #36b (merged): kata tanpa group diberi group dari pemotongan otomatisnya sendiri (build_subtitle_events).
+    Group selalu dinomori ulang 0..n-1 sesuai urutan kemunculan supaya bisa digeser per segmen tanpa bentrok.
+    """
+    if not words:
+        return words
+    if all("group" in w for w in words):
+        renumber: Dict[int, int] = {}
+        for w in words:
+            renumber.setdefault(w["group"], len(renumber))
+        return [dict(w, group=renumber[w["group"]]) for w in words]
+    group_of: Dict[int, int] = {}
+    last_indices = None
+    group_id = -1
+    for ev in build_subtitle_events(words, settings.text_case or "uppercase", settings.subtitle_replacements):
+        if ev["indices"] != last_indices:
+            group_id += 1
+            last_indices = ev["indices"]
+            for w_idx in ev["indices"]:
+                group_of[w_idx] = group_id
+    # Kata yang terbuang (kosong/kamus) tetap diberi group sendiri; build_subtitle_events membuangnya lagi
+    return [dict(w, group=group_of.get(i, group_id + 1 + i)) for i, w in enumerate(words)]
 
 
 async def render_single_batch_clip(
@@ -73,6 +147,10 @@ async def render_single_batch_clip(
         start_t = float(clip.get("start_time", 0.0))
         end_t = float(clip.get("end_time", start_t + 30.0))
         seg_filename = f"{batch_id}_clip_{idx}_raw.mp4"
+        try:
+            preview_words = clip_subtitle_words(clip, end_t - start_t)
+        except ValueError as e:
+            raise RuntimeError(f"Kata subtitle pratinjau tidak valid: {e}")
 
         raw_path = await asyncio.to_thread(
             download_clip_segment,
@@ -152,7 +230,11 @@ async def render_single_batch_clip(
 
         if settings.caption_style != "none" or (display_title and settings.title_position != "none" and not skip_ass_title):
             words = []
-            if settings.caption_style != "none":
+            if settings.caption_style != "none" and preview_words is not None:
+                # Task #36b: kata dari pratinjau Clip Studio, Whisper dilewati agar video sama dengan pratinjau
+                words = preview_words
+                logger.info(f"[Subtitle] Klip {idx + 1}: memakai {len(words)} kata dari pratinjau (Whisper dilewati)")
+            elif settings.caption_style != "none":
                 words = await asyncio.to_thread(
                     transcribe_clip_words,
                     raw_path,
@@ -338,6 +420,15 @@ async def render_merged_batch_clips(
 
     try:
         total_segments = len(clips)
+        # Task #36b: kata pratinjau per segmen divalidasi sebelum mengunduh apa pun
+        segment_preview_words: List[Optional[List[Dict[str, Any]]]] = []
+        for i, seg in enumerate(clips):
+            s_t = float(seg.get("start_time", 0.0))
+            e_t = float(seg.get("end_time", s_t + 30.0))
+            try:
+                segment_preview_words.append(clip_subtitle_words(seg, e_t - s_t))
+            except ValueError as e:
+                raise RuntimeError(f"Kata subtitle pratinjau segmen {i + 1} tidak valid: {e}")
         # 1. Download / slice each segment
         for i, seg in enumerate(clips):
             clip_status["progress_percent"] = 10 + int((i / max(1, total_segments)) * 25)
@@ -392,18 +483,31 @@ async def render_merged_batch_clips(
         # 3. Transcribe & generate time-shifted subtitles
         total_duration_sec = 0.0
         merged_words = []
+        # Task #36b: bila ada segmen dengan potongan suntingan (group), semua segmen dipotong per group,
+        # segmen lain memakai pemotongan otomatisnya sendiri; nomor group digeser per segmen
+        use_groups = any(ws and "group" in ws[0] for ws in segment_preview_words if ws is not None)
+        group_offset = 0
         for i, seg in enumerate(clips):
             s_t = float(seg.get("start_time", 0.0))
             e_t = float(seg.get("end_time", s_t + 30.0))
             seg_dur = max(0.1, e_t - s_t)
             if settings.caption_style != "none":
-                seg_words = await asyncio.to_thread(
-                    transcribe_clip_words,
-                    part_paths[i],
-                    transcript,
-                    s_t,
-                    e_t
-                )
+                if segment_preview_words[i] is not None:
+                    seg_words = segment_preview_words[i]
+                    logger.info(f"[Subtitle] Segmen {i + 1}: memakai {len(seg_words)} kata dari pratinjau (Whisper dilewati)")
+                else:
+                    seg_words = await asyncio.to_thread(
+                        transcribe_clip_words,
+                        part_paths[i],
+                        transcript,
+                        s_t,
+                        e_t
+                    )
+                if use_groups and seg_words:
+                    seg_words = _with_groups(seg_words, settings)
+                    base = group_offset
+                    group_offset = base + max(int(w["group"]) for w in seg_words) + 1
+                    seg_words = [dict(w, group=base + int(w["group"])) for w in seg_words]
                 for w in seg_words:
                     w_copy = dict(w)
                     w_start = float(w.get("start", 0.0))

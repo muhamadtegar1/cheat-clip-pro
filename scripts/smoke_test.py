@@ -994,6 +994,145 @@ def run_subtitle_preview_check(client, config, video_name: str, work_dir: Path) 
         report(name, False, repr(e))
 
 
+def run_subtitle_edit_check(client, render_service, video_name: str) -> None:
+    """Task #36b: render memakai kata pratinjau (subtitle_words) tanpa Whisper, mode separate/merged/retry,
+    potongan manual (group), list kosong, masukan tidak valid, dan pratinjau dari kata suntingan."""
+    name = "subtitle suntingan dipakai render (#36b)"
+    try:
+        import re
+        from backend.video_engine import build_subtitle_events
+
+        problems = []
+
+        def ts(value: str) -> float:
+            h, m, s = value.split(":")
+            return int(h) * 3600 + int(m) * 60 + float(s)
+
+        def dialogue_rows(ass_text: str):
+            rows = []
+            for ln in ass_text.splitlines():
+                if not ln.startswith("Dialogue: 0,") or "SubStyle" not in ln:
+                    continue
+                parts = ln.split(",", 3)
+                text = re.sub(r"\{[^}]*\}", "", ln.split(",,", 1)[-1].split("}", 1)[-1])
+                rows.append((ts(parts[1]), ts(parts[2]), " ".join(text.split())))
+            return rows
+
+        def event_rows(events, shift=0.0):
+            return [(ev["start"] + shift, ev["end"] + shift, " ".join(ev["words"])) for ev in events]
+
+        def same_rows(got, want) -> bool:
+            return len(got) == len(want) and all(
+                g[2] == w[2] and abs(g[0] - w[0]) <= 0.02 and abs(g[1] - w[1]) <= 0.02 for g, w in zip(got, want))
+
+        reps = [{"from": "yutub", "to": "YouTube"}]
+        edited = [{"word": w, "start": s, "end": e, "group": g} for w, s, e, g in [
+            ("halo", 0.2, 0.5, 0), ("yutub", 0.6, 0.9, 0), ("ini", 1.0, 1.2, 1), ("suntingan", 1.25, 1.7, 1),
+            ("satu", 1.75, 1.9, 1), ("dua", 1.95, 2.1, 1), ("baris.", 2.15, 2.5, 2)]]
+        whisper_words = [{"word": w, "start": s, "end": e} for w, s, e in [
+            ("dari", 0.1, 0.4), ("whisper", 0.5, 0.9), ("palsu", 1.0, 1.4)]]
+
+        captured = []
+        calls = []
+        real_generate = render_service.generate_ass_file
+
+        def wrap_generate(**kwargs):
+            real_generate(**kwargs)
+            with open(kwargs["output_ass_path"], encoding="utf-8") as f:
+                captured.append(f.read())
+
+        def fake_transcribe(path, fallback, start, end):
+            calls.append(start)
+            return [dict(w) for w in whisper_words]
+
+        def stop_render(*args, **kwargs):
+            raise RuntimeError("smoke36b: encode dilewati")
+
+        originals = (render_service.generate_ass_file, render_service.transcribe_clip_words, render_service.render_clip_to_mp4)
+        render_service.generate_ass_file = wrap_generate
+        render_service.transcribe_clip_words = fake_transcribe
+        render_service.render_clip_to_mp4 = stop_render
+        batch_ids = []
+        settings = {"caption_style": "viral_pop", "text_case": "uppercase", "subtitle_replacements": reps,
+                    "title_position": "none", "enable_face_tracking": False, "hardware_accel": "cpu"}
+        base = {"video_url": f"/api/video/{video_name}", "video_id": Path(video_name).stem}
+
+        def render(clips, extra=None):
+            captured.clear()
+            calls.clear()
+            r = client.post("/api/render-batch", json={**base, "clips": clips, "settings": {**settings, **(extra or {})}})
+            if r.status_code != 200:
+                raise RuntimeError(f"render-batch HTTP {r.status_code}: {r.text[:120]}")
+            batch_ids.append(r.json()["batch_id"])
+            return render_service.RENDER_BATCHES.get(batch_ids[-1]) or {}
+
+        try:
+            # Pratinjau dari kata suntingan: tanpa unduh/Whisper, source edited, group dipatuhi
+            body = {**base, "start_time": 5.0, "end_time": 15.0, "text_case": "uppercase", "subtitle_replacements": reps}
+            rp = client.post("/api/preview-subtitles", json={**body, "words": edited})
+            dp = rp.json() if rp.status_code == 200 else {}
+            preview_events = dp.get("events") or []
+            lines = []
+            for ev in preview_events:
+                if not lines or lines[-1] != ev["words"]:
+                    lines.append(ev["words"])
+            if rp.status_code != 200 or dp.get("source") != "edited":
+                problems.append(f"pratinjau suntingan: HTTP {rp.status_code}, {str(dp)[:120]}")
+            elif lines != [["HALO", "YOUTUBE"], ["INI", "SUNTINGAN", "SATU", "DUA"], ["BARIS."]]:
+                problems.append(f"potongan tidak mengikuti group: {lines}")
+            bad = client.post("/api/preview-subtitles", json={**body, "words": [{"word": "x", "start": 2.0, "end": 1.0}]})
+            if bad.status_code != 422:
+                problems.append(f"kata suntingan tidak valid tidak ditolak (HTTP {bad.status_code})")
+
+            clip = {"title": "Smoke 36b", "start_time": 5.0, "end_time": 15.0}
+            # 1. Separate dengan kata suntingan: Whisper tidak dipanggil, Dialogue = event pratinjau
+            render([{**clip, "subtitle_words": edited}])
+            if calls:
+                problems.append(f"separate: Whisper tetap dipanggil {len(calls)}x")
+            elif len(captured) != 1 or not same_rows(dialogue_rows(captured[0]), event_rows(preview_events)):
+                problems.append("separate: baris Dialogue tidak sama dengan event pratinjau")
+            # 2. Retry batch memakai kata yang sama
+            r = client.post(f"/api/render-batch/{batch_ids[-1]}/retry", json={"clip_indices": [0]})
+            if r.status_code != 200 or calls or len(captured) != 2 or captured[1] != captured[0]:
+                problems.append(f"retry: HTTP {r.status_code}, Whisper {len(calls)}x, .ass {len(captured)}")
+            # 3. Tanpa kata pratinjau: Whisper tetap dipakai seperti sebelumnya
+            render([clip])
+            if len(calls) != 1:
+                problems.append(f"tanpa pratinjau: Whisper dipanggil {len(calls)}x (harap 1)")
+            # 4. List kosong: tanpa subtitle, tanpa Whisper
+            render([{**clip, "subtitle_words": []}])
+            if calls or len(captured) != 1 or dialogue_rows(captured[0]):
+                problems.append("subtitle_words [] tidak menghasilkan video tanpa subtitle")
+            # 5. Tidak valid: klip gagal dengan pesan jelas, tanpa Whisper
+            batch = render([{**clip, "subtitle_words": [{"word": "x", "start": 1.0, "end": 0.5}]}])
+            err = ((batch.get("clips") or [{}])[0].get("error_message") or "")
+            if calls or "tidak valid" not in err:
+                problems.append(f"subtitle_words tidak valid: Whisper {len(calls)}x, pesan '{err[:80]}'")
+            # 6. Merged: segmen 1 disunting (group), segmen 2 Whisper; kata digeser 4 s
+            seg1 = [w for w in edited if w["end"] <= 2.2]  # baris 0 dan 1
+            render([{**clip, "start_time": 2.0, "end_time": 6.0, "subtitle_words": seg1},
+                    {**clip, "start_time": 10.0, "end_time": 14.0}], {"render_mode": "merged"})
+            want = event_rows(build_subtitle_events(seg1, "uppercase", reps)) + \
+                event_rows(build_subtitle_events(whisper_words, "uppercase", reps), 4.0)
+            if len(calls) != 1 or calls[0] != 10.0:
+                problems.append(f"merged: Whisper dipanggil untuk {calls} (harap hanya segmen 2)")
+            elif len(captured) != 1 or not same_rows(dialogue_rows(captured[0]), want):
+                problems.append("merged: baris Dialogue tidak sama dengan event per segmen yang digeser")
+        finally:
+            (render_service.generate_ass_file, render_service.transcribe_clip_words,
+             render_service.render_clip_to_mp4) = originals
+            for bid in batch_ids:
+                for p in Path(render_service.TEMP_DIR).glob(f"*{bid}*"):
+                    p.unlink(missing_ok=True)
+                render_service.RENDER_BATCHES.pop(bid, None)
+                render_service.BATCH_REQUESTS.pop(bid, None)
+        report(name, not problems, "; ".join(problems) or
+               "pratinjau suntingan (group, 422), separate/retry tanpa Whisper dan Dialogue = pratinjau, "
+               "tanpa pratinjau tetap Whisper, [] tanpa subtitle, tidak valid gagal jelas, merged per segmen")
+    except Exception as e:
+        report(name, False, repr(e))
+
+
 def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
     targets = list(paths)
     if batch_id:
@@ -1065,6 +1204,7 @@ def main() -> int:
         run_guardrail_check()
         run_subtitle_fix_check(work_dir)
         run_subtitle_preview_check(client, config, video_name, work_dir)
+        run_subtitle_edit_check(client, render_service, video_name)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

@@ -1742,8 +1742,11 @@ def build_subtitle_events(
     """
     Task #36a: langkah A-D subtitle karaoke dari generate_ass_file sebagai fungsi murni, dipakai render (.ass)
     dan pratinjau Clip Studio (/api/preview-subtitles) agar keduanya identik.
-    Mengembalikan event {"start", "end", "words": [teks, belum di-escape ASS], "active": indeks kata aktif},
-    waktu relatif awal klip, urut sesuai baris Dialogue yang ditulis generate_ass_file.
+    Mengembalikan event {"start", "end", "words": [teks, belum di-escape ASS], "active": indeks kata aktif,
+    "indices": indeks kata masukan dalam potongan}, waktu relatif awal klip, urut sesuai baris Dialogue
+    yang ditulis generate_ass_file.
+    Task #36b: bila SEMUA kata punya "group" (int, hasil suntingan Clip Studio), langkah B memotong per group
+    berurutan tanpa aturan otomatis; tanpa group hasilnya sama dengan sebelumnya.
     """
     events: List[Dict[str, Any]] = []
     if not words:
@@ -1752,7 +1755,8 @@ def build_subtitle_events(
     valid_words = []
     # Task #11: kamus koreksi kata dari Clip Studio, diterapkan sebelum kapitalisasi text_case
     replacement_map = build_word_replacement_map(word_replacements)
-    for w in words:
+    manual_groups = all(isinstance(w.get("group"), int) and not isinstance(w.get("group"), bool) for w in words)
+    for w_idx, w in enumerate(words):
         raw_text = clean_caption_text(w.get("word", "").strip())
         raw_text = apply_word_replacement(raw_text, replacement_map)
         if not raw_text:
@@ -1760,7 +1764,7 @@ def build_subtitle_events(
         w_text = apply_text_case(raw_text, text_case)
         st = max(0.0, float(w.get("start", 0.0)))
         et = max(st + 0.15, float(w.get("end", st + 0.25)))
-        valid_words.append({"word_text": w_text, "start": st, "end": et, "raw": w})
+        valid_words.append({"word_text": w_text, "start": st, "end": et, "raw": w, "idx": w_idx})
 
     valid_words.sort(key=lambda x: x["start"])
 
@@ -1770,6 +1774,13 @@ def build_subtitle_events(
     current_chunk = []
     current_chars = 0
     for item in valid_words:
+        if manual_groups:
+            # Task #36b: potongan dari suntingan pemilik
+            if current_chunk and item["raw"]["group"] != current_chunk[-1]["raw"]["group"]:
+                chunks.append(current_chunk)
+                current_chunk = []
+            current_chunk.append(item)
+            continue
         w_len = len(item["word_text"])
         has_pause = bool(current_chunk and (item["start"] - current_chunk[-1]["end"] >= 0.38))
         ends_sentence = bool(current_chunk and any(current_chunk[-1]["word_text"].endswith(p) for p in [".", "?", "!"]))
@@ -1838,6 +1849,7 @@ def build_subtitle_events(
                 "end": w_end,
                 "words": [item["word_text"] for item in chunk],
                 "active": active_idx,
+                "indices": [item["idx"] for item in chunk],
             })
     return events
 

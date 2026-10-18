@@ -19,33 +19,33 @@ Alur per klip: unduh segmen ([[unduhan-raw]]) → transkripsi kata + file `.ass`
 | `backend/routers/render.py` | `download_batch_zip` | L208-235 | `GET /api/download-batch-zip/{id}` |
 | `backend/routers/render.py` | `get_hardware_acceleration_status` | L239-280 | `GET /api/hardware-accel` |
 | `backend/routers/render.py` | `preview_clip_subtitles` | L285-292 | #36a: `POST /api/preview-subtitles` (422 rentang tidak valid, 500 dengan detail). Lihat [[subtitle-dan-judul]] |
-| `backend/services/render_service.py` | state job di memori | L23-26 | `RENDER_BATCHES`, `BATCH_REQUESTS`, `_RENDER_SEMAPHORE = Semaphore(1)` |
-| `backend/services/render_service.py` | `process_batch_rendering` | L555-595 | Normalisasi URL sumber (`resolve_source_url`), mode `separate` atau `merged` |
-| `backend/services/render_service.py` | `resolve_source_url` | L29-44 | #36a: normalisasi URL sumber (upload/gdrive -> `/api/video/<id>`, selain itu URL watch YouTube), dipakai render dan pratinjau subtitle. `process_batch_retry` masih punya salinan sendiri |
-| `backend/services/render_service.py` | `render_single_batch_clip` | L47-261 | Satu klip: unduh (L72), subtitle/judul (L92), render (L192) |
-| `backend/services/render_service.py` | `render_merged_batch_clips` | L316-552 | Gabung beberapa segmen jadi satu video highlight |
-| `backend/services/render_service.py` | `update_batch_summary_and_zip` | L264-313 | ZIP hasil (di `TEMP_DIR`, L277) + status akhir batch |
-| `backend/services/render_service.py` | `process_batch_retry` | L598-651 | Render ulang klip yang gagal |
+| `backend/services/render_service.py` | state job di memori | L25-28 | `RENDER_BATCHES`, `BATCH_REQUESTS`, `_RENDER_SEMAPHORE = Semaphore(1)` |
+| `backend/services/render_service.py` | `process_batch_rendering` | L659-699 | Normalisasi URL sumber (`resolve_source_url`), mode `separate` atau `merged` |
+| `backend/services/render_service.py` | `resolve_source_url` | L31-46 | #36a: normalisasi URL sumber (upload/gdrive -> `/api/video/<id>`, selain itu URL watch YouTube), dipakai render dan pratinjau subtitle. `process_batch_retry` masih punya salinan sendiri |
+| `backend/services/render_service.py` | `render_single_batch_clip` | L121-343 | Satu klip: unduh (L146), subtitle/judul (L170), render (L274). #36b: `subtitle_words` (pratinjau Clip Studio) menggantikan Whisper, divalidasi `clip_subtitle_words` (L57-93). Lihat [[subtitle-dan-judul]] |
+| `backend/services/render_service.py` | `render_merged_batch_clips` | L398-656 | Gabung beberapa segmen jadi satu video highlight |
+| `backend/services/render_service.py` | `update_batch_summary_and_zip` | L346-395 | ZIP hasil (di `TEMP_DIR`, L359) + status akhir batch |
+| `backend/services/render_service.py` | `process_batch_retry` | L702-755 | Render ulang klip yang gagal |
 | `backend/schemas/render.py` | `RenderSettingsModel` | L10-62 | Semua opsi render dari Clip Studio, termasuk `subtitle_replacements` (#11, model `SubtitleReplacement` L5-8). Lihat [[subtitle-dan-judul]] |
-| `backend/schemas/render.py` | `PreviewSubtitlesRequest` | L73-83 | #36a: `video_url`, `video_id`, rentang, `transcript`, `cookies`, `subtitle_replacements`, `text_case`, `force` (lewati cache, tombol "Buat ulang") |
+| `backend/schemas/render.py` | `PreviewSubtitlesRequest` | L73-85 | #36a: `video_url`, `video_id`, rentang, `transcript`, `cookies`, `subtitle_replacements`, `text_case`, `force` (lewati cache, tombol "Buat ulang") |
 | `backend/schemas/render.py` | `RenderBatchRequest` | L64-70 | `video_url`, `video_id`, `clips`, `settings`, `transcript`, `cookies` |
-| `backend/video_engine.py` | `render_clip_to_mp4` | L2936-3271 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
-| `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2602-2917 | Layout, crop, background blur, preset streamer, rasio aspek |
-| `backend/video_engine.py` | `check_has_audio` | L2920-2933 | Cek trek audio sumber |
+| `backend/video_engine.py` | `render_clip_to_mp4` | L2948-3283 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
+| `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2614-2929 | Layout, crop, background blur, preset streamer, rasio aspek |
+| `backend/video_engine.py` | `check_has_audio` | L2932-2945 | Cek trek audio sumber |
 | `backend/video_engine.py` | `is_valid_mp4` | L437-493 | Validasi output dengan ffprobe/decode |
 | `backend/video_engine.py` | `ENCODER_CONFIGS` | L292-297 | Argumen nvenc/amf/qsv/cpu. AMF di L294: `-quality balanced -rc vbr_peak -b:v 12M -maxrate 16M -bufsize 24M` (task #9, sebelumnya `speed`/`cbr` 6M). Ikut dipakai metode 2 unduhan dan trim lokal lewat `ACTIVE_ENCODER_ARGS` |
 | `backend/video_engine.py` | `detect_hardware_support` | L302-328 | Deteksi GPU, hasil di-cache |
 | `backend/video_engine.py` | `get_preferred_video_encoder` | L331-346 | Pilih encoder saat modul diimpor |
 | `backend/video_engine.py` | `resolve_encoder` | L349-365 | Encoder sesuai pilihan `hardware_accel` user |
 | `backend/video_engine.py` | `check_encoder_support` | L278-289 | Uji encoder dengan kanvas 1080x1920 |
-| `backend/video_engine.py` | `extract_clip_frame` | L3274-3410 | Frame pratinjau (`GET /api/clip-frame`) |
+| `backend/video_engine.py` | `extract_clip_frame` | L3286-3422 | Frame pratinjau (`GET /api/clip-frame`) |
 
 ## Input / output
 - Input: `RenderBatchRequest` dari `handleStartBatchRender` di [[frontend-app]] (pengaturan dari [[clip-studio]]).
 - Output: `EXPORTS_DIR/clip_{n}_{batch_id}.mp4`, ZIP batch `TEMP_DIR/cheat_clip_pro_{batch_id}.zip`, event SSE `{clips: [{status, progress_percent, download_url, error_message}], overall_status, zip_url}`.
 
 ## Risiko
-- **Kanvas 1080×1920 ditulis langsung**: ±80 literal `1080`/`1920` di `video_engine.py`, terutama di `build_ffmpeg_filtergraph` (L2576-2891), `generate_ass_file`, dan `render_title_overlay_png`. Rasio 1:1, 4:3, 16:9 ditempatkan **di dalam** kanvas vertikal. Hanya `16:9_landscape` yang memakai kanvas 1920×1080. Target task #10.
+- **Kanvas 1080×1920 ditulis langsung**: ±80 literal `1080`/`1920` di `video_engine.py`, terutama di `build_ffmpeg_filtergraph` (L2588-2903), `generate_ass_file`, dan `render_title_overlay_png`. Rasio 1:1, 4:3, 16:9 ditempatkan **di dalam** kanvas vertikal. Hanya `16:9_landscape` yang memakai kanvas 1920×1080. Target task #10.
 - **Hasil dihapus otomatis** setelah 1 jam oleh cleanup. Lihat [[penyimpanan-dan-cleanup]] (target task #16).
 - State job hanya di memori. Restart backend (termasuk `--reload` karena file `.py` disimpan) menghilangkan progres (target task #8).
 - `_RENDER_SEMAPHORE` membuat batch berikutnya menunggu batch sebelumnya selesai.

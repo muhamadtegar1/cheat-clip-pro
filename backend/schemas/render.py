@@ -81,6 +81,8 @@ class PreviewSubtitlesRequest(BaseModel):
     text_case: str = "uppercase"
     # True = lewati cache dan jalankan Whisper lagi (tombol "Buat ulang")
     force: bool = False
+    # Task #36b: kata hasil suntingan (waktu relatif awal klip, "group" = baris). Diisi = tanpa unduh/Whisper
+    words: Optional[List[Dict[str, Any]]] = Field(None, max_length=3000)
 
 class RetryBatchRequest(BaseModel):
     clip_indices: Optional[List[int]] = None

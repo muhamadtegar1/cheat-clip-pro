@@ -38,6 +38,8 @@ export interface ViralClip {
   score_reason?: string | null;
   needs_context?: boolean | null;
   score_label?: 'strong' | 'fair' | 'weak' | null;
+  // Task #36b: kata subtitle dari pratinjau Clip Studio; ada = render tidak menjalankan Whisper
+  subtitle_words?: SubtitleWord[];
 }
 
 // Task #35: pilihan pemilik per klip, disimpan permanen di backend (EXPORTS_DIR/data/clip_choices.json)
@@ -147,16 +149,26 @@ export interface SubtitlePreviewEvent {
   end: number;
   words: string[];
   active: number;
+  /** Task #36b: indeks kata masukan (response.words) dalam potongan ini */
+  indices: number[];
+}
+
+/** Task #36b: kata subtitle, waktu relatif awal klip; group = baris hasil suntingan */
+export interface SubtitleWord {
+  word: string;
+  start: number;
+  end: number;
+  group?: number;
 }
 
 export interface SubtitlePreviewResponse {
   video_id: string;
   start_time: number;
   end_time: number;
-  source: 'whisper' | 'transcript' | 'none';
+  source: 'whisper' | 'transcript' | 'none' | 'edited';
   cached: boolean;
   elapsed_seconds: number;
-  words: Array<{ word: string; start: number; end: number }>;
+  words: SubtitleWord[];
   events: SubtitlePreviewEvent[];
 }
 

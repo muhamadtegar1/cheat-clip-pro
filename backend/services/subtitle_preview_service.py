@@ -3,7 +3,8 @@
 Memakai jalur yang sama dengan render: normalisasi URL sumber, download_clip_segment, transcribe_clip_words,
 lalu build_subtitle_events (pemotongan yang juga dipakai generate_ass_file), sehingga pratinjau sama dengan video.
 Kata mentah di-cache di memori per (video, rentang klip); kamus koreksi (#11) dan text_case diterapkan tiap
-permintaan tanpa Whisper ulang. force=True (tombol "Buat ulang") melewati cache dan menimpanya. Whisper/FFmpeg memakai _RENDER_SEMAPHORE agar tidak berjalan bersamaan dengan render.
+permintaan tanpa Whisper ulang. Task #36b: words diisi (hasil suntingan) = tanpa unduh/Whisper, hanya
+build_subtitle_events dengan validasi yang sama dengan render (clip_subtitle_words). force=True (tombol "Buat ulang") melewati cache dan menimpanya. Whisper/FFmpeg memakai _RENDER_SEMAPHORE agar tidak berjalan bersamaan dengan render.
 """
 import asyncio
 import os
@@ -14,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.config import TEMP_DIR, download_clip_segment, is_valid_mp4, logger, transcribe_clip_words
 from backend.schemas.render import PreviewSubtitlesRequest
-from backend.services.render_service import _RENDER_SEMAPHORE, resolve_source_url
+from backend.services.render_service import _RENDER_SEMAPHORE, clip_subtitle_words, resolve_source_url
 from backend.video_engine import build_subtitle_events
 
 PREVIEW_CACHE_MAX = 50
@@ -85,7 +86,12 @@ async def preview_subtitles(req: PreviewSubtitlesRequest) -> Dict[str, Any]:
     if req.end_time <= req.start_time:
         raise ValueError("end_time harus lebih besar dari start_time")
     t0 = time.time()
-    entry, cached = await _load_words(req)
+    if req.words is not None:
+        # Task #36b: kata suntingan dari Clip Studio, divalidasi seperti saat render (ValueError -> 422)
+        entry = {"words": clip_subtitle_words({"subtitle_words": req.words}, req.end_time - req.start_time), "source": "edited"}
+        cached = False
+    else:
+        entry, cached = await _load_words(req)
     events = build_subtitle_events(entry["words"], req.text_case or "uppercase", req.subtitle_replacements)
     return {
         "video_id": req.video_id,

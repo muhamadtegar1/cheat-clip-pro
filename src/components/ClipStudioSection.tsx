@@ -4,11 +4,20 @@ import { resilientFetch } from '../utils/api';
 import { getStoredCookies } from '../utils/cookieUtils';
 import {
   SUBTITLE_HIGHLIGHT_COLORS,
+  SUBTITLE_LINE_MAX_CHARS,
   fetchSubtitlePreview,
   findActiveSubtitleEvent,
   groupSubtitleChunks,
+  linesFromPreview,
+  linesToWords,
+  mergeLines,
+  retypeLine,
+  splitLine,
+  subtitleLineText,
   subtitlePreviewSignature,
+  wordsBeforeCursor,
 } from '../utils/subtitlePreview';
+import type { SubtitleLine } from '../utils/subtitlePreview';
 import type {
   ViralClip,
   RenderSettings,
@@ -28,12 +37,22 @@ import type {
   HardwareAccelInfo,
   SubtitleReplacement,
   SubtitlePreviewResponse,
+  SubtitleWord,
   TranscriptLine,
   FontItem,
 } from '../types';
 
 // Task #36a: status subtitle pratinjau per klip
-type SubtitlePreviewEntry = { status: 'loading' | 'ready' | 'error'; data?: SubtitlePreviewResponse; error?: string; signature?: string };
+// Task #36b: whisperWords = kata asli (Whisper/transkrip), editedWords = hasil suntingan; render memakai editedWords ?? whisperWords
+type SubtitlePreviewEntry = {
+  status: 'loading' | 'ready' | 'error';
+  data?: SubtitlePreviewResponse;
+  error?: string;
+  signature?: string;
+  whisperWords?: SubtitleWord[];
+  whisperSource?: SubtitlePreviewResponse['source'];
+  editedWords?: SubtitleWord[];
+};
 
 interface ClipStudioSectionProps {
   videoUrl: string;
@@ -536,9 +555,18 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const previewSubtitleEvents = previewSubtitleEntry?.data?.events;
   const subtitleSignature = useMemo(() => subtitlePreviewSignature(activeSubtitleReplacements, textCase), [activeSubtitleReplacements, textCase]);
 
-  const requestSubtitlePreview = useCallback((clip: ViralClip, force = false) => {
+  // Task #36b: words diisi = backend tanpa unduh/Whisper; edited: kata suntingan baru (null = kembali ke hasil Whisper)
+  const requestSubtitlePreview = useCallback((clip: ViralClip, opts: { force?: boolean; words?: SubtitleWord[]; edited?: SubtitleWord[] | null } = {}) => {
     const key = `${clip.start_time}_${clip.end_time}`;
-    setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'loading', error: undefined } }));
+    setSubtitlePreviews(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        status: 'loading',
+        error: undefined,
+        ...(opts.edited !== undefined ? { editedWords: opts.edited ?? undefined } : {}),
+      },
+    }));
     // .then/.catch (bukan try/catch) agar React Compiler tetap menganalisis komponen ini
     return fetchSubtitlePreview({
       videoUrl,
@@ -549,18 +577,81 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       cookies: getStoredCookies(),
       replacements: activeSubtitleReplacements,
       textCase,
-      force,
+      force: opts.force,
+      words: opts.words,
     })
-      .then(data => setSubtitlePreviews(prev => ({ ...prev, [key]: { status: 'ready', data, signature: subtitleSignature } })))
+      .then(data => setSubtitlePreviews(prev => ({
+        ...prev,
+        [key]: opts.words === undefined
+          ? { status: 'ready', data, signature: subtitleSignature, whisperWords: data.words, whisperSource: data.source }
+          : { ...prev[key], status: 'ready', data, signature: subtitleSignature },
+      })))
       .catch(err => setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'error', error: err instanceof Error ? err.message : String(err) } })));
   }, [videoUrl, videoId, transcript, activeSubtitleReplacements, textCase, subtitleSignature]);
 
   // Kamus #11 atau kapitalisasi berubah: hitung ulang event klip yang sedang dipratinjau (backend memakai cache, tanpa Whisper ulang)
   useEffect(() => {
     if (!currentPreviewClip || previewSubtitleEntry?.status !== 'ready' || previewSubtitleEntry.signature === subtitleSignature) return;
-    const timer = setTimeout(() => requestSubtitlePreview(currentPreviewClip), 400);
+    // Task #36b: kirim kata yang sudah ada agar backend tidak menjalankan Whisper lagi (mis. setelah restart)
+    const words = previewSubtitleEntry.editedWords ?? previewSubtitleEntry.whisperWords;
+    const timer = setTimeout(() => requestSubtitlePreview(currentPreviewClip, { words }), 400);
     return () => clearTimeout(timer);
   }, [currentPreviewClip, previewSubtitleEntry, subtitleSignature, requestSubtitlePreview]);
+
+  // Task #36b: sunting subtitle per baris
+  const [subtitleEditMode, setSubtitleEditMode] = useState(false);
+  const subtitleCursorRef = useRef<{ line: number; text: string; pos: number } | null>(null);
+  const previewSubtitleData = previewSubtitleEntry?.data;
+  const subtitleLines = useMemo(
+    () => (previewSubtitleData ? linesFromPreview(previewSubtitleData.words, previewSubtitleData.events) : []),
+    [previewSubtitleData]
+  );
+  const subtitleEditBusy = previewSubtitleEntry?.status === 'loading';
+  const applySubtitleLines = (lines: SubtitleLine[]) => {
+    if (!currentPreviewClip) return;
+    subtitleCursorRef.current = null;
+    const words = linesToWords(lines);
+    requestSubtitlePreview(currentPreviewClip, { words, edited: words });
+  };
+  // Baris dengan ketikan yang belum disimpan (input yang sedang fokus) sudah diterapkan
+  const subtitleLinesWithPending = (): SubtitleLine[] => {
+    const cur = subtitleCursorRef.current;
+    if (!cur || !subtitleLines[cur.line] || cur.text.trim() === subtitleLineText(subtitleLines[cur.line])) return subtitleLines;
+    const retyped = retypeLine(subtitleLines[cur.line], cur.text);
+    return subtitleLines.flatMap((line, i) => (i !== cur.line ? [line] : retyped ? [retyped] : []));
+  };
+  const commitSubtitleLine = (i: number, text: string) => {
+    if (subtitleEditBusy || !subtitleLines[i] || text.trim() === subtitleLineText(subtitleLines[i])) return;
+    const retyped = retypeLine(subtitleLines[i], text);
+    applySubtitleLines(subtitleLines.flatMap((line, j) => (j !== i ? [line] : retyped ? [retyped] : [])));
+  };
+  const splitSubtitleLine = (i: number) => {
+    const cur = subtitleCursorRef.current;
+    const k = cur && cur.line === i ? wordsBeforeCursor(cur.text, cur.pos) : 0;
+    const lines = subtitleLinesWithPending();
+    // Baris yang sedang diketik dikosongkan = baris itu dihapus, jangan pecah baris lain
+    if (lines.length < subtitleLines.length) return applySubtitleLines(lines);
+    applySubtitleLines([...lines.slice(0, i), ...splitLine(lines[i], k), ...lines.slice(i + 1)]);
+  };
+  const mergeSubtitleLine = (i: number) => {
+    const lines = subtitleLinesWithPending();
+    if (lines.length < subtitleLines.length || i + 1 >= lines.length) return applySubtitleLines(lines);
+    applySubtitleLines([...lines.slice(0, i), mergeLines(lines[i], lines[i + 1]), ...lines.slice(i + 2)]);
+  };
+  const deleteSubtitleLine = (i: number) => {
+    subtitleCursorRef.current = null;
+    applySubtitleLines(subtitleLines.filter((_, j) => j !== i));
+  };
+  const revertSubtitleEdits = () => {
+    if (!currentPreviewClip || !previewSubtitleEntry?.whisperWords) return;
+    subtitleCursorRef.current = null;
+    requestSubtitlePreview(currentPreviewClip, { words: previewSubtitleEntry.whisperWords, edited: null });
+  };
+  const generateSubtitlePreview = () => {
+    if (!currentPreviewClip) return;
+    if (previewSubtitleEntry?.editedWords && !window.confirm(t.studio.subtitlePreviewConfirmRegenerate)) return;
+    requestSubtitlePreview(currentPreviewClip, { force: Boolean(previewSubtitleEntry?.data), edited: null });
+  };
   const previewSubtitleChunks = useMemo(() => groupSubtitleChunks(previewSubtitleEvents || []), [previewSubtitleEvents]);
   const activeSubtitleEventIndex = previewSubtitleEvents ? findActiveSubtitleEvent(previewSubtitleEvents, currentTime - clipStart) : -1;
   const clipEnd = currentPreviewClip ? currentPreviewClip.end_time : 60;
@@ -1572,11 +1663,15 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       const key = `${c.start_time}_${c.end_time}`;
       const custom = customClipTitles[key];
       const effectiveTitle = (custom !== undefined && custom.trim()) ? custom.trim() : (c.title_suggestion || c.title);
+      // Task #36b: kata pratinjau (suntingan atau hasil Whisper pratinjau) dipakai render tanpa Whisper ulang
+      const sub = subtitlePreviews[key];
+      const subtitleWords = sub?.editedWords ?? sub?.whisperWords;
       return {
         ...c,
         title: effectiveTitle,
         title_suggestion: effectiveTitle,
         custom_title: effectiveTitle,
+        ...(subtitleWords && captionStyle !== 'none' ? { subtitle_words: subtitleWords } : {}),
       };
     });
 
@@ -4376,35 +4471,100 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 </div>
               </div>
             </div>
-            {/* Task #36a: subtitle asli (Whisper) untuk klip yang dipratinjau, sebelum render */}
+            {/* Task #36a: subtitle asli (Whisper) untuk klip yang dipratinjau, sebelum render; #36b: sunting per baris */}
             {captionStyle !== 'none' && currentPreviewClip && (
               <div className="studio-render-history-card">
                 <div className="history-card-header" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span className="history-card-title">{t.studio.subtitlePreviewTitle}</span>
-                  <button
-                    type="button"
-                    className="pill-btn"
-                    disabled={previewSubtitleEntry?.status === 'loading'}
-                    onClick={() => requestSubtitlePreview(currentPreviewClip, Boolean(previewSubtitleEntry?.data))}
-                    style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem', opacity: previewSubtitleEntry?.status === 'loading' ? 0.6 : 1 }}
-                  >
-                    {previewSubtitleEntry?.status === 'loading'
-                      ? t.studio.subtitlePreviewLoading
-                      : previewSubtitleEntry?.data
-                      ? t.studio.subtitlePreviewRegenerate
-                      : t.studio.subtitlePreviewGenerate}
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    {previewSubtitleEntry?.data && subtitleLines.length > 0 && (
+                      <button
+                        type="button"
+                        className="pill-btn"
+                        onClick={() => setSubtitleEditMode(v => !v)}
+                        style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem' }}
+                      >
+                        {subtitleEditMode ? t.studio.subtitlePreviewEditDone : t.studio.subtitlePreviewEdit}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="pill-btn"
+                      disabled={subtitleEditBusy}
+                      onClick={generateSubtitlePreview}
+                      style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem', opacity: subtitleEditBusy ? 0.6 : 1 }}
+                    >
+                      {subtitleEditBusy
+                        ? t.studio.subtitlePreviewLoading
+                        : previewSubtitleEntry?.data
+                        ? t.studio.subtitlePreviewRegenerate
+                        : t.studio.subtitlePreviewGenerate}
+                    </button>
+                  </div>
                 </div>
                 <p style={{ margin: '0.35rem 0', fontSize: '0.74rem', color: previewSubtitleEntry?.status === 'error' ? '#f87171' : 'var(--text-muted)' }}>
                   {previewSubtitleEntry?.status === 'error'
                     ? t.studio.subtitlePreviewError(previewSubtitleEntry.error || '')
-                    : previewSubtitleEntry?.status === 'loading'
+                    : previewSubtitleEntry?.status === 'loading' && !previewSubtitleEntry.data
                     ? t.studio.subtitlePreviewLoadingHint
                     : previewSubtitleEntry?.data
-                    ? t.studio.subtitlePreviewSource(previewSubtitleEntry.data.source, previewSubtitleChunks.length)
+                    ? previewSubtitleEntry.editedWords
+                      ? t.studio.subtitlePreviewEdited
+                      : `${t.studio.subtitlePreviewSource(previewSubtitleEntry.whisperSource || previewSubtitleEntry.data.source, previewSubtitleChunks.length)} ${t.studio.subtitlePreviewUsedInRender}`
                     : t.studio.subtitlePreviewHint}
                 </p>
-                {previewSubtitleChunks.length > 0 && (
+                {previewSubtitleEntry?.editedWords && previewSubtitleEntry.whisperWords && (
+                  <button
+                    type="button"
+                    className="pill-btn"
+                    disabled={subtitleEditBusy}
+                    onClick={revertSubtitleEdits}
+                    style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', marginBottom: '0.35rem' }}
+                  >
+                    {t.studio.subtitlePreviewRevert}
+                  </button>
+                )}
+                {subtitleEditMode && subtitleLines.length > 0 ? (
+                  <div style={{ maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.studio.subtitlePreviewEditHint}</p>
+                    {subtitleLines.map((line, i) => {
+                      const text = subtitleLineText(line);
+                      const activeKey = previewSubtitleEvents && activeSubtitleEventIndex >= 0 ? previewSubtitleEvents[activeSubtitleEventIndex].indices.join(',') : '';
+                      const isActive = line.key !== undefined && line.key === activeKey;
+                      const tooLong = line.display.length > SUBTITLE_LINE_MAX_CHARS;
+                      const keepFocus = (e: React.MouseEvent) => e.preventDefault();
+                      const iconBtn: React.CSSProperties = { fontSize: '0.72rem', padding: '0.1rem 0.35rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer' };
+                      return (
+                        <div key={`${line.key}|${text}`} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            defaultValue={text}
+                            readOnly={subtitleEditBusy}
+                            title={tooLong ? t.studio.subtitlePreviewTooLong(line.display.length) : line.display}
+                            onFocus={() => handleSeek(clipStart + (line.start ?? 0))}
+                            onChange={e => { subtitleCursorRef.current = { line: i, text: e.currentTarget.value, pos: e.currentTarget.selectionStart ?? 0 }; }}
+                            onSelect={e => { subtitleCursorRef.current = { line: i, text: e.currentTarget.value, pos: e.currentTarget.selectionStart ?? 0 }; }}
+                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                            onBlur={e => commitSubtitleLine(i, e.currentTarget.value)}
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              fontSize: '0.74rem',
+                              padding: '0.2rem 0.4rem',
+                              borderRadius: '4px',
+                              background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                              color: isActive ? SUBTITLE_HIGHLIGHT_COLORS[captionStyle] : 'var(--text-secondary)',
+                              border: `1px solid ${tooLong ? '#f59e0b' : isActive ? SUBTITLE_HIGHLIGHT_COLORS[captionStyle] : 'rgba(255,255,255,0.12)'}`,
+                            }}
+                          />
+                          <button type="button" title={t.studio.subtitlePreviewSplit} disabled={subtitleEditBusy || line.words.length < 2} onMouseDown={keepFocus} onClick={() => splitSubtitleLine(i)} style={iconBtn}>✂</button>
+                          <button type="button" title={t.studio.subtitlePreviewMerge} disabled={subtitleEditBusy || i + 1 >= subtitleLines.length} onMouseDown={keepFocus} onClick={() => mergeSubtitleLine(i)} style={iconBtn}>⤓</button>
+                          <button type="button" title={t.studio.subtitlePreviewDelete} disabled={subtitleEditBusy} onMouseDown={keepFocus} onClick={() => deleteSubtitleLine(i)} style={iconBtn}>✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : previewSubtitleChunks.length > 0 && (
                   <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                     {previewSubtitleChunks.map((chunk, i) => {
                       const isActive = activeSubtitleEventIndex >= chunk.firstEvent && activeSubtitleEventIndex <= chunk.lastEvent;

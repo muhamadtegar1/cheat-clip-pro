@@ -3,6 +3,7 @@ import type {
   SubtitlePreviewEvent,
   SubtitlePreviewResponse,
   SubtitleReplacement,
+  SubtitleWord,
   TextCaseOption,
   TranscriptLine,
 } from '../types';
@@ -20,6 +21,8 @@ export interface SubtitlePreviewRequest {
   textCase: TextCaseOption;
   /** Lewati cache backend dan jalankan Whisper lagi (tombol "Buat ulang") */
   force?: boolean;
+  /** Task #36b: kata yang sudah ada (hasil Whisper atau suntingan); diisi = backend tanpa unduh/Whisper */
+  words?: SubtitleWord[];
 }
 
 /** Warna kata aktif per gaya, sama dengan highlight_color di generate_ass_file (backend/video_engine.py). */
@@ -52,6 +55,7 @@ export const fetchSubtitlePreview = async (req: SubtitlePreviewRequest): Promise
       subtitle_replacements: req.replacements.length > 0 ? req.replacements : undefined,
       text_case: req.textCase,
       force: req.force || undefined,
+      words: req.words,
     }),
   });
   if (!res.ok) {
@@ -90,3 +94,77 @@ export const groupSubtitleChunks = (events: SubtitlePreviewEvent[]): Array<{ sta
   });
   return chunks;
 };
+
+// Task #36b: sunting subtitle per baris. Baris = potongan dari build_subtitle_events (event.indices),
+// hasil suntingan = daftar kata dengan group per baris yang dipakai pratinjau dan render.
+
+export interface SubtitleLine {
+  /** Kata mentah baris ini (sebelum kamus/kapitalisasi) */
+  words: SubtitleWord[];
+  /** Teks yang tampil di video (sesudah kamus/kapitalisasi) */
+  display: string;
+  /** Indeks kata respons (event.indices) untuk mencocokkan baris dengan event aktif */
+  key?: string;
+  /** Awal baris (detik relatif klip) */
+  start?: number;
+}
+
+/** Batas karakter potongan otomatis di backend; baris suntingan yang lebih panjang bisa terpotong di tepi video. */
+export const SUBTITLE_LINE_MAX_CHARS = 22;
+
+export const subtitleLineText = (line: SubtitleLine): string => line.words.map(w => w.word).join(' ');
+
+/** Baris dari respons pratinjau; kata yang dibuang kamus/pembersih tidak masuk baris mana pun. */
+export const linesFromPreview = (words: SubtitleWord[], events: SubtitlePreviewEvent[]): SubtitleLine[] => {
+  const lines: SubtitleLine[] = [];
+  let lastKey = '';
+  events.forEach(ev => {
+    const key = ev.indices.join(',');
+    if (key === lastKey) return;
+    lastKey = key;
+    lines.push({ words: ev.indices.map(i => words[i]).filter(Boolean), display: ev.words.join(' '), key, start: ev.start });
+  });
+  return lines.filter(line => line.words.length > 0);
+};
+
+/** Daftar kata ber-group (satu group per baris) untuk dikirim ke pratinjau dan render. */
+export const linesToWords = (lines: SubtitleLine[]): SubtitleWord[] =>
+  lines.flatMap((line, group) => line.words.map(w => ({ word: w.word, start: w.start, end: w.end, group })));
+
+const roundTime = (t: number) => Math.round(t * 1000) / 1000;
+
+/**
+ * Ketik ulang satu baris. Jumlah kata sama: waktu tiap kata dipertahankan. Berbeda: rentang baris
+ * (awal kata pertama s.d. akhir kata terakhir) dibagi rata. Teks kosong = baris dihapus (null).
+ */
+export const retypeLine = (line: SubtitleLine, text: string): SubtitleLine | null => {
+  const tokens = text.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || line.words.length === 0) return null;
+  if (tokens.length === line.words.length) {
+    return { ...line, words: line.words.map((w, i) => ({ ...w, word: tokens[i] })) };
+  }
+  const start = line.words[0].start;
+  const end = Math.max(start, line.words[line.words.length - 1].end);
+  const step = (end - start) / tokens.length;
+  return {
+    ...line,
+    words: tokens.map((word, i) => ({ word, start: roundTime(start + i * step), end: roundTime(start + (i + 1) * step) })),
+  };
+};
+
+/** Jumlah kata sebelum kursor di teks input; dipakai menentukan titik pecah (kata yang terpotong kursor ikut bagian pertama). */
+export const wordsBeforeCursor = (text: string, cursor: number): number =>
+  text.slice(0, Math.max(0, cursor)).trim().split(/\s+/).filter(Boolean).length;
+
+/** Pecah baris di batas kata ke-k; k di luar 1..n-1 = dipecah di tengah. Baris satu kata tidak bisa dipecah. */
+export const splitLine = (line: SubtitleLine, k: number): SubtitleLine[] => {
+  const n = line.words.length;
+  if (n < 2) return [line];
+  const at = k >= 1 && k <= n - 1 ? k : Math.ceil(n / 2);
+  return [
+    { words: line.words.slice(0, at), display: '' },
+    { words: line.words.slice(at), display: '' },
+  ];
+};
+
+export const mergeLines = (a: SubtitleLine, b: SubtitleLine): SubtitleLine => ({ words: [...a.words, ...b.words], display: '' });
