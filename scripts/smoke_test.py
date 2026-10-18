@@ -843,6 +843,62 @@ def run_guardrail_check() -> None:
         report(name, False, repr(e))
 
 
+def run_subtitle_fix_check(work_dir: Path) -> None:
+    """Task #11: kamus koreksi subtitle di generate_ass_file dan validasi RenderSettingsModel (tanpa Whisper)."""
+    name = "koreksi subtitle (#11)"
+    try:
+        from pydantic import ValidationError
+        from backend.schemas.render import RenderSettingsModel
+        from backend.video_engine import generate_ass_file
+
+        words = [
+            {"word": "halo", "start": 0.0, "end": 0.4},
+            {"word": "Yutub,", "start": 0.5, "end": 0.9},
+            {"word": "eh", "start": 1.0, "end": 1.2},
+            {"word": "channel", "start": 1.3, "end": 1.7},
+            {"word": "yutub.", "start": 2.5, "end": 2.9},
+        ]
+
+        def dialogue_lines(replacements, text_case="uppercase", tag="x") -> list:
+            out = work_dir / f"subfix_{tag}.ass"
+            generate_ass_file(words=words, style_preset="viral_pop", font_name="Outfit", output_ass_path=str(out),
+                              text_case=text_case, duration_seconds=4.0, word_replacements=replacements)
+            content = out.read_text(encoding="utf-8")
+            return [ln for ln in content.splitlines() if ln.startswith("Dialogue:")], content
+
+        problems = []
+        base_lines, base_content = dialogue_lines(None, tag="none")
+        for tag, empty in (("empty", []), ("nomatch", [{"from": "tidakada", "to": "X"}])):
+            if dialogue_lines(empty, tag=tag)[1] != base_content:
+                problems.append(f"kamus {tag} mengubah file .ass")
+        settings = RenderSettingsModel(subtitle_replacements=[{"from": "YUTUB", "to": "YouTube"}, {"from": "eh", "to": ""}])
+        fixed_lines, fixed_content = dialogue_lines(settings.subtitle_replacements, text_case="none", tag="fix")
+        if "YouTube," not in fixed_content or "YouTube." not in fixed_content:
+            problems.append("kata tidak diganti atau tanda baca ujung hilang")
+        if "utub" in fixed_content.lower().replace("youtube", ""):
+            problems.append("kata salah masih ada")
+        import re
+        spoken = [re.sub(r"\{[^}]*\}", " ", ln.split(",,", 1)[-1]).lower().split() for ln in fixed_lines]
+        if any("eh" in toks for toks in spoken):
+            problems.append("kata dengan pengganti kosong tidak dihapus")
+        upper_content = dialogue_lines(settings.subtitle_replacements, text_case="uppercase", tag="upper")[1]
+        if "YOUTUBE," not in upper_content:
+            problems.append("text_case uppercase tidak diterapkan ke pengganti")
+        rejected = 0
+        for bad in ([{"from": "dua kata", "to": "x"}], [{"from": "", "to": "x"}], [{"from": "a" * 41, "to": "x"}],
+                    [{"from": "a", "to": "b" * 61}], [{"from": "a", "to": "b"}] * 101):
+            try:
+                RenderSettingsModel(subtitle_replacements=bad)
+            except ValidationError:
+                rejected += 1
+        if rejected != 5:
+            problems.append(f"validasi menolak {rejected}/5 input tidak valid")
+        report(name, not problems, "; ".join(problems) or
+               "tanpa kamus/kamus kosong identik, ganti kata + tanda baca ujung, hapus kata, uppercase, 5 input tidak valid ditolak")
+    except Exception as e:
+        report(name, False, repr(e))
+
+
 def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
     targets = list(paths)
     if batch_id:
@@ -912,6 +968,7 @@ def main() -> int:
         run_admin_check()
         run_choices_check(config)
         run_guardrail_check()
+        run_subtitle_fix_check(work_dir)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

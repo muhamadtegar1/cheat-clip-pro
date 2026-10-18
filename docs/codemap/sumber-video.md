@@ -32,7 +32,7 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 | `backend/utils/text.py` | `extract_video_id` | L116-134 | ID YouTube dari URL |
 | `backend/utils/text.py` | `is_safe_remote_url` | L414-452 | Validasi URL remote (anti SSRF) |
 | `src/utils/audioExtractor.ts` | `extractAudioFromVideoClient` | L104-136 | Ekstrak audio di browser sebelum upload |
-| `src/App.tsx` | upload di `handleAnalyze` | L1423-1476 | Mengirim audio WAV + resolusi ke `/api/upload-video` |
+| `src/App.tsx` | upload di `handleAnalyze` | L1424-1477 | Mengirim audio WAV + resolusi ke `/api/upload-video` |
 
 ## Input / output
 - Input: `AnalyzeRequest.url` (URL YouTube, URL Drive, atau nama file upload), `cookies`, `proxy`.

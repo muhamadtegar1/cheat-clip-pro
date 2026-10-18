@@ -18,6 +18,7 @@ import type {
   BatchRenderProgress,
   HardwareAccelOption,
   HardwareAccelInfo,
+  SubtitleReplacement,
   FontItem,
 } from '../types';
 
@@ -206,6 +207,7 @@ export interface StudioPreferences {
   fileNameSuffix?: string;
   titlePrefix?: string;
   titleSuffix?: string;
+  subtitleReplacements?: SubtitleReplacement[];
 }
 
 export const DEFAULT_STUDIO_PREFS: Required<StudioPreferences> = {
@@ -239,7 +241,19 @@ export const DEFAULT_STUDIO_PREFS: Required<StudioPreferences> = {
   fileNameSuffix: '',
   titlePrefix: '',
   titleSuffix: '',
+  subtitleReplacements: [],
 };
+
+// Task #11: batas sama dengan SubtitleReplacement di backend/schemas/render.py
+const SUBTITLE_REPLACEMENT_LIMITS = { maxPairs: 100, maxFrom: 40, maxTo: 60 };
+
+/** Baris kamus yang dikirim ke render: "salah" wajib satu kata, baris kosong/berspasi diabaikan. */
+function sanitizeSubtitleReplacements(list: SubtitleReplacement[]): SubtitleReplacement[] {
+  return list
+    .map((r) => ({ from: (r.from || '').trim(), to: (r.to || '').trim().slice(0, SUBTITLE_REPLACEMENT_LIMITS.maxTo) }))
+    .filter((r) => r.from.length > 0 && r.from.length <= SUBTITLE_REPLACEMENT_LIMITS.maxFrom && !/\s/.test(r.from))
+    .slice(0, SUBTITLE_REPLACEMENT_LIMITS.maxPairs);
+}
 
 function getSavedStudioPreferences(): Partial<StudioPreferences> {
   try {
@@ -279,6 +293,12 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const [facecamPosition, setFacecamPosition] = useState<FacecamPosition>(() => getSavedStudioPreferences().facecamPosition ?? DEFAULT_STUDIO_PREFS.facecamPosition);
   const [titlePrefix, setTitlePrefix] = useState<string>(() => getSavedStudioPreferences().titlePrefix ?? DEFAULT_STUDIO_PREFS.titlePrefix);
   const [titleSuffix, setTitleSuffix] = useState<string>(() => getSavedStudioPreferences().titleSuffix ?? DEFAULT_STUDIO_PREFS.titleSuffix);
+  // Task #11: kamus koreksi kata subtitle ("salah" -> "benar"), disimpan di preferensi studio
+  const [subtitleReplacements, setSubtitleReplacements] = useState<SubtitleReplacement[]>(() => {
+    const saved = getSavedStudioPreferences().subtitleReplacements;
+    return Array.isArray(saved) ? saved : DEFAULT_STUDIO_PREFS.subtitleReplacements;
+  });
+  const activeSubtitleReplacements = useMemo(() => sanitizeSubtitleReplacements(subtitleReplacements), [subtitleReplacements]);
   const [customClipTitles, setCustomClipTitles] = useState<Record<string, string>>({});
   const [titlePosition, setTitlePosition] = useState<TitlePosition>(() => getSavedStudioPreferences().titlePosition ?? DEFAULT_STUDIO_PREFS.titlePosition);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(() => getSavedStudioPreferences().captionStyle ?? DEFAULT_STUDIO_PREFS.captionStyle);
@@ -1413,6 +1433,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       fileNameSuffix,
       titlePrefix,
       titleSuffix,
+      subtitleReplacements,
     };
     try {
       localStorage.setItem(STUDIO_PREFS_KEY, JSON.stringify(prefs));
@@ -1450,6 +1471,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     fileNameSuffix,
     titlePrefix,
     titleSuffix,
+    subtitleReplacements,
   ]);
 
   const handleResetToDefaults = () => {
@@ -1484,6 +1506,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     setFileNameSuffix(DEFAULT_STUDIO_PREFS.fileNameSuffix);
     setTitlePrefix(DEFAULT_STUDIO_PREFS.titlePrefix);
     setTitleSuffix(DEFAULT_STUDIO_PREFS.titleSuffix);
+    setSubtitleReplacements(DEFAULT_STUDIO_PREFS.subtitleReplacements);
     handleResetTitlePosition();
     handleResetSubtitlePosition();
     try {
@@ -1533,6 +1556,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       subtitleYPercent: safeSubtitleY,
       subtitlePositionMode,
       subtitleCenterYPercent: safeSubCenterY,
+      subtitleReplacements: activeSubtitleReplacements,
       selectedClips: enrichedSelectedClips,
       // Background Music
       bgmEnabled: !!bgmFilePath,
@@ -2767,6 +2791,73 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Task #11: kamus koreksi kata subtitle, berlaku untuk semua klip dalam render */}
+                <div className="studio-sub-toggle" style={{ marginTop: '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem', gap: '0.5rem' }}>
+                    <span className="sub-toggle-label" style={{ margin: 0 }}>
+                      ✏️ {t.studio.subtitleFixLabel}
+                    </span>
+                    {activeSubtitleReplacements.length > 0 && (
+                      <span className="badge" style={{ fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}>
+                        {t.studio.subtitleFixActive(activeSubtitleReplacements.length)}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: '0 0 0.5rem', fontSize: '0.74rem', color: 'var(--text-muted)' }}>{t.studio.subtitleFixHint}</p>
+                  {subtitleReplacements.map((pair, i) => {
+                    const fromInvalid = /\s/.test(pair.from.trim());
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
+                        <input
+                          type="text"
+                          className="studio-text-input"
+                          style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', ...(fromInvalid ? { borderColor: '#f87171' } : {}) }}
+                          placeholder={t.studio.subtitleFixFromPlaceholder}
+                          maxLength={40}
+                          value={pair.from}
+                          title={fromInvalid ? t.studio.subtitleFixOneWord : undefined}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSubtitleReplacements((prev) => prev.map((p, j) => (j === i ? { ...p, from: val } : p)));
+                          }}
+                        />
+                        <span style={{ color: 'var(--text-muted)' }}>→</span>
+                        <input
+                          type="text"
+                          className="studio-text-input"
+                          style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
+                          placeholder={t.studio.subtitleFixToPlaceholder}
+                          maxLength={60}
+                          value={pair.to}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSubtitleReplacements((prev) => prev.map((p, j) => (j === i ? { ...p, to: val } : p)));
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="reset-btn"
+                          title={t.studio.subtitleFixRemove}
+                          onClick={() => setSubtitleReplacements((prev) => prev.filter((_, j) => j !== i))}
+                          style={{ fontSize: '0.8rem', padding: '0.15rem 0.45rem', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: 'var(--text-muted)', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {subtitleReplacements.length < 100 && (
+                    <button
+                      type="button"
+                      className="pill-btn"
+                      onClick={() => setSubtitleReplacements((prev) => [...prev, { from: '', to: '' }])}
+                      style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem', alignSelf: 'flex-start' }}
+                    >
+                      + {t.studio.subtitleFixAdd}
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </div>

@@ -10,10 +10,13 @@ Bagian dari render server. Subtitle karaoke dibuat dari transkripsi Whisper per 
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/services/render_service.py` | langkah subtitle/judul per klip | L74-172 | Overlay judul emoji, transkripsi kata, panggil `generate_ass_file` |
-| `backend/services/render_service.py` | subtitle mode merged | L373-461 | Kata per segmen digeser waktunya lalu digabung |
+| `backend/services/render_service.py` | langkah subtitle/judul per klip | L74-173 | Overlay judul emoji, transkripsi kata, panggil `generate_ass_file` |
+| `backend/services/render_service.py` | subtitle mode merged | L374-463 | Kata per segmen digeser waktunya lalu digabung |
 | `backend/video_engine.py` | `transcribe_clip_words` | L1154-1239 | Whisper per kata (0.0 = awal klip), fallback sebar transkrip |
-| `backend/video_engine.py` | `generate_ass_file` | L1701-2073 | File ASS: gaya caption, posisi, karaoke, judul teks |
+| `backend/video_engine.py` | `generate_ass_file` | L1737-2113 | File ASS: gaya caption, posisi, karaoke, judul teks. Parameter `word_replacements` (#11) diterapkan di langkah A subtitle (L2008-2012) sebelum `apply_text_case` |
+| `backend/video_engine.py` | `build_word_replacement_map` | L1704-1720 | #11: kamus koreksi `{from, to}` -> `{kunci: pengganti}`; kunci dibersihkan seperti kata Whisper, huruf kecil, tanpa tanda baca ujung |
+| `backend/video_engine.py` | `apply_word_replacement` | L1723-1734 | #11: ganti satu kata bila cocok, tanda baca ujung (`.,?`) dipertahankan, pengganti kosong = kata dihapus |
+| `backend/schemas/render.py` | `SubtitleReplacement` | L5-8 | #11: pasangan `from` (alias, 1-40 karakter tanpa spasi) dan `to` (0-60); `RenderSettingsModel.subtitle_replacements` maks 100 (L38) |
 | `backend/video_engine.py` | `format_ass_timestamp` | L1242-1250 | Format waktu ASS |
 | `backend/video_engine.py` | `escape_ass_text` | L1694-1698 | Escape teks untuk ASS |
 | `backend/video_engine.py` | `clean_caption_text` | L1132-1151 | Bersihkan teks caption |
@@ -37,7 +40,7 @@ Bagian dari render server. Subtitle karaoke dibuat dari transkripsi Whisper per 
 
 ## Risiko
 - Ukuran font, posisi, dan wrap dihitung untuk kanvas 1080×1920 (lihat [[render-server]]).
-- Teks subtitle diambil langsung dari Whisper. Belum ada koreksi manual sebelum render (target task #11: `ClipStudioSection.tsx`, `schemas/render.py`, `generate_ass_file`).
+- Teks subtitle diambil langsung dari Whisper saat render, jadi belum bisa disunting per klip sebelum render. Koreksi yang ada (#11) berupa kamus global "salah -> benar" dari Clip Studio (`subtitle_replacements`), diteruskan `render_service.py` ke kedua panggilan `generate_ass_file` (mode separate L171, merged L461). Kata pengganti tetap mengikuti `text_case`; kata yang dihapus ikut membuang tanda baca ujungnya (bisa menggeser pemotongan potongan subtitle). `from` hanya satu kata, frasa multi-kata belum didukung.
 - Whisper memakai model global yang sama dengan [[transkrip]]. Render yang paralel dengan analisis bisa berebut RAM.
 - Font kustom yang di-upload disimpan di `backend/fonts` dan dilindungi dari cleanup ([[penyimpanan-dan-cleanup]]).
 

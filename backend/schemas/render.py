@@ -1,5 +1,11 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+
+# Task #11: satu pasangan kamus koreksi subtitle ("salah" -> "benar"), "from" satu kata tanpa spasi
+class SubtitleReplacement(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    from_: str = Field(..., alias="from", min_length=1, max_length=40, pattern=r"^\S+$")
+    to: str = Field("", max_length=60)
 
 class RenderSettingsModel(BaseModel):
     aspect_ratio: str = "9:16"
@@ -28,6 +34,8 @@ class RenderSettingsModel(BaseModel):
     subtitle_y_percent: Optional[float] = None
     subtitle_position_mode: Optional[str] = "bottom"
     subtitle_center_y_percent: Optional[float] = 50.0
+    # Task #11: kamus koreksi kata subtitle, berlaku untuk semua klip dalam render
+    subtitle_replacements: Optional[List[SubtitleReplacement]] = Field(None, max_length=100)
     # Background Music
     bgm_enabled: Optional[bool] = False
     bgm_file_path: Optional[str] = None

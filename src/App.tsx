@@ -495,6 +495,7 @@ export default function App() {
             subtitle_y_percent: settings.subtitleYPercent,
             subtitle_position_mode: settings.subtitlePositionMode || 'bottom',
             subtitle_center_y_percent: settings.subtitleCenterYPercent !== undefined ? settings.subtitleCenterYPercent : 50.0,
+            subtitle_replacements: settings.subtitleReplacements && settings.subtitleReplacements.length > 0 ? settings.subtitleReplacements : undefined,
             // Background Music
             bgm_enabled: settings.bgmEnabled || false,
             bgm_file_path: settings.bgmFilePath || null,

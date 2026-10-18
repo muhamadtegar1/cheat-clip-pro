@@ -10,15 +10,15 @@ Menentukan titik pusat crop agar wajah pembicara (atau objek penting) tetap di d
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/video_engine.py` | `detect_speaker_face_box` | L2183-2524 | YuNet (OpenCV DNN) + Haar cascade + saliency/gerak, sampling frame hemat CPU |
-| `backend/video_engine.py` | `detect_video_saliency_and_motion_center` | L2106-2180 | Pusat objek dari saliency + gerakan antar frame |
-| `backend/video_engine.py` | `detect_image_saliency_center` | L2076-2103 | Saliency satu gambar |
-| `backend/video_engine.py` | `detect_speaker_center_ratio` | L2527-2533 | Pembungkus yang hanya mengembalikan `cx` |
+| `backend/video_engine.py` | `detect_speaker_face_box` | L2223-2564 | YuNet (OpenCV DNN) + Haar cascade + saliency/gerak, sampling frame hemat CPU |
+| `backend/video_engine.py` | `detect_video_saliency_and_motion_center` | L2146-2220 | Pusat objek dari saliency + gerakan antar frame |
+| `backend/video_engine.py` | `detect_image_saliency_center` | L2116-2143 | Saliency satu gambar |
+| `backend/video_engine.py` | `detect_speaker_center_ratio` | L2567-2573 | Pembungkus yang hanya mengembalikan `cx` |
 | `backend/video_engine.py` | konstanta model | L149-151 | `haarcascade_frontalface_default.xml`, `cascades/face_detection_yunet.onnx` |
-| `backend/video_engine.py` | pemanggilan saat render | L2935 | Di dalam `render_clip_to_mp4` bila `enable_face_tracking` atau preset streamer aktif |
+| `backend/video_engine.py` | pemanggilan saat render | L2975 | Di dalam `render_clip_to_mp4` bila `enable_face_tracking` atau preset streamer aktif |
 | `backend/routers/media.py` | `detect_face` | L386-437 | `GET /api/detect-face` untuk pratinjau di Clip Studio |
 | `backend/routers/media.py` | `get_clip_frame` | L370-382 | `GET /api/clip-frame`, frame untuk pratinjau |
-| `src/components/ClipStudioSection.tsx` | `fetchFace` | L502-514 | Memanggil `/api/detect-face` saat pratinjau |
+| `src/components/ClipStudioSection.tsx` | `fetchFace` | L522-534 | Memanggil `/api/detect-face` saat pratinjau |
 
 ## Input / output
 - Input: path video segmen, `facecam_position` (`auto`, sudut tertentu), `streamer_preset` (`none`, `split_top_cam`, `pip_corner`).

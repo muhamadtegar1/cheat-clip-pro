@@ -135,6 +135,12 @@ export interface HardwareAccelInfo {
   }>;
 }
 
+// Task #11: satu pasangan kamus koreksi subtitle ("salah" -> "benar")
+export interface SubtitleReplacement {
+  from: string;
+  to: string;
+}
+
 export interface RenderSettings {
   renderEngine?: 'server' | 'client';
   aspectRatio: AspectRatioOption;
@@ -163,6 +169,7 @@ export interface RenderSettings {
   subtitleYPercent?: number;
   subtitlePositionMode?: SubtitlePositionMode;
   subtitleCenterYPercent?: number;
+  subtitleReplacements?: SubtitleReplacement[];
   selectedClips: ViralClip[];
   // Background Music
   bgmEnabled?: boolean;

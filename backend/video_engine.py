@@ -1698,6 +1698,42 @@ def escape_ass_text(text: str) -> str:
     return str(text).replace("{", "｛").replace("}", "｝").replace("\\", "＼")
 
 
+_REPLACEMENT_TRAILING_PUNCT = ".,?"
+
+
+def build_word_replacement_map(replacements: Optional[List[Any]]) -> Dict[str, str]:
+    """
+    Task #11: kamus koreksi subtitle -> {kata_kunci: pengganti}.
+    Menerima dict {"from", "to"} atau objek dengan atribut from_/to. Kunci dibersihkan seperti kata Whisper
+    (clean_caption_text, huruf kecil, tanpa tanda baca ujung); pasangan dengan kunci kosong diabaikan.
+    """
+    mapping: Dict[str, str] = {}
+    for item in replacements or []:
+        if isinstance(item, dict):
+            src, dst = item.get("from"), item.get("to")
+        else:
+            src, dst = getattr(item, "from_", None), getattr(item, "to", None)
+        key = clean_caption_text(str(src or "")).rstrip(_REPLACEMENT_TRAILING_PUNCT).lower()
+        if not key or " " in key:
+            continue
+        mapping[key] = clean_caption_text(str(dst or ""))
+    return mapping
+
+
+def apply_word_replacement(raw_text: str, mapping: Dict[str, str]) -> str:
+    """Task #11: ganti satu kata (sudah dibersihkan) bila cocok dengan kamus; tanda baca ujung kata asli dipertahankan.
+    Mengembalikan string kosong bila pengganti kosong (kata dihapus dari subtitle)."""
+    if not mapping or not raw_text:
+        return raw_text
+    core = raw_text.rstrip(_REPLACEMENT_TRAILING_PUNCT)
+    replacement = mapping.get(core.lower())
+    if replacement is None:
+        return raw_text
+    if not replacement:
+        return ""
+    return replacement.rstrip(_REPLACEMENT_TRAILING_PUNCT) + raw_text[len(core):]
+
+
 def generate_ass_file(
     words: List[Dict[str, Any]],
     style_preset: str,
@@ -1720,7 +1756,8 @@ def generate_ass_file(
     title_font_name: Optional[str] = None,
     font_size_px: Optional[int] = None,
     title_font_size_px: Optional[int] = None,
-    title_text_case: Optional[str] = None
+    title_text_case: Optional[str] = None,
+    word_replacements: Optional[List[Any]] = None
 ) -> str:
     """
     Generates an Advanced SubStation Alpha (.ass) subtitle and title file with karaoke / word-level animation.
@@ -1969,8 +2006,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if words and style_preset != "none":
         # Step A: Sanitize and sort all word timestamps
         valid_words = []
+        # Task #11: kamus koreksi kata dari Clip Studio, diterapkan sebelum kapitalisasi text_case
+        replacement_map = build_word_replacement_map(word_replacements)
         for w in words:
             raw_text = clean_caption_text(w.get("word", "").strip())
+            raw_text = apply_word_replacement(raw_text, replacement_map)
             if not raw_text:
                 continue
             w_text = escape_ass_text(apply_text_case(raw_text, text_case))
