@@ -1,5 +1,5 @@
 # CHEAT-11: Kamus koreksi subtitle sebelum render
-Status: REVIEW
+Status: DONE
 Risiko: rendah-sedang (mengubah teks subtitle di `generate_ass_file` yang dipakai semua render server; tanpa perubahan prompt AI)
 
 ## Tujuan

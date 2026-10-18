@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      11
-status:          11 REVIEW, 32 REVIEW (golden tanpa heatmap menunggu kuota)
-langkah_berikut: Pemilik coba #11 dengan render nyata (kata yang sering salah ditangkap Whisper, mode separate dan merged); review sesi baru #11 PASS, lalu /done 11. Kumpulkan data pilihan Pakai/Lewati (#35). #32: ulangi golden --no-heatmap saat kuota pulih, /review 32, /done 32. Setelah data pilihan cukup: rumuskan ulang #2/#3. Fase 3 berikutnya: #22 (perlu izin pemilik, aturan no. 6)
+task_aktif:      —
+status:          11 DONE, 32 REVIEW (golden tanpa heatmap menunggu kuota)
+langkah_berikut: #32: ulangi golden --no-heatmap saat kuota pulih, /review 32, /done 32. Kumpulkan data pilihan Pakai/Lewati (#35). Setelah data pilihan cukup: rumuskan ulang #2/#3. Fase 3 berikutnya: #22 (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu cukup data pilihan dari #35 (alat sudah siap). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
@@ -86,7 +86,7 @@ Preset lain: lihat `D:\Clipper\clipper app\foundation\06_SCORING_SYSTEM.md` §7�
 | -- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------ |
 | 20 | Campaign Profile (menyerap #4 dan #13): sumber resmi, platform, credit line persis, hashtag wajib, durasi min–maks, gaya terlarang, brief, audiens, eksklusi, CPM, batas bayaran | Baru: `backend/campaigns/*.json` + router + form UI                                                                   | Satu profil otomatis terpakai di analisis, render, dan caption | TODO   |
 | 21 | Compliance checker: durasi, credit/hashtag persis, source resmi, musik/overlay terlarang                                                                                         | Baru: `backend/services/compliance_service.py` + panel ✓/⚠️ di UI                                                     | Klip yang melanggar brief tertandai sebelum ekspor             | TODO   |
-| 11 | Koreksi subtitle sebelum render                                                                                                                                                  | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `generate_ass_file` di `backend/video_engine.py` | Kata yang dikoreksi muncul benar di video hasil render         | REVIEW |
+| 11 | Koreksi subtitle sebelum render                                                                                                                                                  | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `generate_ass_file` di `backend/video_engine.py` | Kata yang dikoreksi muncul benar di video hasil render         | DONE   |
 | 22 | Posting kit (menyerap #19 dan #6): per klip MP4 + SRT + `metadata.json` (skor, prompt, versi prompt, model) + caption per platform, dibuat setelah klip dipilih                  | `backend/services/render_service.py`, `backend/routers/analyze.py`                                                    | Satu folder per klip siap unggah ke TikTok, Reels, Shorts, X   | TODO   |
 
 ### 🚦 Titik uji — 1 campaign nyata
@@ -224,6 +224,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-18 | 35 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-18 | 11 | REVIEW | Kamus koreksi subtitle "salah -> benar" di Clip Studio (preferensi studio), `subtitle_replacements` di `RenderSettingsModel`, diterapkan di `generate_ass_file` untuk mode separate dan merged (cocok tanpa beda huruf, tanda baca ujung dipertahankan, kosong = hapus). Build lulus, lint tanpa masalah baru, smoke 16/16 (cek baru), codemap lulus, uji render ujung ke ujung + frame video, uji browser |
 | 2026-10-19 | 11 | REVIEW | Review sesi baru: PASS |
+| 2026-10-19 | 11 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 
