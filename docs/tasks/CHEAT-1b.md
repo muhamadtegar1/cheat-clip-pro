@@ -1,5 +1,5 @@
 # CHEAT-1b: Tampilan skor 7 dimensi dan label relatif di kartu klip
-Status: REVIEW
+Status: DONE
 Risiko: rendah (hanya frontend, tanpa perubahan prompt atau backend)
 
 ## Tujuan
