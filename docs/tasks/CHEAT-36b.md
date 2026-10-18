@@ -1,5 +1,5 @@
 # CHEAT-36b: Sunting subtitle per klip dan render memakai kata pratinjau
-Status: REVIEW
+Status: DONE
 Risiko: sedang (render tidak lagi menjalankan Whisper untuk klip yang punya kata pratinjau; `build_subtitle_events` mendapat mode potongan manual tanpa mengubah hasil lama; tanpa perubahan prompt AI)
 
 ## Tujuan
