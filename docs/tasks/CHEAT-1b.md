@@ -76,5 +76,14 @@ CATATAN:
 - `.claude/launch.json` (konfigurasi pratinjau frontend) dibuat untuk uji browser, tidak di-commit.
 
 ## Review (sesi baru)
-VERDICT: PASS | FIX_REQUIRED
+VERDICT: PASS
 ALASAN:
+- Lingkup: commit `4c354db` hanya menyentuh `src/types.ts`, `src/App.tsx` (+8 baris: impor, `clipTiers` useMemo, `<ClipTierBadges>` di header, `<ClipScorePanel>` sesudah kutipan), `src/components/ClipScorePanel.tsx` (baru), `src/utils/clipScores.ts` (baru), `src/locales/id.ts`, `src/locales/en.ts`, `docs/codemap/*`, kontrak. Badge `virality_score`, filter, urutan, ekspor, `ClipStudioSection.tsx`, backend tidak diubah. Catatan: `src/utils/clipScores.ts` ditambahkan ke Area saat implementasi (alasan lint `react-refresh/only-export-components` masuk akal, tercatat di kontrak dan laporan); pemilik sebaiknya menyetujui tambahan ini secara eksplisit.
+- Label relatif: `computeClipTiers` (`src/utils/clipScores.ts` L23-34) memakai `ceil(30%)` minimal 1 dari semua klip bertanda skor; `useMemo` di `App.tsx` bergantung pada `result?.clips`, bukan `filteredClips`, jadi label tidak berubah saat filter/pencarian. String id "★ Prioritas"/"Cadangan", en "★ Priority"/"Backup". Terpenuhi (dari kode). Catatan kecil: skor sama dengan batas ikut Prioritas, jadi bisa lebih dari 30% bila banyak skor kembar (sesuai desain kontrak).
+- Panel: `ClipScorePanel` merender dimensi yang bernilai number saja, jadi `prompt_match` null tersembunyi (6 skor) dan tampil bila ada (7), plus `score_reason`. Lencana Butuh konteks hanya bila `needs_context` truthy. Terpenuhi.
+- Klip tanpa skor: `hasClipScores` false -> panel `null`, tidak masuk `clipTiers` -> tanpa pil; field opsional di `types.ts`, tidak ada akses tanpa guard. Terpenuhi dari kode; tampilan riwayat asli perlu dicek pemilik.
+- Locale: 8 kunci baru di `results` ada di `id.ts` dan `en.ts` dengan bentuk sama (build `tsc -b` lulus terhadap tipe `Translations`).
+- Test (dijalankan reviewer): `npm run build` lulus (hanya peringatan ukuran chunk lama). `npx eslint` pada 5 file baru/diubah selain App.tsx: bersih. `App.tsx`: 27 masalah (23 error, 4 warning) sekarang dan di `fe2120c` (sebelum task), tidak ada error baru. Smoke test 14/14 lulus. `check_codemap.py`: SEMUA CEK LULUS (232 simbol).
+- Codemap: `frontend-app.md` memuat `ClipTierBadges`, `ClipScorePanel`, `computeClipTiers`, `hasClipScores`, kartu klip dan risiko label relatif; rentang bergeser di catatan lain diperbarui. Cek codemap lulus.
+- Kualitas: tidak ada rahasia ter-commit, tidak ada format ulang di luar baris baru. `onClick` panel memakai `stopPropagation` agar klik panel tidak membuka/menutup kartu.
+- Perlu dicek pemilik: buka analisis asli dari riwayat setelah #1 (id dan en), nilai keterbacaan panel (menambah tinggi kartu), buka analisis lama sebelum #1 dan pastikan kartu normal, coba filter/pencarian dan pastikan label tetap.

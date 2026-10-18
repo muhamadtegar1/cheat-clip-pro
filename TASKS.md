@@ -217,6 +217,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-18 | 1 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-18 | 32 | REVIEW | Label heatmap jujur di prompt: heatmap energi audio (upload/Drive/fallback Whisper) diberi label `audio_energy` sebagai petunjuk lemah; teks YouTube dan tanpa heatmap identik (hash prompt golden sama dengan HEAD). Smoke 14/14, codemap lulus, golden biasa exit 0 (3.8-flash, independen 83,3). BELUM DIUKUR SETARA tanpa heatmap (kuota habis); wajib sebelum DONE |
 | 2026-10-18 | 1b | REVIEW | Kartu klip: label relatif Prioritas/Cadangan (sekitar 30% teratas per hasil analisis, stabil terhadap filter), panel 6-7 skor + alasan, lencana Butuh konteks; klip tanpa skor tidak berubah. Komponen baru `ClipScorePanel.tsx` + `utils/clipScores.ts` (lint). Build lulus, lint tanpa error baru, smoke 14/14, codemap lulus, uji browser dengan data contoh |
+| 2026-10-18 | 1b | REVIEW | Review sesi baru: PASS |
 
 ***
 
