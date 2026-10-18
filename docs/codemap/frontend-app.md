@@ -1,6 +1,6 @@
 ---
 fitur: frontend utama (App.tsx)
-file_utama: [src/App.tsx, src/types.ts, src/utils/api.ts, src/locales/LanguageContext.tsx, src/locales/id.ts, src/locales/en.ts]
+file_utama: [src/App.tsx, src/types.ts, src/components/ClipScorePanel.tsx, src/utils/clipScores.ts, src/utils/api.ts, src/locales/LanguageContext.tsx, src/locales/id.ts, src/locales/en.ts]
 ---
 # Frontend app
 
@@ -10,34 +10,38 @@ React 19 + Vite. Hampir semua UI dan state ada di satu komponen `App` (`src/App.
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `src/App.tsx` | `App` | L27-4951 | Komponen utama |
-| `src/App.tsx` | state form + preferensi | L28-139 | URL, sumber, draf input API key + `geminiKeyStatus` (L51-56), model, durasi, jumlah klip, rentang, subtitle manual |
-| `src/App.tsx` | `handleAnalyze` | L1346-1716 | Upload audio (bila upload), cek cache, `POST /api/analyze`, baca stream SSE, simpan cache |
-| `src/App.tsx` | kirim request + baca stream SSE | L1555-1671 | `fetch('/api/analyze')`, `response.body.getReader()`, parsing event |
-| `src/App.tsx` | `saveGeminiKey` | L740-752 | `PUT /api/settings/gemini-key` (opsional retry) |
-| `src/App.tsx` | `handleSaveApiKey` | L754-772 | Tombol Simpan / Enter di input key. Input dikosongkan setelah tersimpan |
-| `src/App.tsx` | `handleDeleteApiKey` | L774-791 | Tombol Hapus: `DELETE /api/settings/gemini-key` |
-| `src/App.tsx` | muat status key + migrasi | L793-810 | Key lama di `localStorage` dipindah ke backend lalu dihapus, kemudian `GET /api/settings/gemini-key` |
-| `src/App.tsx` | `fetchModels` | L814-842 | `GET /api/models` tanpa key di query, hanya bila backend punya key asli (bukan `mock`) |
-| `src/App.tsx` | `refreshHistory` | L904-969 | Bangun riwayat dari key `cheat_clip_cache_*` |
-| `src/App.tsx` | `loadFromHistory` | L976-1095 | Muat hasil lama dari cache |
-| `src/App.tsx` | `clearAllHistory` | L1109-1121 | Hapus semua cache analisis |
-| `src/App.tsx` | `initPlayer` | L1153-1222 | YouTube IFrame player |
-| `src/App.tsx` | `playClip` | L1257-1296 | Putar satu klip di player |
-| `src/App.tsx` | `toggleMarkedClip` | L874-882 | Checklist klip (disimpan per video) |
-| `src/App.tsx` | `handleStartBatchRender` | L293-565 | Render: mode browser (L299-455) atau `POST /api/render-batch` (L457-565) |
-| `src/App.tsx` | `handleRetryBatchClip` | L567-608 | Retry klip gagal |
-| `src/App.tsx` | `handleExportJSON` | L2168-2180 | Ekspor hasil ke JSON |
-| `src/App.tsx` | `handleExportSRT` | L2182-2214 | Ekspor transkrip ke SRT |
-| `src/App.tsx` | `handleCopyAllMarkdown` | L2216-2246 | Salin semua klip sebagai Markdown |
-| `src/App.tsx` | filter + urutan klip | L2248-2284 | `searchQuery`, `viralityFilter`, `sortBy` |
-| `src/App.tsx` | JSX header | L2348-2459 | Badge cookies, Clear Temp, tombol Update (disembunyikan) |
-| `src/App.tsx` | JSX form analisis | L2460-3301 | Tab sumber, kartu AI (L2857-2993, API key L2863-2949), parameter klip, subtitle, rentang |
-| `src/App.tsx` | JSX riwayat | L3302-3667 | Daftar analisis sebelumnya |
-| `src/App.tsx` | JSX progres | L3796-4001 | Bar progres + stepper 4 langkah (saat `loading`) |
-| `src/App.tsx` | JSX dashboard hasil | L4002-4817 | Player, heatmap, ringkasan AI, kartu klip (L4336-4817) |
-| `src/App.tsx` | JSX Clip Studio + modal | L4840-4948 | `ClipStudioSection`, `CookiesModal`, `AppUpdateModal`, `ClipTrimmerModal` |
-| `src/types.ts` | tipe bersama | L1-175 | `AnalyzeResponse`, `ViralClip`, `RenderSettings`, `BatchRenderProgress` |
+| `src/App.tsx` | `App` | L29-4959 | Komponen utama |
+| `src/App.tsx` | state form + preferensi | L30-141 | URL, sumber, draf input API key + `geminiKeyStatus` (L53-58), model, durasi, jumlah klip, rentang, subtitle manual |
+| `src/App.tsx` | `handleAnalyze` | L1348-1718 | Upload audio (bila upload), cek cache, `POST /api/analyze`, baca stream SSE, simpan cache |
+| `src/App.tsx` | kirim request + baca stream SSE | L1557-1673 | `fetch('/api/analyze')`, `response.body.getReader()`, parsing event |
+| `src/App.tsx` | `saveGeminiKey` | L742-754 | `PUT /api/settings/gemini-key` (opsional retry) |
+| `src/App.tsx` | `handleSaveApiKey` | L756-774 | Tombol Simpan / Enter di input key. Input dikosongkan setelah tersimpan |
+| `src/App.tsx` | `handleDeleteApiKey` | L776-793 | Tombol Hapus: `DELETE /api/settings/gemini-key` |
+| `src/App.tsx` | muat status key + migrasi | L795-812 | Key lama di `localStorage` dipindah ke backend lalu dihapus, kemudian `GET /api/settings/gemini-key` |
+| `src/App.tsx` | `fetchModels` | L816-844 | `GET /api/models` tanpa key di query, hanya bila backend punya key asli (bukan `mock`) |
+| `src/App.tsx` | `refreshHistory` | L906-971 | Bangun riwayat dari key `cheat_clip_cache_*` |
+| `src/App.tsx` | `loadFromHistory` | L978-1097 | Muat hasil lama dari cache |
+| `src/App.tsx` | `clearAllHistory` | L1111-1123 | Hapus semua cache analisis |
+| `src/App.tsx` | `initPlayer` | L1155-1224 | YouTube IFrame player |
+| `src/App.tsx` | `playClip` | L1259-1298 | Putar satu klip di player |
+| `src/App.tsx` | `toggleMarkedClip` | L876-884 | Checklist klip (disimpan per video) |
+| `src/App.tsx` | `handleStartBatchRender` | L295-567 | Render: mode browser (L301-457) atau `POST /api/render-batch` (L459-567) |
+| `src/App.tsx` | `handleRetryBatchClip` | L569-610 | Retry klip gagal |
+| `src/App.tsx` | `handleExportJSON` | L2170-2182 | Ekspor hasil ke JSON |
+| `src/App.tsx` | `handleExportSRT` | L2184-2216 | Ekspor transkrip ke SRT |
+| `src/App.tsx` | `handleCopyAllMarkdown` | L2218-2248 | Salin semua klip sebagai Markdown |
+| `src/App.tsx` | filter + urutan klip | L2250-2289 | `searchQuery`, `viralityFilter`, `sortBy`; `clipTiers` (L2269, #1b) = label relatif dari semua `result.clips`, bukan daftar yang difilter |
+| `src/App.tsx` | JSX header | L2353-2464 | Badge cookies, Clear Temp, tombol Update (disembunyikan) |
+| `src/App.tsx` | JSX form analisis | L2465-3306 | Tab sumber, kartu AI (L2862-2998, API key L2868-2954), parameter klip, subtitle, rentang |
+| `src/App.tsx` | JSX riwayat | L3307-3672 | Daftar analisis sebelumnya |
+| `src/App.tsx` | JSX progres | L3801-4006 | Bar progres + stepper 4 langkah (saat `loading`) |
+| `src/App.tsx` | JSX dashboard hasil | L4007-4825 | Player, heatmap, ringkasan AI, kartu klip (L4341-4825; `ClipTierBadges` di header L4619 dan `ClipScorePanel` sesudah kutipan L4648, #1b) |
+| `src/App.tsx` | JSX Clip Studio + modal | L4848-4956 | `ClipStudioSection`, `CookiesModal`, `AppUpdateModal`, `ClipTrimmerModal` |
+| `src/types.ts` | tipe bersama | L1-191 | `AnalyzeResponse`, `ViralClip` (dengan `scores`, `score_reason`, `needs_context`, `score_label` dari #1), `ClipScores`, `RenderSettings`, `BatchRenderProgress` |
+| `src/components/ClipScorePanel.tsx` | `ClipTierBadges` | L19-52 | #1b: pil label relatif Prioritas/Cadangan + lencana "Butuh konteks" di header kartu |
+| `src/components/ClipScorePanel.tsx` | `ClipScorePanel` | L54-96 | #1b: bar 6-7 skor dimensi + `score_reason`; tidak dirender untuk klip tanpa skor |
+| `src/utils/clipScores.ts` | `computeClipTiers` | L23-34 | #1b: sekitar 30% teratas klip bertanda skor (ceil, minimal 1, skor sama dengan batas ikut) = `priority`, sisanya `backup`; kunci `clipKey` = `start_end` |
+| `src/utils/clipScores.ts` | `hasClipScores` | L15-16 | Klip punya minimal satu skor inti (tanpa Prompt Match) |
 | `src/utils/api.ts` | `resilientFetch` | L16-65 | Fetch dengan retry/timeout |
 | `src/locales/LanguageContext.tsx` | `LanguageProvider` | L33-59 | Bahasa UI (id/en) |
 | `src/locales/LanguageContext.tsx` | `useLanguage` | L61-67 | Hook `t` untuk teks UI |
@@ -56,6 +60,7 @@ React 19 + Vite. Hampir semua UI dan state ada di satu komponen `App` (`src/App.
 - Output: request ke backend (lewat proxy Vite `/api`), file JSON/SRT yang diunduh browser.
 
 ## Risiko
+- Label skor (#1b) sengaja relatif per hasil analisis: skor Gemini menggelembung (84-94) sehingga `score_label` absolut dari backend selalu `strong` dan tidak ditampilkan. Badge `virality_score`, filter "high >= 90", dan ekspor tetap memakai angka lama. Helper skor ada di `src/utils/clipScores.ts`, bukan di file komponen, karena aturan lint `react-refresh/only-export-components`.
 - Komponen raksasa dengan puluhan `useState`. Tambah fitur sebagai komponen terpisah bila memungkinkan, jangan menambah ke `App`.
 - Semua teks UI harus ditambahkan ke **dua** file locale (`src/locales/id.ts` dan `src/locales/en.ts`, ±688 baris masing-masing).
 - **Komponen mati**: `src/components/ClipStudioModal.tsx` dan `src/components/BatchRenderProgressModal.tsx` tidak diimpor di mana pun. Jangan edit file itu dengan anggapan mengubah UI aktif.

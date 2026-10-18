@@ -10,6 +10,8 @@ import { getStoredCookies, hasStoredCookies } from './utils/cookieUtils';
 import { extractAudioFromVideoClient } from './utils/audioExtractor';
 import { renderClipClientSide, triggerBrowserDownload } from './services/clientRenderer';
 import { useLanguage } from './locales';
+import { ClipScorePanel, ClipTierBadges } from './components/ClipScorePanel';
+import { clipKey, computeClipTiers } from './utils/clipScores';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
 
 // Declare YT global variables for TypeScript
@@ -2263,6 +2265,9 @@ Transcript:
   }, [result?.clips, searchQuery, viralityFilter, markedClips]);
 
   // Sort the filtered clips based on selected sortBy
+  // Task #1b: label relatif dari semua klip hasil analisis, bukan daftar yang difilter
+  const clipTiers = useMemo(() => computeClipTiers(result?.clips), [result?.clips]);
+
   const sortedClips = useMemo(() => {
     return [...filteredClips].sort((a, b) => {
       if (sortBy === 'virality') {
@@ -4611,6 +4616,7 @@ Transcript:
                             <span>🔥</span>
                             <span>{t.results.viralityBadge(clip.virality_score)}</span>
                           </div>
+                          <ClipTierBadges tier={clipTiers.get(clipKey(clip))} needsContext={clip.needs_context} />
                           {!!markedClips[`${clip.start_time}_${clip.end_time}`] && (
                             <div style={{
                               display: 'flex',
@@ -4638,6 +4644,8 @@ Transcript:
                           ))}
                         </div>
                       )}
+
+                      <ClipScorePanel clip={clip} />
 
                       {/* Suggestions: Title, Caption */}
                       {(clip.title_suggestion || clip.caption_suggestion) && (

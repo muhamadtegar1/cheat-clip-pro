@@ -11,6 +11,17 @@ export interface TranscriptLine {
   engagement?: number;
 }
 
+// Task #1: skor 7 dimensi 0-100 dari backend; prompt_match null tanpa fokus pencarian
+export interface ClipScores {
+  prompt_match?: number | null;
+  hook?: number | null;
+  retention?: number | null;
+  clarity?: number | null;
+  emotional_pull?: number | null;
+  payoff?: number | null;
+  editability?: number | null;
+}
+
 export interface ViralClip {
   title: string;
   start_time: number;
@@ -22,6 +33,11 @@ export interface ViralClip {
   title_suggestion?: string;
   caption_suggestion?: string;
   hashtag_suggestion?: string;
+  // Task #1 (ditampilkan #1b); null/tidak ada untuk analisis lama dan klip fallback heatmap
+  scores?: ClipScores | null;
+  score_reason?: string | null;
+  needs_context?: boolean | null;
+  score_label?: 'strong' | 'fair' | 'weak' | null;
 }
 
 export interface AnalyzeResponse {
