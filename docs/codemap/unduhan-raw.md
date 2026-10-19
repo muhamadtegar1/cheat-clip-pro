@@ -10,15 +10,15 @@ Dua kebutuhan: (1) segmen klip mentah untuk render ([[render-server]], [[render-
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/video_engine.py` | `download_clip_segment` | L697-1025 | Potong satu segmen, 4 metode fallback |
-| `backend/video_engine.py` | potong file lokal | L716-787 | Sumber upload/Drive: cari file, potong dengan FFmpeg |
-| `backend/video_engine.py` | metode 1: `--download-sections` sampai 2160p | L815-859 | Format di L820 |
-| `backend/video_engine.py` | metode 2: URL stream + FFmpeg | L860-920 | Format di L872 |
-| `backend/video_engine.py` | metode 3: 720p | L921-963 | Format di L933 |
-| `backend/video_engine.py` | metode 4: 480p | L964-1025 | Format di L976 |
-| `backend/video_engine.py` | `download_full_raw_video` | L1028-1129 | Video utuh, format di L1069 |
-| `backend/video_engine.py` | `get_yt_dlp_base_cmd` | L392-434 | Argumen dasar yt-dlp (proxy, cookies, header) |
-| `backend/video_engine.py` | `format_section_time` | L372-381 | Format waktu untuk `--download-sections` |
+| `backend/video_engine.py` | `download_clip_segment` | L718-1046 | Potong satu segmen, 4 metode fallback |
+| `backend/video_engine.py` | potong file lokal | L737-808 | Sumber upload/Drive: cari file, potong dengan FFmpeg |
+| `backend/video_engine.py` | metode 1: `--download-sections` sampai 2160p | L836-880 | Format di L820 |
+| `backend/video_engine.py` | metode 2: URL stream + FFmpeg | L881-941 | Format di L872 |
+| `backend/video_engine.py` | metode 3: 720p | L942-984 | Format di L933 |
+| `backend/video_engine.py` | metode 4: 480p | L985-1046 | Format di L976 |
+| `backend/video_engine.py` | `download_full_raw_video` | L1049-1150 | Video utuh, format di L1069 |
+| `backend/video_engine.py` | `get_yt_dlp_base_cmd` | L413-455 | Argumen dasar yt-dlp (proxy, cookies, header) |
+| `backend/video_engine.py` | `format_section_time` | L393-402 | Format waktu untuk `--download-sections` |
 | `backend/services/download_service.py` | `run_raw_download_job` | L28-85 | Job background unduh video utuh |
 | `backend/services/download_service.py` | `run_raw_clip_download_job` | L88-234 | Job background unduh segmen |
 | `backend/routers/downloads.py` | `handle_download_raw_video` | L23-60 | `POST /api/download-raw-video` |

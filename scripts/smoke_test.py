@@ -18,6 +18,7 @@ Cek yang dijalankan:
   6. Endpoint admin hanya untuk komputer sendiri, update/restart butuh ADMIN_API_KEY, Gemini key disimpan di .env tanpa bocor.
   7. Guardrail output (task #12): kutipan karangan diganti kalimat asli, timestamp dijepit/dibuang, overlap 80% digabung, 50% ditandai.
   8. Pilihan klip (task #35): simpan/timpa/batal/baca/ekspor JSON-CSV di EXPORTS_DIR/data, tulis atomik, file rusak dibackup, guard lokal.
+  9. Nama model Whisper (task #38): CHEAT_CLIP_WHISPER_MODEL kosong = default, valid dipakai, tidak dikenal = base (tanpa memuat model).
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -1148,6 +1149,40 @@ def cleanup(paths: list, batch_id, temp_dir: Path, exports_dir: Path) -> None:
             print(f"  peringatan: gagal menghapus {p}: {e}")
 
 
+def run_whisper_model_name_check() -> None:
+    """Task #38: pemilihan nama model Whisper dari env tanpa memuat model."""
+    name = "nama model Whisper dari env (#38)"
+    saved = os.environ.get("CHEAT_CLIP_WHISPER_MODEL")
+    problems = []
+    try:
+        from backend import video_engine as ve
+        loaded_before = ve._WHISPER_MODEL
+        cases = (("", ve.WHISPER_DEFAULT_MODEL), ("  ", ve.WHISPER_DEFAULT_MODEL), ("small", "small"),
+                 (" Medium.EN ", "medium.en"), ("large-v3", "large-v3"), ("gpt-4", "base"), ("base;rm", "base"))
+        for value, want in cases:
+            os.environ["CHEAT_CLIP_WHISPER_MODEL"] = value
+            got = ve.resolve_whisper_model_name()
+            if got != want:
+                problems.append(f"{value!r} -> {got!r}, harusnya {want!r}")
+        os.environ.pop("CHEAT_CLIP_WHISPER_MODEL", None)
+        if ve.resolve_whisper_model_name() != ve.WHISPER_DEFAULT_MODEL:
+            problems.append("env tidak ada tidak memberi default")
+        if ve.resolve_whisper_model_name("small") != "small":
+            problems.append("argumen value diabaikan")
+        if ve.WHISPER_DEFAULT_MODEL not in ve.WHISPER_KNOWN_MODELS or ve.WHISPER_DEFAULT_MODEL.endswith(".en"):
+            problems.append(f"default {ve.WHISPER_DEFAULT_MODEL!r} bukan model multibahasa yang dikenal")
+        if ve._WHISPER_MODEL is not loaded_before:
+            problems.append("model Whisper ikut dimuat")
+        report(name, not problems, "; ".join(problems) or f"kosong = {ve.WHISPER_DEFAULT_MODEL}, valid dipakai, tidak dikenal = base, model tidak dimuat")
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        if saved is None:
+            os.environ.pop("CHEAT_CLIP_WHISPER_MODEL", None)
+        else:
+            os.environ["CHEAT_CLIP_WHISPER_MODEL"] = saved
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test Cheat Clip PRO")
     parser.add_argument("--keep", action="store_true", help="Jangan hapus video sintetis dan hasil render")
@@ -1205,6 +1240,7 @@ def main() -> int:
         run_subtitle_fix_check(work_dir)
         run_subtitle_preview_check(client, config, video_name, work_dir)
         run_subtitle_edit_check(client, render_service, video_name)
+        run_whisper_model_name_check()
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

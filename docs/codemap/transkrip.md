@@ -1,6 +1,6 @@
 ---
 fitur: transkrip
-file_utama: [backend/services/youtube_service.py, backend/video_engine.py, backend/utils/text.py, backend/routers/analyze.py]
+file_utama: [backend/services/youtube_service.py, backend/video_engine.py, backend/utils/text.py, backend/routers/analyze.py, scripts/whisper_bench.py]
 ---
 # Transkrip
 
@@ -22,9 +22,14 @@ Langkah 3 dari `POST /api/analyze`. Menghasilkan `transcript_lines` berformat `[
 | `backend/services/youtube_service.py` | `prioritize_transcripts` | L86-118 | Urutkan trek: bahasa asli video dulu, manual sebelum otomatis |
 | `backend/services/youtube_service.py` | `normalize_transcript` | L35-83 | Seragamkan format semua tier |
 | `backend/services/youtube_service.py` | `download_youtube_audio_file` | L544-604 | Audio untuk fallback Whisper |
-| `backend/video_engine.py` | `transcribe_local_video_file` | L647-694 | Whisper untuk transkrip penuh |
-| `backend/video_engine.py` | `get_whisper_model` | L251-261 | Muat model Whisper `base` secara lazy |
-| `backend/video_engine.py` | `release_whisper_model` | L264-275 | Lepas model dari RAM |
+| `backend/video_engine.py` | `transcribe_local_video_file` | L668-715 | Whisper untuk transkrip penuh |
+| `backend/video_engine.py` | `resolve_whisper_model_name` | L259-268 | #38: nama model dari env `CHEAT_CLIP_WHISPER_MODEL` (bisa di `backend/.env`); kosong = `WHISPER_DEFAULT_MODEL` (`small`, pilihan pemilik #38), nama di luar `WHISPER_KNOWN_MODELS` = peringatan + `base`. Dibaca saat model pertama dimuat, jadi ganti env butuh restart backend |
+| `backend/video_engine.py` | `get_whisper_model` | L271-282 | Muat model Whisper secara lazy (nama dari `resolve_whisper_model_name`, dicatat di log); satu instance global untuk transkrip analisis dan subtitle klip |
+| `backend/video_engine.py` | `release_whisper_model` | L285-296 | Lepas model dari RAM (tidak dipanggil di mana pun) |
+| `scripts/whisper_bench.py` | `main` | L141-222 | #38: ukur model Whisper pada potongan audio lokal; tiap model di proses anak, tabel + JSON di `tests/whisper_bench/` (di-ignore git) |
+| `scripts/whisper_bench.py` | `worker` | L109-129 | Proses anak: muat model, `transcribe` dengan opsi sama seperti `transcribe_clip_words`, RAM puncak lewat `peak_memory_mb` |
+| `scripts/whisper_bench.py` | `load_reference` | L87-100 | Acuan `.txt` atau JSON transkrip; JSON dirapatkan ke baris utuh di dalam rentang |
+| `scripts/whisper_bench.py` | `word_error_rate` | L74-84 | WER kata (setelah `normalize_words`), juga dipakai untuk kestabilan run 1 vs run 2 |
 | `backend/utils/text.py` | `parse_manual_subtitles` | L28-114 | Parser SRT/TXT dari user |
 | `backend/utils/text.py` | `detect_transcript_language` | L245-359 | Deteksi bahasa untuk aturan zero-translation di [[analisis-ai]] |
 | `backend/utils/text.py` | `parse_time_str` | L4-26 | Parse timestamp |
@@ -36,6 +41,7 @@ Langkah 3 dari `POST /api/analyze`. Menghasilkan `transcript_lines` berformat `[
 ## Risiko
 - Tanpa Supadata/proxy, YouTube sering memblokir (bot check). Tier langsung bisa gagal di IP rumahan. Lihat [[cookies-dan-proxy]].
 - Fallback Whisper memakan CPU/RAM besar dan lambat untuk video panjang. Model berbagi instance global dengan transkripsi kata per kata di [[subtitle-dan-judul]].
+- Model Whisper (#38) dipilih lewat `CHEAT_CLIP_WHISPER_MODEL`. Model lebih besar memperlambat fallback Whisper analisis dan subtitle klip sekaligus (satu model global). Model `.en` merusak video non-Inggris: default wajib multibahasa sampai ada pilihan bahasa (#39). Data ukur di laptop pemilik: kontrak `docs/tasks/CHEAT-38.md`.
 - Kutipan (`key_quotes`) dari AI tidak dicek ke transkrip ini (target task #12).
 
 ## Terkait

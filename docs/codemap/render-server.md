@@ -29,16 +29,16 @@ Alur per klip: unduh segmen ([[unduhan-raw]]) → transkripsi kata + file `.ass`
 | `backend/schemas/render.py` | `RenderSettingsModel` | L10-62 | Semua opsi render dari Clip Studio, termasuk `subtitle_replacements` (#11, model `SubtitleReplacement` L5-8). Lihat [[subtitle-dan-judul]] |
 | `backend/schemas/render.py` | `PreviewSubtitlesRequest` | L73-85 | #36a: `video_url`, `video_id`, rentang, `transcript`, `cookies`, `subtitle_replacements`, `text_case`, `force` (lewati cache, tombol "Buat ulang") |
 | `backend/schemas/render.py` | `RenderBatchRequest` | L64-70 | `video_url`, `video_id`, `clips`, `settings`, `transcript`, `cookies` |
-| `backend/video_engine.py` | `render_clip_to_mp4` | L2948-3283 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
-| `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2614-2929 | Layout, crop, background blur, preset streamer, rasio aspek |
-| `backend/video_engine.py` | `check_has_audio` | L2932-2945 | Cek trek audio sumber |
-| `backend/video_engine.py` | `is_valid_mp4` | L437-493 | Validasi output dengan ffprobe/decode |
-| `backend/video_engine.py` | `ENCODER_CONFIGS` | L292-297 | Argumen nvenc/amf/qsv/cpu. AMF di L294: `-quality balanced -rc vbr_peak -b:v 12M -maxrate 16M -bufsize 24M` (task #9, sebelumnya `speed`/`cbr` 6M). Ikut dipakai metode 2 unduhan dan trim lokal lewat `ACTIVE_ENCODER_ARGS` |
-| `backend/video_engine.py` | `detect_hardware_support` | L302-328 | Deteksi GPU, hasil di-cache |
-| `backend/video_engine.py` | `get_preferred_video_encoder` | L331-346 | Pilih encoder saat modul diimpor |
-| `backend/video_engine.py` | `resolve_encoder` | L349-365 | Encoder sesuai pilihan `hardware_accel` user |
-| `backend/video_engine.py` | `check_encoder_support` | L278-289 | Uji encoder dengan kanvas 1080x1920 |
-| `backend/video_engine.py` | `extract_clip_frame` | L3286-3422 | Frame pratinjau (`GET /api/clip-frame`) |
+| `backend/video_engine.py` | `render_clip_to_mp4` | L2969-3304 | Susun perintah FFmpeg: video, judul, subtitle, watermark, BGM, SFX hook |
+| `backend/video_engine.py` | `build_ffmpeg_filtergraph` | L2635-2950 | Layout, crop, background blur, preset streamer, rasio aspek |
+| `backend/video_engine.py` | `check_has_audio` | L2953-2966 | Cek trek audio sumber |
+| `backend/video_engine.py` | `is_valid_mp4` | L458-514 | Validasi output dengan ffprobe/decode |
+| `backend/video_engine.py` | `ENCODER_CONFIGS` | L313-318 | Argumen nvenc/amf/qsv/cpu. AMF di L294: `-quality balanced -rc vbr_peak -b:v 12M -maxrate 16M -bufsize 24M` (task #9, sebelumnya `speed`/`cbr` 6M). Ikut dipakai metode 2 unduhan dan trim lokal lewat `ACTIVE_ENCODER_ARGS` |
+| `backend/video_engine.py` | `detect_hardware_support` | L323-349 | Deteksi GPU, hasil di-cache |
+| `backend/video_engine.py` | `get_preferred_video_encoder` | L352-367 | Pilih encoder saat modul diimpor |
+| `backend/video_engine.py` | `resolve_encoder` | L370-386 | Encoder sesuai pilihan `hardware_accel` user |
+| `backend/video_engine.py` | `check_encoder_support` | L299-310 | Uji encoder dengan kanvas 1080x1920 |
+| `backend/video_engine.py` | `extract_clip_frame` | L3307-3443 | Frame pratinjau (`GET /api/clip-frame`) |
 
 ## Input / output
 - Input: `RenderBatchRequest` dari `handleStartBatchRender` di [[frontend-app]] (pengaturan dari [[clip-studio]]).

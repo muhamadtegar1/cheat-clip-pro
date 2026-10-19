@@ -155,3 +155,4 @@ $RECYCLE.BIN/
 *.key
 *.p12
 *.pfx
+tests/whisper_bench/

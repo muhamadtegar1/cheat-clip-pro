@@ -247,14 +247,35 @@ ensure_ffmpeg_in_path()
 # Global lazy-loaded whisper model
 _WHISPER_MODEL = None
 
+# Task #38: model Whisper dipilih lewat env CHEAT_CLIP_WHISPER_MODEL (bisa di backend/.env)
+WHISPER_DEFAULT_MODEL = "small"  # pilihan pemilik dari data ukur #38 (multibahasa, bukan .en)
+WHISPER_FALLBACK_MODEL = "base"
+WHISPER_KNOWN_MODELS = {
+    "tiny", "tiny.en", "base", "base.en", "small", "small.en", "medium", "medium.en",
+    "large", "large-v1", "large-v2", "large-v3", "large-v3-turbo", "turbo",
+}
+
+
+def resolve_whisper_model_name(value=None) -> str:
+    """Task #38: nama model dari env (atau `value`). Kosong = default, nama tidak dikenal = peringatan + base."""
+    raw = os.environ.get("CHEAT_CLIP_WHISPER_MODEL", "") if value is None else value
+    name = (raw or "").strip().lower()
+    if not name:
+        return WHISPER_DEFAULT_MODEL
+    if name not in WHISPER_KNOWN_MODELS:
+        logger.warning(f"CHEAT_CLIP_WHISPER_MODEL '{raw}' tidak dikenal, memakai '{WHISPER_FALLBACK_MODEL}'.")
+        return WHISPER_FALLBACK_MODEL
+    return name
+
 
 def get_whisper_model():
     global _WHISPER_MODEL
     if _WHISPER_MODEL is None:
         try:
             import whisper
-            logger.info("Loading Whisper 'base' model for word-level timestamps...")
-            _WHISPER_MODEL = whisper.load_model("base")
+            model_name = resolve_whisper_model_name()
+            logger.info(f"Loading Whisper '{model_name}' model for word-level timestamps...")
+            _WHISPER_MODEL = whisper.load_model(model_name)
         except Exception as e:
             logger.warning(f"Could not load Whisper model: {e}")
             _WHISPER_MODEL = False
