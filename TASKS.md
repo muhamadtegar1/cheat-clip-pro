@@ -246,6 +246,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 37 | TODO | Ditambahkan atas permintaan pemilik: lingkar belajar dari performa klip (views, payout, acceptance) yang menghasilkan usulan bobot/ambang/contoh prompt dengan persetujuan pemilik. Fase 4 setelah #23; kontrak ditulis lewat `/mulai` |
 | 2026-10-19 | 38-39 | TODO | Ditambahkan atas permintaan pemilik (akun fokus bahasa Inggris): #38 ukur dan pilih model Whisper lebih akurat dari `base`, #39 pilihan bahasa audio untuk transkripsi (bukan terjemahan; terjemahan subtitle tidak dikerjakan). Ide lama "bahasa Indonesia dikunci" dibatalkan karena merusak video Inggris. Toleransi golden dan perbaikan kecil #36b ditunda |
 | 2026-10-19 | 38 | REVIEW | Model Whisper lewat `CHEAT_CLIP_WHISPER_MODEL`, default `small` (pilihan pemilik), tidak dikenal = `base`; skrip ukur `scripts/whisper_bench.py`. Ukur 2 klip Inggris: `small` WER 2,4%/11,6% vs `base` 6,1%/12,0%, ±0,8x real-time, RAM 1,7 GB; `medium` tidak lebih akurat dan 2-3x lebih lambat. Ukur Indonesia dilewati atas keputusan pemilik. Smoke 19/19, codemap lulus |
+| 2026-10-19 | 38 | REVIEW | Review sesi baru: PASS. Smoke 19/19, codemap lulus, skrip ukur jalan (run reviewer: `base` di klip Indonesia tidak stabil, 13,3% kata berbeda antar run). Tabel Indonesia tidak ada (keputusan pemilik). Temuan kecil: rujukan baris di keterangan codemap (`subtitle-dan-judul.md` `build_subtitle_events`, `render-server.md` AMF, `unduhan-raw.md` format) tidak ikut digeser +21 |
 
 ***
 
