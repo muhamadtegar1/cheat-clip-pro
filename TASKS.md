@@ -10,7 +10,7 @@
 ```text
 fase_aktif:      Fase 2 — Inti AI
 task_aktif:      —
-status:          36b DONE, 32 REVIEW (golden tanpa heatmap 3.8-flash penuh: exit 2, independen 66,7 vs 75,0; menunggu keputusan pemilik)
+status:          36b DONE, 32 REVIEW (golden tanpa heatmap 3.8-flash, repeat 2 dan 4: exit 2, independen stabil 66,7 vs baseline 75,0; menunggu keputusan pemilik)
 langkah_berikut: #32: pemilik putuskan selisih golden tanpa heatmap (terima sebagai variasi / ukur ulang baseline dengan repeat lebih besar / task toleransi), lalu /review 32, /done 32. Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Kandidat task kecil dari review #36b: suntingan subtitle baru dipakai render setelah pratinjau berhasil, dan batas 60 karakter per kata di input sunting. Pertimbangkan task terpisah untuk model Whisper lebih besar + bahasa Indonesia dikunci (ukur dulu waktu/RAM). Lalu #22 (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu cukup data pilihan dari #35 (alat sudah siap). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
@@ -236,6 +236,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 36b | REVIEW | Review sesi baru: PASS |
 | 2026-10-19 | 36b | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-19 | 32 | REVIEW | Golden --no-heatmap dengan 3.8-flash penuh (`--model gemini-3.8-flash`): exit 2, `ref_recall_independen` 66,7 vs baseline 75,0 (1 referensi dari 12), metrik lain sama/dalam variasi. Prompt jalur ini identik dengan sebelum #32, jadi variasi model; pemilik memutuskan terima, ukur ulang baseline, atau task toleransi. Run auto sebelumnya exit 3 (3.8-flash 504, jatuh ke 3.7) |
+| 2026-10-19 | 32 | REVIEW | Golden --no-heatmap --repeat 4 (3.8-flash, key proyek lain): exit 2, independen 66,675 vs 75,0; per video A 37,5 / B 100 / C 62,5 vs baseline 0 / 100 / 100 (arah berlawanan). Nilai stabil 66,7 di dua pengukuran; baseline 2 run kebetulan tinggi. Menunggu keputusan pemilik (terima / baseline baru) |
 
 ***
 
