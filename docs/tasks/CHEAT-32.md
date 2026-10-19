@@ -1,5 +1,5 @@
 # CHEAT-32: Label heatmap akustik yang jujur di prompt
-Status: REVIEW
+Status: DONE
 Risiko: sedang (perubahan teks prompt, wajib golden dua mode; jalur YouTube dan tanpa heatmap harus identik dengan sekarang)
 
 ## Tujuan
