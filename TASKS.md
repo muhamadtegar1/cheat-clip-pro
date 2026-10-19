@@ -238,6 +238,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 32 | REVIEW | Golden --no-heatmap dengan 3.8-flash penuh (`--model gemini-3.8-flash`): exit 2, `ref_recall_independen` 66,7 vs baseline 75,0 (1 referensi dari 12), metrik lain sama/dalam variasi. Prompt jalur ini identik dengan sebelum #32, jadi variasi model; pemilik memutuskan terima, ukur ulang baseline, atau task toleransi. Run auto sebelumnya exit 3 (3.8-flash 504, jatuh ke 3.7) |
 | 2026-10-19 | 32 | REVIEW | Golden --no-heatmap --repeat 4 (3.8-flash, key proyek lain): exit 2, independen 66,675 vs 75,0; per video A 37,5 / B 100 / C 62,5 vs baseline 0 / 100 / 100 (arah berlawanan). Nilai stabil 66,7 di dua pengukuran; baseline 2 run kebetulan tinggi. Menunggu keputusan pemilik (terima / baseline baru) |
 | 2026-10-19 | 32 | REVIEW | Keputusan pemilik: selisih diterima sebagai variasi, baseline tanpa heatmap diganti dengan run 4 ulangan (`score --save-baseline`, tanpa kuota; independen 66,675). Run terpisah 2 ulangan vs baseline baru: exit 0. Siap /review 32 |
+| 2026-10-19 | 32 | REVIEW | Review sesi baru: PASS |
 
 ***
 
