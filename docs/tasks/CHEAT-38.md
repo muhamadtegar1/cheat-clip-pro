@@ -1,5 +1,5 @@
 # CHEAT-38: Model Whisper lebih akurat (ukur dulu, lalu pengaturan model)
-Status: REVIEW
+Status: DONE
 Risiko: sedang (model lebih besar = transkripsi lebih lambat dan RAM lebih besar di CPU; tidak menyentuh prompt Gemini)
 
 ## Tujuan
