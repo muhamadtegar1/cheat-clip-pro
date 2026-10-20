@@ -249,6 +249,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-19 | 38 | REVIEW | Review sesi baru: PASS. Smoke 19/19, codemap lulus, skrip ukur jalan (run reviewer: `base` di klip Indonesia tidak stabil, 13,3% kata berbeda antar run). Tabel Indonesia tidak ada (keputusan pemilik). Temuan kecil: rujukan baris di keterangan codemap (`subtitle-dan-judul.md` `build_subtitle_events`, `render-server.md` AMF, `unduhan-raw.md` format) tidak ikut digeser +21 |
 | 2026-10-19 | 38 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-20 | 39 | REVIEW | Bahasa audio Whisper (Otomatis/en/id/ms/es/pt/fr/de/ar/hi/ja/ko) di form analisis dan Clip Studio (satu state), diteruskan sebagai `language` ke Whisper di analisis upload/fallback YouTube, pratinjau, render separate/merged/retry; Otomatis identik dengan sebelumnya; cache pratinjau per bahasa; kode lain 422. Smoke 20/20, build lulus, lint tanpa error baru, codemap lulus (rujukan #38 dirapikan). Uji browser: log `language=en`, render = pratinjau; pemilik: subtitle Inggris akurat. Salah pilih bahasa = Whisper menerjemahkan kasar |
+| 2026-10-20 | 39 | REVIEW | Review sesi baru: PASS. Smoke 20/20, build lulus, lint sama dengan induk, codemap lulus. Fallback Whisper YouTube hanya dibuktikan dari diff. Catatan kecil: `localStorage` bahasa audio tanpa try/catch |
 
 ***
 
