@@ -12,6 +12,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | --- | --- | --- |
 | `backend/temp_clips/` | segmen mentah, `.ass`, PNG judul, frame, **ZIP batch** (cache, dibuat ulang saat diunduh) | Ya (TTL 1 jam + kuota) |
 | `backend/temp_clips/uploads/` | upload user, unduhan Drive, BGM, SFX, watermark | Ya |
+| `backend/temp_clips/yt_cache/` | cache stream HD YouTube 1080p per video (#28, [[unduhan-raw]]), ±250-450 MB per video. mtime disegarkan tiap dipakai | Ya (TTL 1 jam sejak terakhir dipakai + kuota) |
 | `backend/temp/` | file sementara lain | Ya |
 | `EXPORTS_DIR` (default `~/CheatClip`) | MP4 hasil render, unduhan raw | **Tidak** (permanen, tanpa kuota) |
 | `EXPORTS_DIR/data/` | `clip_choices.json` pilihan Pakai/Lewati pemilik (#35, [[pilihan-klip]]) | **Tidak** (permanen) |

@@ -26,8 +26,8 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 | `backend/routers/media.py` | `_find_video_file_on_disk` | L133-182 | Cari file video berdasarkan ID/nama |
 | `backend/routers/media.py` | `get_video_file` | L186-256 | `GET /api/video/{file_name}`, streaming dengan Range |
 | `backend/routers/media.py` | `_is_safe_path` | L34-41 | Cegah path traversal |
-| `backend/video_engine.py` | `get_video_file_metadata` | L531-605 | ffprobe: durasi, resolusi, audio |
-| `backend/video_engine.py` | `compute_audio_energy_heatmap` | L611-679 | Heatmap pengganti dari energi audio (RMS per 1% durasi). Mengembalikan `[]` bila tanpa trek audio, file rusak, gagal/timeout (batas `max(30, durasi/10)` s, maks 900), senyap, atau volume rata (`AUDIO_FLAT_SPREAD` 15%, derau AAC nada konstan 6-8%); tidak pernah membuat data buatan (#33) |
+| `backend/video_engine.py` | `get_video_file_metadata` | L537-611 | ffprobe: durasi, resolusi, audio |
+| `backend/video_engine.py` | `compute_audio_energy_heatmap` | L617-685 | Heatmap pengganti dari energi audio (RMS per 1% durasi). Mengembalikan `[]` bila tanpa trek audio, file rusak, gagal/timeout (batas `max(30, durasi/10)` s, maks 900), senyap, atau volume rata (`AUDIO_FLAT_SPREAD` 15%, derau AAC nada konstan 6-8%); tidak pernah membuat data buatan (#33) |
 | `backend/utils/heatmap.py` | `get_average_heatmap_value` | L3-31 | Skor engagement per baris transkrip |
 | `backend/utils/text.py` | `extract_video_id` | L116-134 | ID YouTube dari URL |
 | `backend/utils/text.py` | `is_safe_remote_url` | L414-452 | Validasi URL remote (anti SSRF) |

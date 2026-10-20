@@ -20,6 +20,7 @@ Cek yang dijalankan:
   8. Pilihan klip (task #35): simpan/timpa/batal/baca/ekspor JSON-CSV di EXPORTS_DIR/data, tulis atomik, file rusak dibackup, guard lokal.
   9. Nama model Whisper (task #38): CHEAT_CLIP_WHISPER_MODEL kosong = default, valid dipakai, tidak dikenal = base (tanpa memuat model).
   10. Bahasa audio Whisper (task #39): Otomatis identik dengan sebelumnya, bahasa dipilih sampai ke Whisper di analisis/pratinjau/render, 422.
+  11. Cache HD YouTube (task #28): yt-dlp dipalsukan, saklar, coba ulang, batas ukuran, <720p ditolak, satu unduhan, potong lokal dari cache.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -1339,6 +1340,175 @@ def run_audio_language_check(client, analyze_mod, render_service, video_name: st
         report(name, False, repr(e))
 
 
+def run_yt_hd_cache_check(work_dir: Path) -> None:
+    """Task #28: cache stream HD YouTube tanpa jaringan (yt-dlp dipalsukan): ID video, saklar, coba ulang,
+    batas ukuran, tinggi < 720 ditolak, satu unduhan untuk dua permintaan bersamaan, cache dipakai ulang
+    lewat jalur potong lokal, dan file cache tidak terdeteksi sebagai sumber lokal."""
+    import threading
+    name = "cache HD YouTube (#28)"
+    problems = []
+    from backend import video_engine as ve
+    vid = "smk28_test1"
+    url = f"https://www.youtube.com/watch?v={vid}"
+    cache = ve.yt_hd_cache_path(vid)
+    saved_env = {k: os.environ.get(k) for k in ("CHEAT_CLIP_YT_HD_CACHE", "CHEAT_CLIP_YT_HD_CACHE_MAX_GB")}
+    originals = (ve._yt_hd_cache_extract, ve._yt_hd_cache_download, ve.get_effective_cookies_path, ve.get_yt_dlp_base_cmd)
+    calls = {"extract": 0, "download": 0}
+
+    class OldMethodReached(Exception):
+        pass
+
+    def set_env(key, value):
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+    def clear_cache_files():
+        for p in cache.parent.glob(f"{vid}*") if cache.parent.exists() else []:
+            p.unlink(missing_ok=True)
+
+    try:
+        hd_src, low_src = work_dir / "yt28_hd.mp4", work_dir / "yt28_low.mp4"
+        make_synthetic_video(hd_src, duration=12, size="1280x720")
+        make_synthetic_video(low_src, duration=12, size="640x360")
+
+        # 1. ID video dari berbagai bentuk URL; selain YouTube = None
+        ids = {
+            "https://www.youtube.com/watch?v=aqz-KE-bpKQ&t=30s": "aqz-KE-bpKQ", "https://youtu.be/aqz-KE-bpKQ?si=x": "aqz-KE-bpKQ",
+            "https://www.youtube.com/shorts/aqz-KE-bpKQ": "aqz-KE-bpKQ", "aqz-KE-bpKQ": "aqz-KE-bpKQ",
+            "/api/video/upload_abc.mp4": None, "https://drive.google.com/file/d/abc/view": None, "": None,
+        }
+        for u, want in ids.items():
+            if ve.extract_youtube_video_id(u) != want:
+                problems.append(f"ID {u!r} -> {ve.extract_youtube_video_id(u)!r} (harap {want!r})")
+        if cache.parent.name != ve.YT_HD_CACHE_SUBDIR or cache.parent.parent != Path(ve.TEMP_DIR):
+            problems.append(f"cache tidak di TEMP_DIR/{ve.YT_HD_CACHE_SUBDIR}: {cache}")
+
+        plan = {"format_id": "137+140", "height": 1080, "vcodec": "avc1.640028", "size": 50 * 1024 ** 2, "duration": 12.0}
+        state = {"plans": [], "src": hd_src, "sleep": 0.0}
+
+        def fake_extract(base_cmd, u, info_path, timeout):
+            calls["extract"] += 1
+            info_path.write_text("{}", encoding="utf-8")
+            p = state["plans"].pop(0) if state["plans"] else plan
+            return (p, "") if p else (None, "format HD tidak tersedia (tinggi 360)")
+
+        def fake_download(base_cmd, info_path, format_id, out_path, timeout):
+            calls["download"] += 1
+            time.sleep(state["sleep"])
+            shutil.copy2(state["src"], out_path)
+            return ""
+
+        def reset(**kw):
+            clear_cache_files()
+            calls.update(extract=0, download=0)
+            state.update({"plans": [], "src": hd_src, "sleep": 0.0, **kw})
+
+        ve._yt_hd_cache_extract, ve._yt_hd_cache_download = fake_extract, fake_download
+        # 1b. Pemecah tantangan JS (yt-dlp-ejs) hanya untuk cache HD; pemanggil lain = --no-js-runtimes (perilaku sebelum #28)
+        default_cmd = ve.get_yt_dlp_base_cmd(include_cookies=False)
+        hd_cmd = ve.get_yt_dlp_base_cmd(include_cookies=False, solve_js_challenges=True)
+        if "--no-js-runtimes" not in default_cmd or "--js-runtimes" in default_cmd:
+            problems.append(f"base cmd default masih menyalakan runtime JS: {default_cmd}")
+        if "--no-js-runtimes" in hd_cmd or (shutil.which("node") or shutil.which("deno")) and "--js-runtimes" not in hd_cmd:
+            problems.append(f"base cmd cache HD tanpa runtime JS: {hd_cmd}")
+        base_calls = []
+        ve.get_effective_cookies_path = lambda: None
+        ve.get_yt_dlp_base_cmd = lambda include_cookies=True, cookies_path=None, solve_js_challenges=False: (
+            base_calls.append(solve_js_challenges) or ["yt-dlp-palsu"])
+        set_env("CHEAT_CLIP_YT_HD_CACHE", None)
+        set_env("CHEAT_CLIP_YT_HD_CACHE_MAX_GB", None)
+
+        # 2. Saklar mati: helper tidak memanggil yt-dlp
+        reset()
+        for off in ("0", "false", "OFF"):
+            os.environ["CHEAT_CLIP_YT_HD_CACHE"] = off
+            if ve.get_youtube_hd_cache(url) is not None or calls["extract"]:
+                problems.append(f"saklar {off!r} tidak mematikan cache")
+        set_env("CHEAT_CLIP_YT_HD_CACHE", None)
+
+        # 3. HD tidak tersedia dua kali: coba ulang sekali lalu None
+        reset(plans=[None, None])
+        if ve.get_youtube_hd_cache(url) is not None or calls != {"extract": 2, "download": 0}:
+            problems.append(f"HD tidak tersedia: {calls}")
+        # 4. Pertama 360p saja, percobaan ulang HD: tetap dapat cache
+        reset(plans=[None, plan])
+        got = ve.get_youtube_hd_cache(url)
+        if got != cache or calls != {"extract": 2, "download": 1} or not cache.exists():
+            problems.append(f"coba ulang: {got}, {calls}")
+        if not base_calls or not all(base_calls):
+            problems.append(f"helper cache tidak menyalakan solve_js_challenges: {base_calls}")
+        # 5. Dipakai ulang tanpa ekstraksi/unduh
+        calls.update(extract=0, download=0)
+        if ve.get_youtube_hd_cache(url) != cache or calls != {"extract": 0, "download": 0}:
+            problems.append(f"pakai ulang: {calls}")
+        # 6. Batas ukuran
+        reset(plans=[{**plan, "size": 3 * 1024 ** 3}])
+        if ve.get_youtube_hd_cache(url) is not None or calls["download"]:
+            problems.append(f"batas ukuran 2 GB tidak dihormati: {calls}")
+        os.environ["CHEAT_CLIP_YT_HD_CACHE_MAX_GB"] = "0.01"
+        reset()
+        if ve.get_youtube_hd_cache(url) is not None or calls["download"]:
+            problems.append("CHEAT_CLIP_YT_HD_CACHE_MAX_GB diabaikan")
+        set_env("CHEAT_CLIP_YT_HD_CACHE_MAX_GB", None)
+        # 7. Hasil unduhan di bawah 720p ditolak, sisa file sementara dibersihkan
+        reset(src=low_src)
+        leftovers = None
+        if ve.get_youtube_hd_cache(url) is None:
+            leftovers = [p.name for p in cache.parent.glob(f"{vid}*")]
+        if leftovers is None or leftovers:
+            problems.append(f"unduhan 360p diterima atau sisa file: {leftovers}")
+        # 8. Dua permintaan bersamaan = satu unduhan
+        reset(sleep=1.0)
+        outs = []
+        threads = [threading.Thread(target=lambda: outs.append(ve.get_youtube_hd_cache(url))) for _ in range(2)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        if calls["download"] != 1 or outs != [cache, cache]:
+            problems.append(f"bersamaan: {calls['download']} unduhan, hasil {outs}")
+
+        # 9. download_clip_segment memotong dari cache lewat jalur lokal (tanpa metode lama)
+        def old_method(*a, **k):
+            raise OldMethodReached()
+
+        ve.get_yt_dlp_base_cmd = old_method
+        ve._yt_hd_cache_extract = lambda *a, **k: (_ for _ in ()).throw(OldMethodReached())
+        seg_name = f"smoke28_{uuid.uuid4().hex[:6]}.mp4"
+        try:
+            seg = Path(ve.download_clip_segment(url, 2.0, 6.0, seg_name))
+            info = ffprobe_video(seg)
+            if info.get("height") != 720 or abs(float(info.get("duration") or 0) - 4.0) > 0.5:
+                problems.append(f"segmen dari cache: {info}")
+            seg.unlink(missing_ok=True)
+        except OldMethodReached:
+            problems.append("segmen memakai metode lama padahal cache valid")
+        # 10. Saklar mati: metode lama dipakai, dan file cache tidak dianggap sumber lokal (ID polos)
+        os.environ["CHEAT_CLIP_YT_HD_CACHE"] = "0"
+        for src in (url, vid):
+            try:
+                ve.download_clip_segment(src, 2.0, 6.0, seg_name)
+                problems.append(f"{src!r}: metode lama tidak dipanggil (cache terdeteksi sebagai sumber lokal?)")
+            except OldMethodReached:
+                pass
+        (Path(ve.TEMP_DIR) / seg_name).unlink(missing_ok=True)
+        # 11. Format: 1080p maks, 720p min, H.264 diutamakan
+        f = ve.YT_HD_CACHE_FORMAT
+        if not (f.startswith("bv*[height<=1080][height>=720][vcodec^=avc1]") and all("[height>=720]" in alt for alt in f.split("/"))):
+            problems.append(f"format: {f}")
+
+        report(name, not problems, "; ".join(problems) or
+               "ID dari URL, runtime JS hanya untuk cache (default --no-js-runtimes), saklar 0 mematikan, HD tidak tersedia = coba ulang lalu metode lama, batas ukuran, <720p ditolak, "
+               "2 permintaan = 1 unduhan, cache dipotong lokal tanpa metode lama, cache tidak terdeteksi sebagai sumber lokal")
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        ve._yt_hd_cache_extract, ve._yt_hd_cache_download, ve.get_effective_cookies_path, ve.get_yt_dlp_base_cmd = originals
+        for k, v in saved_env.items():
+            set_env(k, v)
+        clear_cache_files()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test Cheat Clip PRO")
     parser.add_argument("--keep", action="store_true", help="Jangan hapus video sintetis dan hasil render")
@@ -1398,6 +1568,7 @@ def main() -> int:
         run_subtitle_edit_check(client, render_service, video_name)
         run_whisper_model_name_check()
         run_audio_language_check(client, analyze_mod, render_service, video_name, work_dir / video_name)
+        run_yt_hd_cache_check(work_dir)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

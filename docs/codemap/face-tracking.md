@@ -10,12 +10,12 @@ Menentukan titik pusat crop agar wajah pembicara (atau objek penting) tetap di d
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/video_engine.py` | `detect_speaker_face_box` | L2313-2654 | YuNet (OpenCV DNN) + Haar cascade + saliency/gerak, sampling frame hemat CPU |
-| `backend/video_engine.py` | `detect_video_saliency_and_motion_center` | L2236-2310 | Pusat objek dari saliency + gerakan antar frame |
-| `backend/video_engine.py` | `detect_image_saliency_center` | L2206-2233 | Saliency satu gambar |
-| `backend/video_engine.py` | `detect_speaker_center_ratio` | L2657-2663 | Pembungkus yang hanya mengembalikan `cx` |
+| `backend/video_engine.py` | `detect_speaker_face_box` | L2530-2871 | YuNet (OpenCV DNN) + Haar cascade + saliency/gerak, sampling frame hemat CPU |
+| `backend/video_engine.py` | `detect_video_saliency_and_motion_center` | L2453-2527 | Pusat objek dari saliency + gerakan antar frame |
+| `backend/video_engine.py` | `detect_image_saliency_center` | L2423-2450 | Saliency satu gambar |
+| `backend/video_engine.py` | `detect_speaker_center_ratio` | L2874-2880 | Pembungkus yang hanya mengembalikan `cx` |
 | `backend/video_engine.py` | konstanta model | L149-151 | `haarcascade_frontalface_default.xml`, `cascades/face_detection_yunet.onnx` |
-| `backend/video_engine.py` | pemanggilan saat render | L3044 | Di dalam `render_clip_to_mp4` bila `enable_face_tracking` atau preset streamer aktif |
+| `backend/video_engine.py` | pemanggilan saat render | L3282 | Di dalam `render_clip_to_mp4` bila `enable_face_tracking` atau preset streamer aktif |
 | `backend/routers/media.py` | `detect_face` | L386-437 | `GET /api/detect-face` untuk pratinjau di Clip Studio |
 | `backend/routers/media.py` | `get_clip_frame` | L370-382 | `GET /api/clip-frame`, frame untuk pratinjau |
 | `src/components/ClipStudioSection.tsx` | `fetchFace` | L675-687 | Memanggil `/api/detect-face` saat pratinjau |

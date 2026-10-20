@@ -427,11 +427,14 @@ def get_yt_dlp_cookies_args() -> List[str]:
 def get_yt_dlp_base_cmd(
     include_cookies: bool = True,
     cookies_path: Optional[Union[str, Path]] = None,
+    solve_js_challenges: bool = False,
 ) -> List[str]:
     """
     Returns base command for yt-dlp with JavaScript runtime, player extractor args, and cookies.
     Tries standalone 'yt-dlp' executable first, then falls back to python module:
     [sys.executable, "-m", "yt_dlp"] which works 100% of the time if installed via pip.
+    Task #28: solve_js_challenges=False (default) = --no-js-runtimes, jadi yt-dlp-ejs tidak aktif dan
+    perilaku sama dengan sebelum #28 (YouTube hanya format 18). Hanya cache HD yang memakai True.
     """
     if shutil.which("yt-dlp"):
         cmd = ["yt-dlp"]
@@ -446,7 +449,10 @@ def get_yt_dlp_base_cmd(
             )
 
     # Prefer deno (fast challenge solver for modern YouTube player), then node
-    if shutil.which("deno"):
+    if not solve_js_challenges:
+        # Task #28: format HD lewat ffmpeg ke URL remote tidak andal (metode 1-2 macet), jadi pemecah JS hanya untuk cache HD
+        cmd.append("--no-js-runtimes")
+    elif shutil.which("deno"):
         cmd.extend(["--js-runtimes", "deno"])
     elif shutil.which("node"):
         cmd.extend(["--js-runtimes", "node"])
@@ -741,6 +747,208 @@ def transcribe_local_video_file(file_path: Union[str, Path], progress_callback=N
     return transcript_lines
 
 
+# ---------------------------------------------------------------------------
+# Task #28: cache stream HD YouTube. Video+audio diunduh sekali per video dengan downloader
+# native yt-dlp (butuh yt-dlp-ejs + Node/Deno untuk membuka format HD), lalu tiap segmen dipotong
+# lokal lewat jalur file lokal download_clip_segment. Gagal apa pun = None, metode lama dipakai.
+# ---------------------------------------------------------------------------
+import threading
+
+YT_HD_CACHE_SUBDIR = "yt_cache"  # subfolder: pencarian sumber lokal hanya memindai file langsung di TEMP_DIR
+YT_HD_CACHE_HEIGHT = 1080
+YT_HD_CACHE_MIN_HEIGHT = 720
+YT_HD_CACHE_MAX_GB_DEFAULT = 2.0
+# H.264 diutamakan (decode AV1 di iGPU/CPU berisiko lambat), lalu VP9, lalu codec lain; tidak pernah di bawah 720p
+YT_HD_CACHE_FORMAT = "/".join(
+    f"bv*[height<={YT_HD_CACHE_HEIGHT}][height>={YT_HD_CACHE_MIN_HEIGHT}]{codec}+{audio}"
+    for codec, audio in (("[vcodec^=avc1]", "ba[ext=m4a]"), ("[vcodec^=avc1]", "ba"), ("[vcodec^=vp09]", "ba"),
+                         ("[vcodec^=vp9]", "ba"), ("", "ba"))
+)
+YT_HD_CACHE_EXTRACT_TRIES = 2  # YouTube sesekali hanya memberi 360p pada satu ekstraksi; coba ulang sekali
+_YT_HD_CACHE_LOCKS: Dict[str, threading.Lock] = {}
+_YT_HD_CACHE_LOCKS_GUARD = threading.Lock()
+_YOUTUBE_ID_RE = re.compile(r"(?:[?&]v=|youtu\.be/|/shorts/|/embed/|/live/|/v/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])")
+
+
+def yt_hd_cache_enabled() -> bool:
+    """Saklar CHEAT_CLIP_YT_HD_CACHE: kosong/1 = aktif, 0/false/off/no = mati (perilaku sebelum #28)."""
+    return os.environ.get("CHEAT_CLIP_YT_HD_CACHE", "").strip().lower() not in ("0", "false", "off", "no")
+
+
+def yt_hd_cache_max_bytes() -> int:
+    """Batas perkiraan ukuran unduhan (CHEAT_CLIP_YT_HD_CACHE_MAX_GB, default 2 GB)."""
+    raw = os.environ.get("CHEAT_CLIP_YT_HD_CACHE_MAX_GB", "").strip()
+    try:
+        gb = float(raw) if raw else YT_HD_CACHE_MAX_GB_DEFAULT
+    except ValueError:
+        gb = YT_HD_CACHE_MAX_GB_DEFAULT
+    return int(max(gb, 0.0) * 1024 ** 3)
+
+
+def extract_youtube_video_id(video_url: str) -> Optional[str]:
+    """ID 11 karakter dari URL YouTube (watch, youtu.be, shorts, embed, live) atau ID polos; selain itu None."""
+    text = (video_url or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", text):
+        return text
+    if "youtu" not in text.lower():
+        return None
+    m = _YOUTUBE_ID_RE.search(text)
+    return m.group(1) if m else None
+
+
+def yt_hd_cache_path(video_id: str) -> Path:
+    return TEMP_DIR / YT_HD_CACHE_SUBDIR / f"{video_id}_{YT_HD_CACHE_HEIGHT}p.mp4"
+
+
+def _yt_hd_cache_lock(video_id: str) -> threading.Lock:
+    with _YT_HD_CACHE_LOCKS_GUARD:
+        lock = _YT_HD_CACHE_LOCKS.get(video_id)
+        if lock is None:
+            lock = _YT_HD_CACHE_LOCKS[video_id] = threading.Lock()
+        return lock
+
+
+def _probe_video_stream(path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+    """{"codec": ..., "height": ...} stream video pertama, atau None bila tidak bisa dibaca."""
+    try:
+        res = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,height",
+             "-of", "json", str(path)], capture_output=True, text=True, timeout=30)
+        streams = json.loads(res.stdout or "{}").get("streams") or []
+        if not streams:
+            return None
+        return {"codec": streams[0].get("codec_name"), "height": int(streams[0].get("height") or 0)}
+    except Exception:
+        return None
+
+
+def _yt_hd_cache_valid(path: Path) -> bool:
+    if not path.exists() or not is_valid_mp4(path):
+        return False
+    info = _probe_video_stream(path)
+    return bool(info and info["height"] >= YT_HD_CACHE_MIN_HEIGHT)
+
+
+def _yt_hd_cache_extract(base_cmd: List[str], url: str, info_path: Path, timeout: int) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Ekstraksi metadata dengan format HD terpilih ke info_path. (ringkasan format, "") atau (None, alasan)."""
+    cmd = [*base_cmd, "-J", "--no-playlist", "-f", YT_HD_CACHE_FORMAT, url]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None, f"ekstraksi timeout {timeout}s"
+    if res.returncode != 0 or not (res.stdout or "").strip():
+        err = (res.stderr or "").strip().splitlines()
+        return None, (err[-1] if err else f"yt-dlp rc={res.returncode}")[:300]
+    try:
+        info = json.loads(res.stdout)
+    except ValueError:
+        return None, "output -J bukan JSON"
+    parts = info.get("requested_formats") or ([info] if info.get("format_id") else [])
+    height = max((int(p.get("height") or 0) for p in parts), default=0)
+    if height < YT_HD_CACHE_MIN_HEIGHT:
+        return None, f"format HD tidak tersedia (tinggi {height})"
+    size = sum(int(p.get("filesize") or p.get("filesize_approx") or 0) for p in parts)
+    if not size:
+        size = int(info.get("filesize_approx") or 0)
+    info_path.write_text(res.stdout, encoding="utf-8")
+    return {
+        "format_id": info.get("format_id") or "+".join(str(p.get("format_id")) for p in parts),
+        "height": height,
+        "vcodec": next((p.get("vcodec") for p in parts if p.get("vcodec") not in (None, "none")), None),
+        "size": size,
+        "duration": float(info.get("duration") or 0),
+    }, ""
+
+
+def _yt_hd_cache_download(base_cmd: List[str], info_path: Path, format_id: str, out_path: Path, timeout: int) -> str:
+    """Unduh native dari info JSON (tanpa ekstraksi ulang, jadi format HD yang sudah terpilih tidak hilang). "" = sukses."""
+    cmd = [*base_cmd, "--load-info-json", str(info_path), "-f", format_id, "--merge-output-format", "mp4",
+           "--no-mtime", "--socket-timeout", "20", "--retries", "5", "--fragment-retries", "5",
+           "-o", str(out_path), "--no-warnings"]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return f"unduhan timeout {timeout}s"
+    if res.returncode != 0:
+        err = (res.stderr or "").strip().splitlines()
+        return (err[-1] if err else f"yt-dlp rc={res.returncode}")[:300]
+    return ""
+
+
+def _yt_hd_cache_cleanup_tmp(cache_dir: Path, stem: str) -> None:
+    for p in cache_dir.glob(f"{stem}*"):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+
+
+def get_youtube_hd_cache(video_url: str, cookies_content: Optional[str] = None) -> Optional[Path]:
+    """Path MP4 1080p (min 720p) dari cache, mengunduh sekali per video bila belum ada. None = pakai metode lama."""
+    if not yt_hd_cache_enabled():
+        return None
+    video_id = extract_youtube_video_id(video_url)
+    if not video_id:
+        return None
+    final_path = yt_hd_cache_path(video_id)
+    with _yt_hd_cache_lock(video_id):
+        if _yt_hd_cache_valid(final_path):
+            try:
+                os.utime(final_path, None)  # dipakai lagi: jangan dihapus TTL 1 jam di tengah sesi
+            except OSError:
+                pass
+            logger.info(f"[YT HD cache] Memakai cache {final_path.name} (tanpa unduh ulang)")
+            return final_path
+        cache_dir = final_path.parent
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        tmp_stem = f"{final_path.stem}.downloading"
+        tmp_path = cache_dir / f"{tmp_stem}.mp4"
+        info_path = cache_dir / f"{tmp_stem}.info.json"
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        max_bytes = yt_hd_cache_max_bytes()
+        reason = "tidak dicoba"
+        try:
+            with ephemeral_cookies_file(cookies_content) as temp_cookies:
+                has_cookies = temp_cookies is not None or get_effective_cookies_path() is not None
+                for use_cookies in ([True, False] if has_cookies else [False]):
+                    mode = "dengan cookies" if use_cookies else "mode tamu"
+                    base_cmd = get_yt_dlp_base_cmd(include_cookies=use_cookies,
+                                                   cookies_path=temp_cookies if use_cookies else None,
+                                                   solve_js_challenges=True)
+                    plan = None
+                    for attempt in range(1, YT_HD_CACHE_EXTRACT_TRIES + 1):
+                        plan, reason = _yt_hd_cache_extract(base_cmd, url, info_path, timeout=90)
+                        if plan:
+                            break
+                        logger.warning(f"[YT HD cache] {video_id} ekstraksi {attempt}/{YT_HD_CACHE_EXTRACT_TRIES} ({mode}) gagal: {reason}")
+                    if not plan:
+                        continue
+                    if plan["size"] > max_bytes or (not plan["size"] and plan["duration"] > 3 * 3600):
+                        reason = f"perkiraan ukuran {plan['size'] / 1024 ** 2:.0f} MB di atas batas {max_bytes / 1024 ** 2:.0f} MB"
+                        break  # ukuran tidak bergantung cookies, langsung ke metode lama
+                    timeout = int(min(1800, max(300, plan["size"] / 1_000_000 * 2)))  # minimal ±0,5 MB/s
+                    logger.info(f"[YT HD cache] Mengunduh {video_id} format {plan['format_id']} {plan['height']}p "
+                                f"{plan['vcodec']} ±{plan['size'] / 1024 ** 2:.0f} MB ({mode}, timeout {timeout}s)")
+                    t0 = time.time()
+                    reason = _yt_hd_cache_download(base_cmd, info_path, plan["format_id"], tmp_path, timeout)
+                    if not reason and not _yt_hd_cache_valid(tmp_path):
+                        reason = "hasil unduhan tidak valid atau di bawah 720p"
+                    if not reason:
+                        os.replace(tmp_path, final_path)
+                        os.utime(final_path, None)
+                        logger.info(f"[YT HD cache] {final_path.name} siap dalam {time.time() - t0:.0f}s "
+                                    f"({final_path.stat().st_size / 1024 ** 2:.0f} MB)")
+                        return final_path
+                    logger.warning(f"[YT HD cache] {video_id} unduhan gagal ({mode}): {reason}")
+                    _yt_hd_cache_cleanup_tmp(cache_dir, tmp_stem)
+        except Exception as e:
+            reason = f"{type(e).__name__}: {e}"
+        finally:
+            _yt_hd_cache_cleanup_tmp(cache_dir, tmp_stem)
+        logger.warning(f"[YT HD cache] {video_id} tidak memakai HD, kembali ke metode lama: {reason}")
+        return None
+
+
 def download_clip_segment(
     video_url: str,
     start_time: float,
@@ -840,6 +1048,15 @@ def download_clip_segment(
     clean_url = video_url.strip()
     if not clean_url.startswith("http"):
         clean_url = f"https://www.youtube.com/watch?v={clean_url}"
+
+    # Task #28: sumber YouTube 1080p dari cache stream, dipotong lewat jalur file lokal di atas.
+    # Gagal apa pun (HD tidak tersedia, ukuran di atas batas, saklar mati) = metode 1-4 lama.
+    hd_cache = get_youtube_hd_cache(clean_url, cookies_content)
+    if hd_cache is not None:
+        try:
+            return download_clip_segment(str(hd_cache), start_time, end_time, output_filename)
+        except Exception as e:
+            logger.warning(f"[YT HD cache] Potong lokal dari {hd_cache.name} gagal ({e}), kembali ke metode lama")
 
     t_start_fmt = format_section_time(start_time)
     t_end_fmt = format_section_time(end_time)

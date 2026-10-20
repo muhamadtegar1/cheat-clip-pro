@@ -19,6 +19,7 @@ FastAPI dengan 7 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 | `backend/config.py` | muat `.env` | L44-48 | Urutan: `backend/.env`, `.env` root, lalu cwd |
 | `backend/config.py` | impor ulang dari video_engine | L57-114 | Sumber tunggal `TEMP_DIR`, `EXPORTS_DIR`, fungsi render, dll. |
 | `backend/video_engine.py` | konstanta folder | L21-26 | `temp_clips`, `EXPORTS_DIR` (env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip`), `fonts`, `cookies.txt` |
+| `backend/requirements.txt` | dependensi Python | L12-14 | `yt-dlp`, `yt-dlp-ejs` (#28, pemecah tantangan JS YouTube, butuh Node/Deno di PATH), `youtube-transcript-api` |
 | `backend/video_engine.py` | `ensure_ffmpeg_in_path` | L180-242 | Mencari FFmpeg (winget/brew), dipanggil saat impor (L245) |
 | `backend/video_engine.py` | `get_preferred_video_encoder` | L366-381 | Dipanggil saat impor (L403), memilih encoder GPU/CPU. Lihat [[render-server]] |
 | `backend/routers/__init__.py` | ekspor router | L1-17 | Nama router yang di-include `main.py` |
