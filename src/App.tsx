@@ -15,7 +15,7 @@ import { clipKey, computeClipTiers } from './utils/clipScores';
 import { ClipChoiceControls } from './components/ClipChoiceControls';
 import { downloadClipChoicesExport, useClipChoices } from './utils/clipChoices';
 import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress, AudioLanguage } from './types';
-import { AUDIO_LANGUAGE_OPTIONS, AUDIO_LANGUAGE_STORAGE_KEY, audioLanguageParam, parseAudioLanguage } from './utils/subtitlePreview';
+import { AUDIO_LANGUAGE_OPTIONS, audioLanguageParam, parseAudioLanguage, readStoredAudioLanguage, storeAudioLanguage } from './utils/subtitlePreview';
 
 // Declare YT global variables for TypeScript
 declare global {
@@ -121,10 +121,10 @@ export default function App() {
   const [manualSubtitlesFileName, setManualSubtitlesFileName] = useState<string>('');
 
   // Task #39: bahasa audio untuk Whisper (analisis, pratinjau dan render subtitle); satu state untuk form dan Clip Studio
-  const [audioLanguage, setAudioLanguageState] = useState<AudioLanguage>(() => parseAudioLanguage(localStorage.getItem(AUDIO_LANGUAGE_STORAGE_KEY)));
+  const [audioLanguage, setAudioLanguageState] = useState<AudioLanguage>(readStoredAudioLanguage);
   const setAudioLanguage = (value: AudioLanguage) => {
     setAudioLanguageState(value);
-    localStorage.setItem(AUDIO_LANGUAGE_STORAGE_KEY, value);
+    storeAudioLanguage(value); // Task #40: aman bila storage diblokir
   };
 
   const parseTimeToSeconds = (val: string): number | null => {

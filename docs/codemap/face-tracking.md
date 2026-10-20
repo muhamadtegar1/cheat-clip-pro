@@ -18,7 +18,7 @@ Menentukan titik pusat crop agar wajah pembicara (atau objek penting) tetap di d
 | `backend/video_engine.py` | pemanggilan saat render | L3282 | Di dalam `render_clip_to_mp4` bila `enable_face_tracking` atau preset streamer aktif |
 | `backend/routers/media.py` | `detect_face` | L386-437 | `GET /api/detect-face` untuk pratinjau di Clip Studio |
 | `backend/routers/media.py` | `get_clip_frame` | L370-382 | `GET /api/clip-frame`, frame untuk pratinjau |
-| `src/components/ClipStudioSection.tsx` | `fetchFace` | L675-687 | Memanggil `/api/detect-face` saat pratinjau |
+| `src/components/ClipStudioSection.tsx` | `fetchFace` | L689-701 | Memanggil `/api/detect-face` saat pratinjau |
 
 ## Input / output
 - Input: path video segmen, `facecam_position` (`auto`, sudut tertentu), `streamer_preset` (`none`, `split_top_cam`, `pip_corner`).

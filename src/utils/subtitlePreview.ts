@@ -16,6 +16,22 @@ export const AUDIO_LANGUAGE_OPTIONS: AudioLanguage[] = ['auto', 'en', 'id', 'ms'
 export const AUDIO_LANGUAGE_STORAGE_KEY = 'cheat_clip_audio_language';
 export const parseAudioLanguage = (value: string | null | undefined): AudioLanguage =>
   AUDIO_LANGUAGE_OPTIONS.find(code => code === value) ?? 'auto';
+/** Task #40: storage diblokir (mode privat, kebijakan browser) = Otomatis, bukan galat yang menjatuhkan App. */
+export const readStoredAudioLanguage = (): AudioLanguage => {
+  try {
+    return parseAudioLanguage(localStorage.getItem(AUDIO_LANGUAGE_STORAGE_KEY));
+  } catch {
+    return 'auto';
+  }
+};
+/** Task #40: gagal simpan diabaikan; pilihan tetap berlaku sampai halaman dimuat ulang. */
+export const storeAudioLanguage = (value: AudioLanguage): void => {
+  try {
+    localStorage.setItem(AUDIO_LANGUAGE_STORAGE_KEY, value);
+  } catch {
+    // storage diblokir atau penuh
+  }
+};
 /** Kode untuk backend: 'auto' tidak dikirim, jadi request mode Otomatis sama dengan sebelum #39. */
 export const audioLanguageParam = (value?: AudioLanguage): string | undefined =>
   value && value !== 'auto' ? value : undefined;
@@ -126,6 +142,12 @@ export interface SubtitleLine {
 
 /** Batas karakter potongan otomatis di backend; baris suntingan yang lebih panjang bisa terpotong di tepi video. */
 export const SUBTITLE_LINE_MAX_CHARS = 22;
+
+/** Task #40: batas panjang satu kata, sama dengan SUBTITLE_WORD_MAX_CHARS di render_service (backend menolak dengan 422). */
+export const SUBTITLE_WORD_MAX_CHARS = 60;
+/** Kata pertama di teks yang melebihi SUBTITLE_WORD_MAX_CHARS, atau null. */
+export const findTooLongWord = (text: string): string | null =>
+  text.trim().split(/\s+/).find(word => word.length > SUBTITLE_WORD_MAX_CHARS) ?? null;
 
 export const subtitleLineText = (line: SubtitleLine): string => line.words.map(w => w.word).join(' ');
 

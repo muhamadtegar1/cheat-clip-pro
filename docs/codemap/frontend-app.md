@@ -11,7 +11,7 @@ React 19 + Vite. Hampir semua UI dan state ada di satu komponen `App` (`src/App.
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
 | `src/App.tsx` | `App` | L32-5031 | Komponen utama |
-| `src/App.tsx` | state form + preferensi | L33-151 | URL, sumber, draf input API key + `geminiKeyStatus` (L56-61), model, durasi, jumlah klip, rentang, subtitle manual, bahasa audio #39 (`audioLanguage`, L123-129, `localStorage` `cheat_clip_audio_language`) |
+| `src/App.tsx` | state form + preferensi | L33-151 | URL, sumber, draf input API key + `geminiKeyStatus` (L56-61), model, durasi, jumlah klip, rentang, subtitle manual, bahasa audio #39 (`audioLanguage`, L123-129, `localStorage` `cheat_clip_audio_language`; #40: lewat `readStoredAudioLanguage`/`storeAudioLanguage`, storage diblokir = Otomatis tanpa galat) |
 | `src/App.tsx` | `handleAnalyze` | L1360-1733 | Upload audio (bila upload), cek cache, `POST /api/analyze`, baca stream SSE, simpan cache. #39: akhiran cache `_lang_<kode>` hanya bila bukan `auto` (L1419), jadi kunci Otomatis tidak berubah |
 | `src/App.tsx` | kirim request + baca stream SSE | L1571-1688 | `fetch('/api/analyze')` (`audio_language` #39 di L1585, tidak dikirim bila `auto`), `response.body.getReader()`, parsing event |
 | `src/App.tsx` | `saveGeminiKey` | L754-766 | `PUT /api/settings/gemini-key` (opsional retry) |

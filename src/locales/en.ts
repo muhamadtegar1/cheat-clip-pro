@@ -463,6 +463,7 @@ export const en = {
     subtitlePreviewMerge: "Merge with next line",
     subtitlePreviewDelete: "Delete line",
     subtitlePreviewTooLong: (n: number) => `Line is ${n} characters, over 22: it may be cut off at the video edges`,
+    subtitlePreviewWordTooLong: (n: number, max: number) => `A word has ${n} characters, max ${max} per word. That line edit was not applied; split it with spaces.`,
     subtitlePreviewConfirmRegenerate: "Regenerate runs Whisper again and discards your edits for this clip. Continue?",
     subtitleFixLabel: "Subtitle word fixes",
     subtitleFixHint: "Words Whisper often gets wrong (names, channels, slang). Applies to every clip in this render. Wrong = one word, case and trailing punctuation ignored; empty correct = remove the word.",

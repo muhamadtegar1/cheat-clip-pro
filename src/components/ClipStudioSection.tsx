@@ -5,8 +5,10 @@ import { getStoredCookies } from '../utils/cookieUtils';
 import {
   SUBTITLE_HIGHLIGHT_COLORS,
   SUBTITLE_LINE_MAX_CHARS,
+  SUBTITLE_WORD_MAX_CHARS,
   fetchSubtitlePreview,
   findActiveSubtitleEvent,
+  findTooLongWord,
   groupSubtitleChunks,
   linesFromPreview,
   linesToWords,
@@ -566,15 +568,16 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const subtitleSignature = useMemo(() => subtitlePreviewSignature(activeSubtitleReplacements, textCase), [activeSubtitleReplacements, textCase]);
 
   // Task #36b: words diisi = backend tanpa unduh/Whisper; edited: kata suntingan baru (null = kembali ke hasil Whisper)
+  // Task #40: editedWords baru ditulis setelah pratinjau sukses; gagal = render tetap memakai kata pratinjau yang tampil
   const requestSubtitlePreview = useCallback((clip: ViralClip, opts: { force?: boolean; words?: SubtitleWord[]; edited?: SubtitleWord[] | null } = {}) => {
     const key = subtitlePreviewKey(clip.start_time, clip.end_time, audioLanguage);
+    const editedUpdate = opts.edited !== undefined ? { editedWords: opts.edited ?? undefined } : {};
     setSubtitlePreviews(prev => ({
       ...prev,
       [key]: {
         ...prev[key],
         status: 'loading',
         error: undefined,
-        ...(opts.edited !== undefined ? { editedWords: opts.edited ?? undefined } : {}),
       },
     }));
     // .then/.catch (bukan try/catch) agar React Compiler tetap menganalisis komponen ini
@@ -595,7 +598,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
         ...prev,
         [key]: opts.words === undefined
           ? { status: 'ready', data, signature: subtitleSignature, whisperWords: data.words, whisperSource: data.source }
-          : { ...prev[key], status: 'ready', data, signature: subtitleSignature },
+          : { ...prev[key], status: 'ready', data, signature: subtitleSignature, ...editedUpdate },
       })))
       .catch(err => setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'error', error: err instanceof Error ? err.message : String(err) } })));
   }, [videoUrl, videoId, transcript, activeSubtitleReplacements, textCase, subtitleSignature, audioLanguage]);
@@ -618,16 +621,25 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     [previewSubtitleData]
   );
   const subtitleEditBusy = previewSubtitleEntry?.status === 'loading';
+  // Task #40: kata > SUBTITLE_WORD_MAX_CHARS ditolak di UI (backend menolaknya dengan 422)
+  const [subtitleEditError, setSubtitleEditError] = useState('');
+  const rejectTooLongWord = (text: string): boolean => {
+    const word = findTooLongWord(text);
+    if (word) setSubtitleEditError(t.studio.subtitlePreviewWordTooLong(word.length, SUBTITLE_WORD_MAX_CHARS));
+    return word !== null;
+  };
   const applySubtitleLines = (lines: SubtitleLine[]) => {
     if (!currentPreviewClip) return;
     subtitleCursorRef.current = null;
+    setSubtitleEditError('');
     const words = linesToWords(lines);
     requestSubtitlePreview(currentPreviewClip, { words, edited: words });
   };
-  // Baris dengan ketikan yang belum disimpan (input yang sedang fokus) sudah diterapkan
-  const subtitleLinesWithPending = (): SubtitleLine[] => {
+  // Baris dengan ketikan yang belum disimpan (input yang sedang fokus) sudah diterapkan; null = ketikan ditolak (#40)
+  const subtitleLinesWithPending = (): SubtitleLine[] | null => {
     const cur = subtitleCursorRef.current;
     if (!cur || !subtitleLines[cur.line] || cur.text.trim() === subtitleLineText(subtitleLines[cur.line])) return subtitleLines;
+    if (rejectTooLongWord(cur.text)) return null;
     const retyped = retypeLine(subtitleLines[cur.line], cur.text);
     return subtitleLines.flatMap((line, i) => (i !== cur.line ? [line] : retyped ? [retyped] : []));
   };
@@ -640,12 +652,14 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
     const cur = subtitleCursorRef.current;
     const k = cur && cur.line === i ? wordsBeforeCursor(cur.text, cur.pos) : 0;
     const lines = subtitleLinesWithPending();
+    if (!lines) return;
     // Baris yang sedang diketik dikosongkan = baris itu dihapus, jangan pecah baris lain
     if (lines.length < subtitleLines.length) return applySubtitleLines(lines);
     applySubtitleLines([...lines.slice(0, i), ...splitLine(lines[i], k), ...lines.slice(i + 1)]);
   };
   const mergeSubtitleLine = (i: number) => {
     const lines = subtitleLinesWithPending();
+    if (!lines) return;
     if (lines.length < subtitleLines.length || i + 1 >= lines.length) return applySubtitleLines(lines);
     applySubtitleLines([...lines.slice(0, i), mergeLines(lines[i], lines[i + 1]), ...lines.slice(i + 2)]);
   };
@@ -4565,6 +4579,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                 {subtitleEditMode && subtitleLines.length > 0 ? (
                   <div style={{ maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                     <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.studio.subtitlePreviewEditHint}</p>
+                    {subtitleEditError && <p role="alert" style={{ margin: 0, fontSize: '0.72rem', color: '#f87171' }}>{subtitleEditError}</p>}
                     {subtitleLines.map((line, i) => {
                       const text = subtitleLineText(line);
                       const activeKey = previewSubtitleEvents && activeSubtitleEventIndex >= 0 ? previewSubtitleEvents[activeSubtitleEventIndex].indices.join(',') : '';
@@ -4583,7 +4598,15 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                             onChange={e => { subtitleCursorRef.current = { line: i, text: e.currentTarget.value, pos: e.currentTarget.selectionStart ?? 0 }; }}
                             onSelect={e => { subtitleCursorRef.current = { line: i, text: e.currentTarget.value, pos: e.currentTarget.selectionStart ?? 0 }; }}
                             onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                            onBlur={e => commitSubtitleLine(i, e.currentTarget.value)}
+                            onBlur={e => {
+                              // Task #40: kata terlalu panjang = input kembali ke teks yang dipakai pratinjau dan render
+                              if (e.currentTarget.value.trim() !== text && rejectTooLongWord(e.currentTarget.value)) {
+                                e.currentTarget.value = text;
+                                subtitleCursorRef.current = null;
+                                return;
+                              }
+                              commitSubtitleLine(i, e.currentTarget.value);
+                            }}
                             style={{
                               flex: 1,
                               minWidth: 0,

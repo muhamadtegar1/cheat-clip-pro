@@ -465,6 +465,7 @@ export const id: Translations = {
     subtitlePreviewMerge: "Gabung dengan baris berikutnya",
     subtitlePreviewDelete: "Hapus baris",
     subtitlePreviewTooLong: (n: number) => `Baris ${n} karakter, lebih dari 22: bisa terpotong di tepi video`,
+    subtitlePreviewWordTooLong: (n: number, max: number) => `Ada kata ${n} karakter, maksimal ${max} per kata. Suntingan baris itu tidak diterapkan; pisahkan dengan spasi.`,
     subtitlePreviewConfirmRegenerate: "Buat ulang menjalankan Whisper lagi dan membuang suntingan klip ini. Lanjutkan?",
     subtitleFixLabel: "Koreksi kata subtitle",
     subtitleFixHint: "Kata yang sering salah ditangkap Whisper (nama, channel, slang). Berlaku untuk semua klip di render ini. Kata salah = satu kata, huruf besar/kecil dan tanda baca ujung diabaikan; kata benar kosong = kata dihapus.",

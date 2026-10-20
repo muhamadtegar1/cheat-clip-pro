@@ -21,6 +21,7 @@ Cek yang dijalankan:
   9. Nama model Whisper (task #38): CHEAT_CLIP_WHISPER_MODEL kosong = default, valid dipakai, tidak dikenal = base (tanpa memuat model).
   10. Bahasa audio Whisper (task #39): Otomatis identik dengan sebelumnya, bahasa dipilih sampai ke Whisper di analisis/pratinjau/render, 422.
   11. Cache HD YouTube (task #28): yt-dlp dipalsukan, saklar, coba ulang, batas ukuran, <720p ditolak, satu unduhan, potong lokal dari cache.
+  12. Fallback Whisper YouTube (task #40): caption gagal, audio palsu, bahasa audio sampai ke Whisper ([None, 'en']).
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -1340,6 +1341,52 @@ def run_audio_language_check(client, analyze_mod, render_service, video_name: st
         report(name, False, repr(e))
 
 
+def run_yt_whisper_language_check(analyze_mod, client, audio_file: Path) -> None:
+    """Task #40: analisis URL YouTube tanpa caption jatuh ke Whisper dan meneruskan bahasa audio. Metadata, caption,
+    unduhan audio, dan Whisper dipalsukan di analyze_mod (tanpa jaringan); Gemini palsu 429 menghentikan alur setelah transkrip."""
+    name = "fallback Whisper YouTube meneruskan bahasa (#40)"
+    calls = []
+
+    def fake_metadata(url, proxy=None, cookies=None):
+        return {"title": "Smoke 40", "channel": "Smoke", "duration": float(VIDEO_DURATION), "heatmap": [],
+                "is_live": False, "live_status": "not_live"}
+
+    def fake_transcript(video_id, proxy=None, on_progress=None, cookies=None):
+        raise RuntimeError("smoke40: caption tidak tersedia")
+
+    def fake_audio(video_id, output_dir=None, proxy=None, cookies=None, on_progress=None):
+        return str(audio_file)
+
+    def fake_whisper(path, progress_callback=None, language=None):
+        calls.append(language)
+        return [{"text": f"kalimat uji nomor {i}.", "start": float(i * 3), "duration": 2.5} for i in range(10)]
+
+    names = ("fetch_video_metadata", "fetch_transcript", "download_youtube_audio_file", "transcribe_local_video_file")
+    originals = {n: getattr(analyze_mod, n) for n in names}
+    for n, fake in zip(names, (fake_metadata, fake_transcript, fake_audio, fake_whisper)):
+        setattr(analyze_mod, n, fake)
+    gemini = patch_gemini(analyze_mod, "rate_limit")
+    problems = []
+    try:
+        for lang in (None, "en"):
+            body = {"url": "https://www.youtube.com/watch?v=smk40aaaaaa", "duration": "15s", "api_key": "smoke-fake-key"}
+            if lang:
+                body["audio_language"] = lang
+            events = read_sse_events(client, body)
+            if not any("Whisper" in str(e.get("stage", "")) for e in events):
+                errs = [e.get("error") for e in events if e.get("error")]
+                problems.append(f"{lang!r}: jalur Whisper tidak dilalui ({errs[:1]})")
+        if calls != [None, "en"]:
+            problems.append(f"bahasa ke Whisper {calls} (harap [None, 'en'])")
+        report(name, not problems, "; ".join(problems) or "tanpa bahasa = None, audio_language 'en' = 'en' di fallback Whisper")
+    except Exception as e:
+        report(name, False, repr(e))
+    finally:
+        for n, fn in originals.items():
+            setattr(analyze_mod, n, fn)
+        restore_gemini(analyze_mod, gemini)
+
+
 def run_yt_hd_cache_check(work_dir: Path) -> None:
     """Task #28: cache stream HD YouTube tanpa jaringan (yt-dlp dipalsukan): ID video, saklar, coba ulang,
     batas ukuran, tinggi < 720 ditolak, satu unduhan untuk dua permintaan bersamaan, cache dipakai ulang
@@ -1569,6 +1616,7 @@ def main() -> int:
         run_whisper_model_name_check()
         run_audio_language_check(client, analyze_mod, render_service, video_name, work_dir / video_name)
         run_yt_hd_cache_check(work_dir)
+        run_yt_whisper_language_check(analyze_mod, client, work_dir / video_name)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")
