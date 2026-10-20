@@ -30,12 +30,12 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 | `backend/routers/analyze.py` | `_format_parsed_dict` | L118-141 | Normalisasi hasil parse |
 | `backend/routers/analyze.py` | `health_check` | L247-273 | `GET /api/health` |
 | `backend/routers/analyze.py` | `list_available_models` | L283-286 | `GET /api/models` |
-| `backend/schemas/analyze.py` | `ClipScores` | L4-12 | 7 skor 0-100, `prompt_match` None tanpa fokus pencarian (#1) |
-| `backend/schemas/analyze.py` | `ViralClip` | L14-29 | Klip yang dikirim ke frontend, termasuk `guardrail_notes` (#12) dan `scores`, `score_reason`, `needs_context`, `score_label` (#1, ditampilkan di #1b; None untuk klip fallback) |
-| `backend/schemas/analyze.py` | `ViralClipGemini` | L31-48 | Skema output yang diminta dari Gemini (deskripsi field ikut jadi instruksi). Sejak #1 tanpa `virality_score`; skor datar `score_<dimensi>` (bukan objek bersarang, karena regex parser toleran tidak membaca kurung bersarang), `score_reason`, `needs_context` |
-| `backend/schemas/analyze.py` | `VideoAnalysis` | L50-52 | `summary` + `clips` |
-| `backend/schemas/analyze.py` | `AnalyzeRequest` | L54-66 | Input endpoint |
-| `backend/schemas/analyze.py` | `AnalyzeResponse` | L79-90 | Output akhir |
+| `backend/schemas/analyze.py` | `ClipScores` | L6-14 | 7 skor 0-100, `prompt_match` None tanpa fokus pencarian (#1) |
+| `backend/schemas/analyze.py` | `ViralClip` | L16-31 | Klip yang dikirim ke frontend, termasuk `guardrail_notes` (#12) dan `scores`, `score_reason`, `needs_context`, `score_label` (#1, ditampilkan di #1b; None untuk klip fallback) |
+| `backend/schemas/analyze.py` | `ViralClipGemini` | L33-50 | Skema output yang diminta dari Gemini (deskripsi field ikut jadi instruksi). Sejak #1 tanpa `virality_score`; skor datar `score_<dimensi>` (bukan objek bersarang, karena regex parser toleran tidak membaca kurung bersarang), `score_reason`, `needs_context` |
+| `backend/schemas/analyze.py` | `VideoAnalysis` | L52-54 | `summary` + `clips` |
+| `backend/schemas/analyze.py` | `AnalyzeRequest` | L56-69 | Input endpoint. #39: `audio_language` (L69, kode Whisper atau None = Otomatis, divalidasi `AudioLanguage` dari `schemas/render.py`) |
+| `backend/schemas/analyze.py` | `AnalyzeResponse` | L82-93 | Output akhir |
 | `backend/services/ai_service.py` | `get_flash_models_for_key` | L41-70 | Model Flash yang tersedia untuk key |
 | `backend/services/ai_service.py` | `list_available_gemini_models` | L73-134 | Daftar model untuk dropdown UI |
 | `backend/utils/text.py` | `sanitize_first_person_title` | L361-411 | Buang sudut pandang orang pertama dari judul |
@@ -45,7 +45,7 @@ file_utama: [backend/routers/analyze.py, backend/schemas/analyze.py, backend/ser
 | `backend/utils/clip_guardrails.py` | `fill_quote` | L72-83 | Pengganti kutipan: baris di dalam klip dengan engagement tertinggi, lalu terpanjang |
 
 ## Input / output
-- Input: `AnalyzeRequest` (`url`, `duration` 15s/30s/60s/auto, `api_key`, `model`, `custom_prompt`, `range_start/end`, `subtitles`, `target_clip_count`, `proxy`, `cookies`).
+- Input: `AnalyzeRequest` (`url`, `duration` 15s/30s/60s/auto, `api_key`, `model`, `custom_prompt`, `range_start/end`, `subtitles`, `target_clip_count`, `proxy`, `cookies`, `audio_language` #39 yang hanya dipakai jalur Whisper).
 - Output SSE: event progres `{step, step_progress, overall_progress, stage, detail, message}` (stage "Clip Guardrails" juga membawa `guardrails`: ringkasan jumlah klip/kutipan yang diubah), event error `{error, status}`, event akhir `{done: true, result}`.
 - Konsumen: `handleAnalyze` di [[frontend-app]] membaca stream dan menyimpan hasil ke cache `localStorage`.
 

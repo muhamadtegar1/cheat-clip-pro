@@ -91,6 +91,24 @@ export const en = {
     subtitlesTipDesc: "If auto transcript fails or subtitles are unavailable, you can download subtitles manually using",
     andUploadOption: "and upload them using the Upload Custom Subtitles option.",
 
+    // Task #39: audio language for Whisper
+    audioLanguage: "Audio Language (Whisper)",
+    audioLanguageAuto: "Automatic (detect)",
+    audioLanguageHint: "Used when Whisper transcribes (upload/Drive videos, YouTube without captions, subtitle preview and render). Pick the language actually spoken if short clips are often detected wrong. A wrong choice makes Whisper roughly translate, so keep Automatic when unsure.",
+    audioLanguageNames: {
+      en: "English",
+      id: "Bahasa Indonesia",
+      ms: "Bahasa Melayu",
+      es: "Español",
+      pt: "Português",
+      fr: "Français",
+      de: "Deutsch",
+      ar: "العربية",
+      hi: "हिन्दी",
+      ja: "日本語",
+      ko: "한국어",
+    },
+
     // Analysis Range
     analysisRange: "Analysis Range",
     entireVideo: "Entire Video",
@@ -425,6 +443,7 @@ export const en = {
     subtitlesVisible: "Visible",
     subtitlesDisabled: "Disabled",
     subtitlesDisabledNotice: "Subtitles are disabled. Live preview and final export will have no burned subtitles.",
+    audioLanguageStudioHint: "Audio language for Whisper in subtitle preview and render (same as the analysis form). After changing it, generate the preview again; previews in another language are not used for render.",
     subtitlePreviewTitle: "Real subtitles (preview)",
     subtitlePreviewGenerate: "Generate subtitles",
     subtitlePreviewRegenerate: "Regenerate",

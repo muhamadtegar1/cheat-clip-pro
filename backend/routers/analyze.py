@@ -497,7 +497,7 @@ async def analyze_video(request: AnalyzeRequest):
 
                 try:
                     task = asyncio.create_task(
-                        asyncio.to_thread(transcribe_local_video_file, uploaded_file_path, whisper_progress)
+                        asyncio.to_thread(transcribe_local_video_file, uploaded_file_path, whisper_progress, language=request.audio_language)
                     )
                     while not task.done():
                         try:
@@ -803,7 +803,7 @@ async def analyze_video(request: AnalyzeRequest):
 
                             try:
                                 w_task = asyncio.create_task(
-                                    asyncio.to_thread(transcribe_local_video_file, audio_path, whisper_trans_progress)
+                                    asyncio.to_thread(transcribe_local_video_file, audio_path, whisper_trans_progress, language=request.audio_language)
                                 )
                                 while not w_task.done():
                                     try:

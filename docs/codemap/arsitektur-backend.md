@@ -20,7 +20,7 @@ FastAPI dengan 7 router modular. `backend/config.py` memuat `.env`, memperbaiki 
 | `backend/config.py` | impor ulang dari video_engine | L57-114 | Sumber tunggal `TEMP_DIR`, `EXPORTS_DIR`, fungsi render, dll. |
 | `backend/video_engine.py` | konstanta folder | L21-26 | `temp_clips`, `EXPORTS_DIR` (env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip`), `fonts`, `cookies.txt` |
 | `backend/video_engine.py` | `ensure_ffmpeg_in_path` | L180-242 | Mencari FFmpeg (winget/brew), dipanggil saat impor (L245) |
-| `backend/video_engine.py` | `get_preferred_video_encoder` | L352-367 | Dipanggil saat impor (L389), memilih encoder GPU/CPU. Lihat [[render-server]] |
+| `backend/video_engine.py` | `get_preferred_video_encoder` | L366-381 | Dipanggil saat impor (L403), memilih encoder GPU/CPU. Lihat [[render-server]] |
 | `backend/routers/__init__.py` | ekspor router | L1-17 | Nama router yang di-include `main.py` |
 | `scripts/start-backend.js` | peluncur uvicorn | L244-260 | Mencari venv, menjalankan `uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload` (hanya lokal, task #7) |
 

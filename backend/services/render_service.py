@@ -240,7 +240,8 @@ async def render_single_batch_clip(
                     raw_path,
                     transcript,
                     start_t,
-                    end_t
+                    end_t,
+                    language=settings.audio_language
                 )
             ass_filename = f"{batch_id}_clip_{idx}.ass"
             ass_path = str(TEMP_DIR / ass_filename)
@@ -501,7 +502,8 @@ async def render_merged_batch_clips(
                         part_paths[i],
                         transcript,
                         s_t,
-                        e_t
+                        e_t,
+                        language=settings.audio_language
                     )
                 if use_groups and seg_words:
                     seg_words = _with_groups(seg_words, settings)

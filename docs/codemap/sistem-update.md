@@ -30,8 +30,8 @@ Aplikasi asli punya self-update: `git pull origin <branch>` lalu `npm install`/`
 | `backend/services/system_service.py` | `run_git_command` | L291-306 | Jalankan git dengan timeout |
 | `backend/services/system_service.py` | `trigger_detached_restart` | L371-384 | Jalankan `restart_runner.py` terpisah |
 | `backend/restart_runner.py` | `main` | L85-123 | Bebaskan port lalu nyalakan ulang app |
-| `src/App.tsx` | `SELF_UPDATE_DISABLED` | L29 | Flag frontend: sembunyikan tombol Update |
-| `src/App.tsx` | tombol Update di header | L2431-2454 | Tampil hanya bila `allowAppUpdates && !SELF_UPDATE_DISABLED` |
+| `src/App.tsx` | `SELF_UPDATE_DISABLED` | L30 | Flag frontend: sembunyikan tombol Update |
+| `src/App.tsx` | tombol Update di header | L2443-2466 | Tampil hanya bila `allowAppUpdates && !SELF_UPDATE_DISABLED` |
 | `src/components/AppUpdateModal.tsx` | `AppUpdateModal` | L25-648 | Modal update/restart (masih ada, tidak bisa dibuka dari UI) |
 | `update.bat` | seluruh file | L1-20 | Hanya mencetak petunjuk update manual, tidak menjalankan git/npm/pip |
 | `scripts/start-backend.js` | argumen uvicorn | L244-256 | `--host 127.0.0.1`: backend tidak terbuka ke LAN |

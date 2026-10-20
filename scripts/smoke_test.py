@@ -19,6 +19,7 @@ Cek yang dijalankan:
   7. Guardrail output (task #12): kutipan karangan diganti kalimat asli, timestamp dijepit/dibuang, overlap 80% digabung, 50% ditandai.
   8. Pilihan klip (task #35): simpan/timpa/batal/baca/ekspor JSON-CSV di EXPORTS_DIR/data, tulis atomik, file rusak dibackup, guard lokal.
   9. Nama model Whisper (task #38): CHEAT_CLIP_WHISPER_MODEL kosong = default, valid dipakai, tidak dikenal = base (tanpa memuat model).
+  10. Bahasa audio Whisper (task #39): Otomatis identik dengan sebelumnya, bahasa dipilih sampai ke Whisper di analisis/pratinjau/render, 422.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -945,7 +946,7 @@ def run_subtitle_preview_check(client, config, video_name: str, work_dir: Path) 
         fake_words = [{"word": "halo", "start": 0.1, "end": 0.5}, {"word": "yutub", "start": 0.6, "end": 1.0},
                       {"word": "semua.", "start": 1.1, "end": 1.6}]
 
-        def fake_transcribe(path, fallback, start, end):
+        def fake_transcribe(path, fallback, start, end, language=None):
             calls.append(path)
             if path:
                 return [] if start >= 20 else [dict(w) for w in fake_words]
@@ -1042,7 +1043,7 @@ def run_subtitle_edit_check(client, render_service, video_name: str) -> None:
             with open(kwargs["output_ass_path"], encoding="utf-8") as f:
                 captured.append(f.read())
 
-        def fake_transcribe(path, fallback, start, end):
+        def fake_transcribe(path, fallback, start, end, language=None):
             calls.append(start)
             return [dict(w) for w in whisper_words]
 
@@ -1183,6 +1184,161 @@ def run_whisper_model_name_check() -> None:
             os.environ["CHEAT_CLIP_WHISPER_MODEL"] = saved
 
 
+def run_audio_language_check(client, analyze_mod, render_service, video_name: str, video_file: Path) -> None:
+    """Task #39: bahasa audio diteruskan ke Whisper (analisis, pratinjau, render separate/merged/retry), Otomatis identik
+    dengan sebelum #39, kode tidak dikenal 422. Whisper selalu dipalsukan, model asli tidak dimuat."""
+    name = "bahasa audio Whisper (#39)"
+    problems = []
+    try:
+        from backend import video_engine as ve
+        from backend.services import subtitle_preview_service as preview_svc
+
+        # 1. Argumen transcribe di video_engine (model palsu)
+        seen = []
+
+        class FakeModel:
+            def transcribe(self, path, **kwargs):
+                seen.append(kwargs)
+                return {"segments": [{"text": "halo", "start": 0.0, "end": 1.0,
+                                      "words": [{"word": "halo", "start": 0.1, "end": 0.5}]}]}
+
+        old_prompt = "Transkrip video percakapan dalam Bahasa Indonesia atau English."
+        want_auto_full = {"word_timestamps": True, "fp16": False, "verbose": False, "initial_prompt": old_prompt}
+        want_auto_clip = {"word_timestamps": True, "fp16": False}
+        original_get = ve.get_whisper_model
+        ve.get_whisper_model = lambda: FakeModel()
+        try:
+            for lang, want_full, want_clip in (
+                    (None, want_auto_full, want_auto_clip), ("auto", want_auto_full, want_auto_clip),
+                    ("en", {"word_timestamps": True, "fp16": False, "verbose": False, "language": "en"},
+                     {"word_timestamps": True, "fp16": False, "language": "en"})):
+                seen.clear()
+                ve.transcribe_local_video_file(video_file, language=lang)
+                ve.transcribe_clip_words(str(video_file), None, 0.0, 5.0, language=lang)
+                if seen != [want_full, want_clip]:
+                    problems.append(f"argumen transcribe {lang!r}: {seen}")
+            seen.clear()
+            ve.transcribe_local_video_file(video_file)
+            ve.transcribe_clip_words(str(video_file), None, 0.0, 5.0)
+            if seen != [want_auto_full, want_auto_clip]:
+                problems.append(f"tanpa argumen bahasa tidak identik dengan sebelum #39: {seen}")
+            try:
+                ve.transcribe_clip_words(str(video_file), None, 0.0, 5.0, language="xx")
+                problems.append("kode 'xx' tidak ditolak video_engine")
+            except ValueError:
+                pass
+        finally:
+            ve.get_whisper_model = original_get
+
+        # 2. Kode tidak dikenal ditolak 422 di ketiga endpoint
+        base = {"video_url": f"/api/video/{video_name}", "video_id": Path(video_name).stem}
+        bad = {
+            "/api/analyze": {"url": video_name, "api_key": "mock", "audio_language": "xx"},
+            "/api/render-batch": {**base, "clips": [{"start_time": 5.0, "end_time": 15.0}],
+                                  "settings": {"audio_language": "xx"}},
+            "/api/preview-subtitles": {**base, "start_time": 5.0, "end_time": 15.0, "audio_language": "xx"},
+        }
+        for path, body in bad.items():
+            r = client.post(path, json=body)
+            if r.status_code != 422:
+                problems.append(f"{path} audio_language 'xx': HTTP {r.status_code} (harap 422)")
+
+        # 3. Analisis upload tanpa subtitle manual: bahasa diteruskan ke transcribe_local_video_file
+        full_calls = []
+
+        def fake_full(path, progress_callback=None, language=None):
+            full_calls.append(language)
+            return [{"text": f"kalimat uji nomor {i}.", "start": float(i * 3), "duration": 2.5} for i in range(15)]
+
+        original_full = analyze_mod.transcribe_local_video_file
+        analyze_mod.transcribe_local_video_file = fake_full
+        try:
+            for lang in (None, "id"):
+                body = {"url": video_name, "duration": "15s", "api_key": "mock"}
+                if lang:
+                    body["audio_language"] = lang
+                events = read_sse_events(client, body)
+                if not any(e.get("done") for e in events):
+                    errs = [e.get("error") for e in events if e.get("error")]
+                    problems.append(f"analisis {lang!r} tidak selesai: {errs[:1]}")
+            if full_calls != [None, "id"]:
+                problems.append(f"analisis: bahasa ke Whisper {full_calls} (harap [None, 'id'])")
+        finally:
+            analyze_mod.transcribe_local_video_file = original_full
+
+        # 4. Pratinjau: bahasa diteruskan dan ikut kunci cache
+        preview_calls = []
+
+        def fake_clip(path, fallback, start, end, language=None):
+            preview_calls.append(language)
+            return [{"word": "halo", "start": 0.1, "end": 0.5}] if path else []
+
+        original_clip = preview_svc.transcribe_clip_words
+        preview_svc.transcribe_clip_words = fake_clip
+        preview_svc._WORDS_CACHE.clear()
+        try:
+            body = {**base, "start_time": 5.0, "end_time": 15.0}
+            results = [client.post("/api/preview-subtitles", json={**body, **extra})
+                       for extra in ({}, {"audio_language": "en"}, {"audio_language": "id"},
+                                     {"audio_language": "en"}, {"audio_language": "auto"})]
+            cached = [r.json().get("cached") if r.status_code == 200 else f"HTTP {r.status_code}" for r in results]
+            if preview_calls != [None, "en", "id"] or cached != [False, False, False, True, True]:
+                problems.append(f"pratinjau: Whisper {preview_calls}, cached {cached}")
+        finally:
+            preview_svc.transcribe_clip_words = original_clip
+            preview_svc._WORDS_CACHE.clear()
+
+        # 5. Render separate, retry, merged: settings.audio_language sampai ke transcribe_clip_words
+        render_calls = []
+
+        def fake_render_clip(path, fallback, start, end, language=None):
+            render_calls.append(language)
+            return [{"word": "halo", "start": 0.1, "end": 0.5}]
+
+        def stop_render(*args, **kwargs):
+            raise RuntimeError("smoke39: encode dilewati")
+
+        originals = (render_service.transcribe_clip_words, render_service.render_clip_to_mp4)
+        render_service.transcribe_clip_words = fake_render_clip
+        render_service.render_clip_to_mp4 = stop_render
+        batch_ids = []
+        settings = {"caption_style": "viral_pop", "title_position": "none", "enable_face_tracking": False,
+                    "hardware_accel": "cpu"}
+        clip = {"title": "Smoke 39", "start_time": 5.0, "end_time": 15.0}
+        try:
+            merged_clips = [{**clip, "start_time": 2.0, "end_time": 6.0}, {**clip, "start_time": 10.0, "end_time": 14.0}]
+            for label, clips, extra, want in (
+                    ("separate otomatis", [clip], {}, [None]),
+                    ("separate en", [clip], {"audio_language": "en"}, ["en"]),
+                    ("merged id", merged_clips, {"audio_language": "id", "render_mode": "merged"}, ["id", "id"])):
+                render_calls.clear()
+                r = client.post("/api/render-batch", json={**base, "clips": clips, "settings": {**settings, **extra}})
+                if r.status_code != 200:
+                    problems.append(f"{label}: render-batch HTTP {r.status_code}")
+                    continue
+                batch_ids.append(r.json()["batch_id"])
+                if render_calls != want:
+                    problems.append(f"{label}: bahasa ke Whisper {render_calls} (harap {want})")
+                if label == "separate en":
+                    render_calls.clear()
+                    rr = client.post(f"/api/render-batch/{batch_ids[-1]}/retry", json={"clip_indices": [0]})
+                    if rr.status_code != 200 or render_calls != ["en"]:
+                        problems.append(f"retry: HTTP {rr.status_code}, bahasa ke Whisper {render_calls}")
+        finally:
+            render_service.transcribe_clip_words, render_service.render_clip_to_mp4 = originals
+            for bid in batch_ids:
+                for p in Path(render_service.TEMP_DIR).glob(f"*{bid}*"):
+                    p.unlink(missing_ok=True)
+                render_service.RENDER_BATCHES.pop(bid, None)
+                render_service.BATCH_REQUESTS.pop(bid, None)
+
+        report(name, not problems, "; ".join(problems) or
+               "Otomatis = argumen transcribe sama dengan sebelum #39 (initial_prompt tetap), bahasa dipilih = language "
+               "tanpa initial_prompt, diteruskan di analisis/pratinjau/separate/retry/merged, cache pratinjau per bahasa, 'xx' = 422")
+    except Exception as e:
+        report(name, False, repr(e))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test Cheat Clip PRO")
     parser.add_argument("--keep", action="store_true", help="Jangan hapus video sintetis dan hasil render")
@@ -1241,6 +1397,7 @@ def main() -> int:
         run_subtitle_preview_check(client, config, video_name, work_dir)
         run_subtitle_edit_check(client, render_service, video_name)
         run_whisper_model_name_check()
+        run_audio_language_check(client, analyze_mod, render_service, video_name, work_dir / video_name)
     finally:
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")

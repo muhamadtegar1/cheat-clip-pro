@@ -1,4 +1,5 @@
 import type {
+  AudioLanguage,
   CaptionStyle,
   SubtitlePreviewEvent,
   SubtitlePreviewResponse,
@@ -10,6 +11,18 @@ import type {
 
 // Task #36a: subtitle asli (Whisper) untuk pratinjau Clip Studio, pemotongan sama dengan render server.
 
+// Task #39: pilihan bahasa audio Whisper (urutan dropdown), sama dengan WHISPER_AUDIO_LANGUAGES di backend
+export const AUDIO_LANGUAGE_OPTIONS: AudioLanguage[] = ['auto', 'en', 'id', 'ms', 'es', 'pt', 'fr', 'de', 'ar', 'hi', 'ja', 'ko'];
+export const AUDIO_LANGUAGE_STORAGE_KEY = 'cheat_clip_audio_language';
+export const parseAudioLanguage = (value: string | null | undefined): AudioLanguage =>
+  AUDIO_LANGUAGE_OPTIONS.find(code => code === value) ?? 'auto';
+/** Kode untuk backend: 'auto' tidak dikirim, jadi request mode Otomatis sama dengan sebelum #39. */
+export const audioLanguageParam = (value?: AudioLanguage): string | undefined =>
+  value && value !== 'auto' ? value : undefined;
+/** Task #39: kunci pratinjau per klip dan bahasa, agar kata dari bahasa lain tidak dipakai render. */
+export const subtitlePreviewKey = (startTime: number, endTime: number, language: AudioLanguage): string =>
+  `${startTime}_${endTime}_${language}`;
+
 export interface SubtitlePreviewRequest {
   videoUrl: string;
   videoId: string;
@@ -18,6 +31,7 @@ export interface SubtitlePreviewRequest {
   transcript?: TranscriptLine[];
   cookies?: string;
   replacements: SubtitleReplacement[];
+  audioLanguage?: AudioLanguage; // Task #39
   textCase: TextCaseOption;
   /** Lewati cache backend dan jalankan Whisper lagi (tombol "Buat ulang") */
   force?: boolean;
@@ -56,6 +70,7 @@ export const fetchSubtitlePreview = async (req: SubtitlePreviewRequest): Promise
       text_case: req.textCase,
       force: req.force || undefined,
       words: req.words,
+      audio_language: audioLanguageParam(req.audioLanguage),
     }),
   });
   if (!res.ok) {

@@ -21,7 +21,7 @@ Cara aplikasi melewati blokir/bot check YouTube. **Cookies disimpan di `localSto
 | `backend/routers/cookies.py` | `delete_youtube_cookies` | L163-171 | `DELETE /api/cookies` |
 | `backend/video_engine.py` | `ephemeral_cookies_file` | L108-138 | File cookies sementara per task, dihapus setelah selesai |
 | `backend/video_engine.py` | `get_effective_cookies_path` | L141-147 | Fallback ke `cookies.txt` di disk bila ada |
-| `backend/video_engine.py` | `get_yt_dlp_cookies_args` | L405-410 | Argumen `--cookies` untuk yt-dlp |
+| `backend/video_engine.py` | `get_yt_dlp_cookies_args` | L419-424 | Argumen `--cookies` untuk yt-dlp |
 | `backend/utils/proxy.py` | `get_proxy_url` | L34-56 | `PROXY_URL` / `WEBSHARE_*` / `HTTP(S)_PROXY` |
 | `backend/utils/proxy.py` | `get_youtube_transcript_proxy_config` | L58-110 | Proxy untuk youtube-transcript-api |
 | `backend/utils/proxy.py` | `mask_proxy_url` | L18-31 | Sembunyikan kredensial proxy di log |

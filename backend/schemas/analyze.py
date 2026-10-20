@@ -1,6 +1,8 @@
 from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 
+from backend.schemas.render import AudioLanguage
+
 class ClipScores(BaseModel):
     """Skor 7 dimensi per klip (task #1), 0-100. prompt_match None bila pengguna tidak memberi fokus pencarian."""
     prompt_match: Optional[int] = None
@@ -64,6 +66,7 @@ class AnalyzeRequest(BaseModel):
     target_clip_count: Optional[Union[int, str]] = Field(None, description="Optional target number of clips or 'auto'")
     proxy: Optional[str] = Field(None, description="Optional custom proxy URL")
     cookies: Optional[str] = Field(None, description="Optional user YouTube cookies from browser LocalStorage")
+    audio_language: AudioLanguage = Field(None, description="Task #39: Whisper audio language code (None/'auto' = detect)")
 
 class HeatmapPoint(BaseModel):
     start_time: float

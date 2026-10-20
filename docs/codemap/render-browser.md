@@ -10,8 +10,8 @@ Jalur render alternatif tanpa beban CPU server: browser mengambil segmen mentah 
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `src/App.tsx` | cabang mode browser di `handleStartBatchRender` | L303-459 | Per klip: minta segmen raw, polling status, render WASM, unduh |
-| `src/App.tsx` | ambil segmen raw | L347-398 | Upload: object URL lokal. YouTube: `POST /api/download-raw-clip` lalu polling `/api/download-raw-clip-status/{id}` |
+| `src/App.tsx` | cabang mode browser di `handleStartBatchRender` | L311-467 | Per klip: minta segmen raw, polling status, render WASM, unduh |
+| `src/App.tsx` | ambil segmen raw | L355-406 | Upload: object URL lokal. YouTube: `POST /api/download-raw-clip` lalu polling `/api/download-raw-clip-status/{id}` |
 | `src/services/clientRenderer.ts` | `getFFmpeg` | L24-71 | Muat core FFmpeg WASM dari CDN (unpkg, fallback jsDelivr) |
 | `src/services/clientRenderer.ts` | `renderClipClientSide` | L77-174 | Potong + crop/scale/background, keluarkan `Blob` MP4 |
 | `src/services/clientRenderer.ts` | `ClientRenderOptions` | L8-19 | Opsi render |

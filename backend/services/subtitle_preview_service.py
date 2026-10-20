@@ -19,15 +19,16 @@ from backend.services.render_service import _RENDER_SEMAPHORE, clip_subtitle_wor
 from backend.video_engine import build_subtitle_events
 
 PREVIEW_CACHE_MAX = 50
-# kunci: (video_id, start, end) -> {"words": [...], "source": "whisper" | "transcript" | "none"}
-_WORDS_CACHE: "OrderedDict[Tuple[str, float, float], Dict[str, Any]]" = OrderedDict()
+# kunci: (video_id, start, end, bahasa audio #39 atau "auto") -> {"words": [...], "source": "whisper" | "transcript" | "none"}
+_WORDS_CACHE: "OrderedDict[Tuple[str, float, float, str], Dict[str, Any]]" = OrderedDict()
 
 
-def _cache_key(video_id: str, start_time: float, end_time: float) -> Tuple[str, float, float]:
-    return (video_id, round(float(start_time), 3), round(float(end_time), 3))
+def _cache_key(video_id: str, start_time: float, end_time: float,
+               audio_language: Optional[str] = None) -> Tuple[str, float, float, str]:
+    return (video_id, round(float(start_time), 3), round(float(end_time), 3), audio_language or "auto")
 
 
-def _cache_put(key: Tuple[str, float, float], entry: Dict[str, Any]) -> None:
+def _cache_put(key: Tuple[str, float, float, str], entry: Dict[str, Any]) -> None:
     _WORDS_CACHE[key] = entry
     _WORDS_CACHE.move_to_end(key)
     while len(_WORDS_CACHE) > PREVIEW_CACHE_MAX:
@@ -35,9 +36,10 @@ def _cache_put(key: Tuple[str, float, float], entry: Dict[str, Any]) -> None:
 
 
 def _transcribe_segment(raw_path: str, transcript: Optional[List[Dict[str, Any]]],
-                        start_time: float, end_time: float) -> Tuple[List[Dict[str, Any]], str]:
+                        start_time: float, end_time: float,
+                        audio_language: Optional[str] = None) -> Tuple[List[Dict[str, Any]], str]:
     """Sama dengan transcribe_clip_words di render, tetapi mencatat sumber kata (Whisper atau transkrip)."""
-    words = transcribe_clip_words(raw_path, None, start_time, end_time)
+    words = transcribe_clip_words(raw_path, None, start_time, end_time, language=audio_language)
     if words:
         return words, "whisper"
     # Path kosong: Whisper dilewati, langsung fallback transkrip seperti di render
@@ -46,7 +48,7 @@ def _transcribe_segment(raw_path: str, transcript: Optional[List[Dict[str, Any]]
 
 
 async def _load_words(req: PreviewSubtitlesRequest) -> Tuple[Dict[str, Any], bool]:
-    key = _cache_key(req.video_id, req.start_time, req.end_time)
+    key = _cache_key(req.video_id, req.start_time, req.end_time, req.audio_language)
     cached = None if req.force else _WORDS_CACHE.get(key)
     if cached is not None:
         _WORDS_CACHE.move_to_end(key)
@@ -67,7 +69,7 @@ async def _load_words(req: PreviewSubtitlesRequest) -> Tuple[Dict[str, Any], boo
             if not raw_path or not os.path.exists(raw_path) or not is_valid_mp4(raw_path):
                 raise RuntimeError("Segmen klip gagal diunduh atau rusak")
             words, source = await asyncio.to_thread(
-                _transcribe_segment, raw_path, req.transcript, req.start_time, req.end_time
+                _transcribe_segment, raw_path, req.transcript, req.start_time, req.end_time, req.audio_language
             )
         finally:
             for path in {raw_path, str(TEMP_DIR / seg_filename)}:

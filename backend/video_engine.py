@@ -268,6 +268,20 @@ def resolve_whisper_model_name(value=None) -> str:
     return name
 
 
+# Task #39: bahasa audio yang boleh dipilih untuk Whisper (`language`). None/""/"auto" = Otomatis (tebak sendiri)
+WHISPER_AUDIO_LANGUAGES = ("en", "id", "ms", "es", "pt", "fr", "de", "ar", "hi", "ja", "ko")
+
+
+def normalize_audio_language(value: Optional[str]) -> Optional[str]:
+    """Task #39: kode bahasa untuk Whisper, atau None untuk Otomatis. Kode di luar daftar = ValueError."""
+    code = (value or "").strip().lower()
+    if not code or code == "auto":
+        return None
+    if code not in WHISPER_AUDIO_LANGUAGES:
+        raise ValueError(f"audio_language '{value}' tidak didukung (pilihan: auto, {', '.join(WHISPER_AUDIO_LANGUAGES)})")
+    return code
+
+
 def get_whisper_model():
     global _WHISPER_MODEL
     if _WHISPER_MODEL is None:
@@ -665,12 +679,15 @@ def compute_audio_energy_heatmap(file_path: Union[str, Path], duration: float, n
     return heatmap
 
 
-def transcribe_local_video_file(file_path: Union[str, Path], progress_callback=None) -> List[Dict[str, Any]]:
+def transcribe_local_video_file(file_path: Union[str, Path], progress_callback=None,
+                                language: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Transcribes speech from a local video or audio file using OpenAI Whisper.
     Returns standard transcript segments formatted as:
     [{"text": "...", "start": 0.0, "duration": 3.5}, ...]
+    Task #39: `language` (kode Whisper) dipilih = dikirim ke Whisper tanpa initial_prompt; None = Otomatis (seperti dulu).
     """
+    language = normalize_audio_language(language)
     p = Path(file_path)
     if not p.exists():
         raise FileNotFoundError(f"File not found: {p}")
@@ -685,15 +702,24 @@ def transcribe_local_video_file(file_path: Union[str, Path], progress_callback=N
     if progress_callback:
         progress_callback("Running Whisper AI", f"Extracting dialogue from {p.name} with Whisper...", 30)
 
-    logger.info(f"Transcribing local file with Whisper: {p}")
-    whisper_prompt = "Transkrip video percakapan dalam Bahasa Indonesia atau English."
-    result = whisper_model.transcribe(
-        str(p),
-        word_timestamps=True,
-        fp16=False,
-        verbose=False,
-        initial_prompt=whisper_prompt
-    )
+    logger.info(f"Transcribing local file with Whisper: {p} (language={language or 'auto'})")
+    if language:
+        result = whisper_model.transcribe(
+            str(p),
+            word_timestamps=True,
+            fp16=False,
+            verbose=False,
+            language=language
+        )
+    else:
+        whisper_prompt = "Transkrip video percakapan dalam Bahasa Indonesia atau English."
+        result = whisper_model.transcribe(
+            str(p),
+            word_timestamps=True,
+            fp16=False,
+            verbose=False,
+            initial_prompt=whisper_prompt
+        )
     
     segments = result.get("segments", [])
     transcript_lines = []
@@ -1176,22 +1202,27 @@ def transcribe_clip_words(
     video_path: str,
     fallback_transcript: Optional[List[Dict[str, Any]]] = None,
     clip_start_time: float = 0.0,
-    clip_end_time: float = 0.0
+    clip_end_time: float = 0.0,
+    language: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Transcribes word-level timestamps directly from the sliced clip audio using Whisper AI.
     Listens directly to the audio waveform of the sliced clip (0.0s = start of clip) for 100% acoustic accuracy.
     Falls back to transcript distribution only if Whisper AI is not available.
+    Task #39: `language` (kode Whisper) dipilih = dikirim ke Whisper; None = Otomatis (tebak sendiri per klip).
     """
+    language = normalize_audio_language(language)
     # 1. Primary: Run Whisper directly on sliced clip audio for exact acoustic timestamps
     whisper_model = get_whisper_model()
     if whisper_model is not None and os.path.exists(video_path):
         try:
-            logger.info(f"Running Whisper acoustic word transcription on: {os.path.basename(video_path)}...")
+            logger.info(f"Running Whisper acoustic word transcription on: {os.path.basename(video_path)} (language={language or 'auto'})...")
+            whisper_opts = {"language": language} if language else {}
             result = whisper_model.transcribe(
                 video_path,
                 word_timestamps=True,
-                fp16=False
+                fp16=False,
+                **whisper_opts
             )
             words = []
             for segment in result.get("segments", []):

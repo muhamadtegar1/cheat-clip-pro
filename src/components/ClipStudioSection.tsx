@@ -11,9 +11,12 @@ import {
   linesFromPreview,
   linesToWords,
   mergeLines,
+  AUDIO_LANGUAGE_OPTIONS,
+  parseAudioLanguage,
   retypeLine,
   splitLine,
   subtitleLineText,
+  subtitlePreviewKey,
   subtitlePreviewSignature,
   wordsBeforeCursor,
 } from '../utils/subtitlePreview';
@@ -21,6 +24,7 @@ import type { SubtitleLine } from '../utils/subtitlePreview';
 import type {
   ViralClip,
   RenderSettings,
+  AudioLanguage,
   AspectRatioOption,
   BackgroundStyle,
   CaptionStyle,
@@ -70,6 +74,9 @@ interface ClipStudioSectionProps {
   allowAppUpdates?: boolean;
   /** Task #36a: transkrip analisis, fallback pratinjau subtitle bila Whisper tidak tersedia */
   transcript?: TranscriptLine[];
+  /** Task #39: bahasa audio Whisper (state di App, sama dengan form analisis) */
+  audioLanguage?: AudioLanguage;
+  onAudioLanguageChange?: (value: AudioLanguage) => void;
 }
 
 function getFriendlyErrorMessage(rawMsg: string): string {
@@ -315,6 +322,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   onRetryClip,
   allowAppUpdates = false,
   transcript,
+  audioLanguage = 'auto',
+  onAudioLanguageChange,
 }) => {
   const { t } = useLanguage();
   // Directly reflect marked clips (supports selecting 0 clips)
@@ -549,15 +558,16 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const clipStart = currentPreviewClip ? currentPreviewClip.start_time : 0;
 
   // Task #36a: subtitle asli (Whisper) per klip untuk pratinjau; kunci = rentang klip, jadi klip yang di-trim mulai dari awal
+  // Task #39: kunci juga memuat bahasa audio, jadi pratinjau/suntingan bahasa lain tidak dipakai render
   const [subtitlePreviews, setSubtitlePreviews] = useState<Record<string, SubtitlePreviewEntry>>({});
-  const previewSubtitleKey = currentPreviewClip ? `${currentPreviewClip.start_time}_${currentPreviewClip.end_time}` : '';
+  const previewSubtitleKey = currentPreviewClip ? subtitlePreviewKey(currentPreviewClip.start_time, currentPreviewClip.end_time, audioLanguage) : '';
   const previewSubtitleEntry = previewSubtitleKey ? subtitlePreviews[previewSubtitleKey] : undefined;
   const previewSubtitleEvents = previewSubtitleEntry?.data?.events;
   const subtitleSignature = useMemo(() => subtitlePreviewSignature(activeSubtitleReplacements, textCase), [activeSubtitleReplacements, textCase]);
 
   // Task #36b: words diisi = backend tanpa unduh/Whisper; edited: kata suntingan baru (null = kembali ke hasil Whisper)
   const requestSubtitlePreview = useCallback((clip: ViralClip, opts: { force?: boolean; words?: SubtitleWord[]; edited?: SubtitleWord[] | null } = {}) => {
-    const key = `${clip.start_time}_${clip.end_time}`;
+    const key = subtitlePreviewKey(clip.start_time, clip.end_time, audioLanguage);
     setSubtitlePreviews(prev => ({
       ...prev,
       [key]: {
@@ -579,6 +589,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       textCase,
       force: opts.force,
       words: opts.words,
+      audioLanguage,
     })
       .then(data => setSubtitlePreviews(prev => ({
         ...prev,
@@ -587,7 +598,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           : { ...prev[key], status: 'ready', data, signature: subtitleSignature },
       })))
       .catch(err => setSubtitlePreviews(prev => ({ ...prev, [key]: { ...prev[key], status: 'error', error: err instanceof Error ? err.message : String(err) } })));
-  }, [videoUrl, videoId, transcript, activeSubtitleReplacements, textCase, subtitleSignature]);
+  }, [videoUrl, videoId, transcript, activeSubtitleReplacements, textCase, subtitleSignature, audioLanguage]);
 
   // Kamus #11 atau kapitalisasi berubah: hitung ulang event klip yang sedang dipratinjau (backend memakai cache, tanpa Whisper ulang)
   useEffect(() => {
@@ -1664,7 +1675,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       const custom = customClipTitles[key];
       const effectiveTitle = (custom !== undefined && custom.trim()) ? custom.trim() : (c.title_suggestion || c.title);
       // Task #36b: kata pratinjau (suntingan atau hasil Whisper pratinjau) dipakai render tanpa Whisper ulang
-      const sub = subtitlePreviews[key];
+      const sub = subtitlePreviews[subtitlePreviewKey(c.start_time, c.end_time, audioLanguage)];
       const subtitleWords = sub?.editedWords ?? sub?.whisperWords;
       return {
         ...c,
@@ -1703,6 +1714,7 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
       subtitlePositionMode,
       subtitleCenterYPercent: safeSubCenterY,
       subtitleReplacements: activeSubtitleReplacements,
+      audioLanguage, // Task #39
       selectedClips: enrichedSelectedClips,
       // Background Music
       bgmEnabled: !!bgmFilePath,
@@ -2937,6 +2949,32 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Task #39: bahasa audio untuk Whisper di pratinjau dan render (state yang sama dengan form analisis) */}
+                <div className="studio-sub-toggle" style={{ marginTop: '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <label htmlFor="studio-audio-language" className="sub-toggle-label" style={{ margin: 0 }}>
+                      🌐 {t.form.audioLanguage}
+                    </label>
+                    <select
+                      id="studio-audio-language"
+                      className="studio-select"
+                      value={audioLanguage}
+                      onChange={e => onAudioLanguageChange?.(parseAudioLanguage(e.target.value))}
+                      disabled={!onAudioLanguageChange}
+                      style={{ minWidth: '130px' }}
+                    >
+                      {AUDIO_LANGUAGE_OPTIONS.map(code => (
+                        <option key={code} value={code}>
+                          {code === 'auto' ? t.form.audioLanguageAuto : t.form.audioLanguageNames[code]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.3rem', lineHeight: 1.4 }}>
+                    {t.studio.audioLanguageStudioHint}
+                  </span>
+                </div>
 
                 {/* Task #11: kamus koreksi kata subtitle, berlaku untuk semua klip dalam render */}
                 <div className="studio-sub-toggle" style={{ marginTop: '0.75rem', flexDirection: 'column', alignItems: 'stretch' }}>

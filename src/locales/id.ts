@@ -93,6 +93,24 @@ export const id: Translations = {
     subtitlesTipDesc: "Jika transkrip otomatis gagal atau subtitle tidak tersedia, unduh subtitle secara manual melalui",
     andUploadOption: "dan unggah menggunakan opsi Unggah Subtitle Manual di atas.",
 
+    // Task #39: bahasa audio untuk Whisper
+    audioLanguage: "Bahasa Audio (Whisper)",
+    audioLanguageAuto: "Otomatis (tebak sendiri)",
+    audioLanguageHint: "Dipakai saat Whisper mentranskripsi (video upload/Drive, YouTube tanpa caption, pratinjau dan render subtitle). Pilih bahasa yang benar-benar diucapkan bila klip pendek sering salah tebak bahasa. Salah pilih membuat Whisper menerjemahkan secara kasar, jadi biarkan Otomatis bila ragu.",
+    audioLanguageNames: {
+      en: "English",
+      id: "Bahasa Indonesia",
+      ms: "Bahasa Melayu",
+      es: "Español",
+      pt: "Português",
+      fr: "Français",
+      de: "Deutsch",
+      ar: "العربية",
+      hi: "हिन्दी",
+      ja: "日本語",
+      ko: "한국어",
+    },
+
     // Analysis Range
     analysisRange: "Rentang Analisis",
     entireVideo: "Seluruh Video",
@@ -427,6 +445,7 @@ export const id: Translations = {
     subtitlesVisible: "Tampilkan",
     subtitlesDisabled: "Nonaktif",
     subtitlesDisabledNotice: "Subtitle saat ini dinonaktifkan. Pratinjau dan ekspor video tidak akan mencetak subtitle.",
+    audioLanguageStudioHint: "Bahasa audio untuk Whisper di pratinjau dan render subtitle (sama dengan pilihan di form analisis). Setelah ganti bahasa, buat pratinjau lagi; pratinjau bahasa lain tidak dipakai render.",
     subtitlePreviewTitle: "Subtitle asli (pratinjau)",
     subtitlePreviewGenerate: "Buat subtitle",
     subtitlePreviewRegenerate: "Buat ulang",

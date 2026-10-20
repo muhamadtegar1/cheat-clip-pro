@@ -14,7 +14,8 @@ import { ClipScorePanel, ClipTierBadges } from './components/ClipScorePanel';
 import { clipKey, computeClipTiers } from './utils/clipScores';
 import { ClipChoiceControls } from './components/ClipChoiceControls';
 import { downloadClipChoicesExport, useClipChoices } from './utils/clipChoices';
-import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress } from './types';
+import type { AnalyzeResponse, ViralClip, RenderSettings, BatchRenderProgress, AudioLanguage } from './types';
+import { AUDIO_LANGUAGE_OPTIONS, AUDIO_LANGUAGE_STORAGE_KEY, audioLanguageParam, parseAudioLanguage } from './utils/subtitlePreview';
 
 // Declare YT global variables for TypeScript
 declare global {
@@ -118,6 +119,13 @@ export default function App() {
   const [subtitlesSource, setSubtitlesSource] = useState<'youtube' | 'manual'>('youtube');
   const [manualSubtitlesContent, setManualSubtitlesContent] = useState<string>('');
   const [manualSubtitlesFileName, setManualSubtitlesFileName] = useState<string>('');
+
+  // Task #39: bahasa audio untuk Whisper (analisis, pratinjau dan render subtitle); satu state untuk form dan Clip Studio
+  const [audioLanguage, setAudioLanguageState] = useState<AudioLanguage>(() => parseAudioLanguage(localStorage.getItem(AUDIO_LANGUAGE_STORAGE_KEY)));
+  const setAudioLanguage = (value: AudioLanguage) => {
+    setAudioLanguageState(value);
+    localStorage.setItem(AUDIO_LANGUAGE_STORAGE_KEY, value);
+  };
 
   const parseTimeToSeconds = (val: string): number | null => {
     const clean = val.trim();
@@ -496,6 +504,7 @@ export default function App() {
             subtitle_position_mode: settings.subtitlePositionMode || 'bottom',
             subtitle_center_y_percent: settings.subtitleCenterYPercent !== undefined ? settings.subtitleCenterYPercent : 50.0,
             subtitle_replacements: settings.subtitleReplacements && settings.subtitleReplacements.length > 0 ? settings.subtitleReplacements : undefined,
+            audio_language: audioLanguageParam(settings.audioLanguage),
             // Background Music
             bgm_enabled: settings.bgmEnabled || false,
             bgm_file_path: settings.bgmFilePath || null,
@@ -1406,6 +1415,8 @@ export default function App() {
       ? `_range_${rangeStartSecs ?? 0}_${rangeEndSecs ?? 'end'}`
       : '';
     const manualSuffix = subtitlesSource === 'manual' ? '_manual' : '';
+    // Task #39: hanya bila bahasa dipilih, jadi kunci cache mode Otomatis tidak berubah
+    const langSuffix = audioLanguage !== 'auto' ? `_lang_${audioLanguage}` : '';
 
     // Determine target video identifier
     let targetAnalyzeUrl = sourceMode === 'gdrive' ? gdriveUrl.trim() : url.trim();
@@ -1487,7 +1498,7 @@ export default function App() {
       const promptSuffix = customPrompt.trim() ? `_prompt_${customPrompt.trim().replace(/[^a-zA-Z0-9]/g, '_')}` : '';
       const modelSuffix = `_model_${selectedModel}`;
       const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
-      const cacheKey = `cheat_clip_cache_${videoId}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
+      const cacheKey = `cheat_clip_cache_${videoId}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
 
       const cachedData = localStorage.getItem(cacheKey);
       if (cachedData) {
@@ -1571,6 +1582,7 @@ export default function App() {
           subtitles_filename: subtitlesSource === 'manual' ? manualSubtitlesFileName : undefined,
           target_clip_count: clipCountMode === 'auto' ? 'auto' : targetClipCount,
           cookies: userCookies || undefined,
+          audio_language: audioLanguageParam(audioLanguage),
         }),
       });
 
@@ -1674,8 +1686,8 @@ export default function App() {
           const promptSuffix = customPrompt.trim() ? `_prompt_${customPrompt.trim().replace(/[^a-zA-Z0-9]/g, '_')}` : '';
           const modelSuffix = `_model_${selectedModel}`;
           const clipsSuffix = clipCountMode === 'auto' ? '_clips_auto' : `_clips_${targetClipCount}`;
-          const targetCacheKey = `cheat_clip_cache_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
-          const tsKey = `cheat_clip_ts_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}`;
+          const targetCacheKey = `cheat_clip_cache_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
+          const tsKey = `cheat_clip_ts_${resultData.video_id}_${durationPref}${modelSuffix}${clipsSuffix}${promptSuffix}${rangeSuffix}${manualSuffix}${langSuffix}`;
           localStorage.setItem(targetCacheKey, JSON.stringify(resultData));
           localStorage.setItem(tsKey, new Date().toISOString());
           refreshHistory();
@@ -3252,6 +3264,26 @@ Transcript:
                 💡 <strong>{t.form.subtitlesTipTitle}</strong> {t.form.subtitlesTipDesc} <a href="https://downsub.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--secondary)', textDecoration: 'underline', fontWeight: '500' }}>downsub.com</a> {t.form.andUploadOption}
               </span>
             )}
+          </div>
+
+          {/* Task #39: bahasa audio untuk Whisper */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem', marginTop: '0.5rem' }}>
+            <label htmlFor="audio-language-select" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.form.audioLanguage}</label>
+            <select
+              id="audio-language-select"
+              className="form-input"
+              value={audioLanguage}
+              onChange={(e) => setAudioLanguage(parseAudioLanguage(e.target.value))}
+              disabled={loading}
+              style={{ padding: '0.6rem 1rem', fontSize: '0.875rem', height: '42px', cursor: 'pointer', appearance: 'auto', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', maxWidth: '320px' }}
+            >
+              {AUDIO_LANGUAGE_OPTIONS.map((code) => (
+                <option key={code} value={code} style={{ background: '#0d1324', color: '#fff' }}>
+                  {code === 'auto' ? t.form.audioLanguageAuto : t.form.audioLanguageNames[code]}
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', opacity: 0.8, lineHeight: '1.4' }}>{t.form.audioLanguageHint}</span>
           </div>
 
           {/* Custom Search Range Section */}
@@ -4905,6 +4937,8 @@ Transcript:
           onRetryClip={handleRetryBatchClip}
           allowAppUpdates={allowAppUpdates}
           transcript={result.transcript}
+          audioLanguage={audioLanguage}
+          onAudioLanguageChange={setAudioLanguage}
         />
       )}
 

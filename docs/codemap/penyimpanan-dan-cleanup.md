@@ -35,7 +35,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | `backend/routers/system.py` | `api_trigger_auto_cleanup` | L213-222 | `POST /api/auto-cleanup` manual |
 | `backend/video_engine.py` | konstanta folder | L21-26 | Definisi path. `EXPORTS_DIR` dari env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip` (L23) |
 | `backend/video_engine.py` | pembuatan folder | L152-162 | `mkdir` saat impor. Gagal membuat `EXPORTS_DIR` → fallback `backend/exports` + log peringatan |
-| `src/App.tsx` | `executeGlobalClearTemp` | L662-683 | Tombol Clear Temp di header |
+| `src/App.tsx` | `executeGlobalClearTemp` | L671-692 | Tombol Clear Temp di header |
 
 ## Input / output
 - Input: variabel `.env` `CHEAT_CLIP_EXPORTS_DIR`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`.

@@ -1,5 +1,17 @@
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, List, Optional, Dict, Any
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+
+
+def _check_audio_language(value: Optional[str]) -> Optional[str]:
+    """Task #39: kode bahasa audio Whisper; None/"auto" = Otomatis, kode di luar daftar = 422."""
+    if value is None:
+        return None
+    from backend.video_engine import normalize_audio_language  # impor lambat: video_engine punya efek samping
+    return normalize_audio_language(value)
+
+
+# Task #39: bahasa audio untuk Whisper (None = Otomatis), dipakai AnalyzeRequest, RenderSettingsModel, PreviewSubtitlesRequest
+AudioLanguage = Annotated[Optional[str], AfterValidator(_check_audio_language)]
 
 # Task #11: satu pasangan kamus koreksi subtitle ("salah" -> "benar"), "from" satu kata tanpa spasi
 class SubtitleReplacement(BaseModel):
@@ -36,6 +48,8 @@ class RenderSettingsModel(BaseModel):
     subtitle_center_y_percent: Optional[float] = 50.0
     # Task #11: kamus koreksi kata subtitle, berlaku untuk semua klip dalam render
     subtitle_replacements: Optional[List[SubtitleReplacement]] = Field(None, max_length=100)
+    # Task #39: bahasa audio untuk Whisper subtitle per kata (None = Otomatis)
+    audio_language: AudioLanguage = None
     # Background Music
     bgm_enabled: Optional[bool] = False
     bgm_file_path: Optional[str] = None
@@ -83,6 +97,8 @@ class PreviewSubtitlesRequest(BaseModel):
     force: bool = False
     # Task #36b: kata hasil suntingan (waktu relatif awal klip, "group" = baris). Diisi = tanpa unduh/Whisper
     words: Optional[List[Dict[str, Any]]] = Field(None, max_length=3000)
+    # Task #39: bahasa audio untuk Whisper (None = Otomatis), ikut kunci cache kata
+    audio_language: AudioLanguage = None
 
 class RetryBatchRequest(BaseModel):
     clip_indices: Optional[List[int]] = None

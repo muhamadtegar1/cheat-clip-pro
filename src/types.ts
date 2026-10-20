@@ -110,6 +110,8 @@ export type FacecamPosition = 'auto' | 'bottom_right' | 'top_right' | 'bottom_le
 export type FontSizeOption = 'small' | 'medium' | 'big' | 'custom';
 export type TextCaseOption = 'uppercase' | 'capitalize' | 'lowercase';
 export type HardwareAccelOption = 'auto' | 'nvenc' | 'amf' | 'qsv' | 'cpu' | 'browser_wasm';
+// Task #39: bahasa audio untuk Whisper ('auto' = tebak sendiri), sama dengan WHISPER_AUDIO_LANGUAGES di backend
+export type AudioLanguage = 'auto' | 'en' | 'id' | 'ms' | 'es' | 'pt' | 'fr' | 'de' | 'ar' | 'hi' | 'ja' | 'ko';
 
 export interface FontItem {
   name: string;
@@ -201,6 +203,7 @@ export interface RenderSettings {
   subtitlePositionMode?: SubtitlePositionMode;
   subtitleCenterYPercent?: number;
   subtitleReplacements?: SubtitleReplacement[];
+  audioLanguage?: AudioLanguage; // Task #39
   selectedClips: ViralClip[];
   // Background Music
   bgmEnabled?: boolean;
