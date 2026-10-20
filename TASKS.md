@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      —
-status:          40 DONE
-langkah_berikut: #40 DONE (perbaikan kecil sisa review #39/#36b). Fase 2 tinggal #2/#3 (BLOCKED). Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Ditunda (keputusan pemilik 2026-10-19): task kecil toleransi/repeat penentu golden --compare, kerjakan sebelum perubahan prompt berikutnya. #28b (1440p/2160p, unduh video asli memakai cache) hanya bila perlu. Kekurangan kecil yang dibiarkan: review #28 (`import threading` di tengah modul, kuota 5 GB auto-cleanup bisa menghapus cache yang sedang dipotong), review #40 (input baris sunting tetap menampilkan ketikan saat pratinjau gagal; batas 60 karakter UI dihitung unit UTF-16), `localStorage` lain di `App.tsx` tanpa try/catch. Lalu #22 (perlu izin pemilik, aturan no. 6)
+task_aktif:      22
+status:          22 REVIEW
+langkah_berikut: #22: /review 22 di sesi baru, pemilik mencoba render dan unggah dari folder posting kit (cek batas PLATFORM_RULES), lalu /done 22. #40 DONE. Fase 2 tinggal #2/#3 (BLOCKED). Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Ditunda (keputusan pemilik 2026-10-19): task kecil toleransi/repeat penentu golden --compare, kerjakan sebelum perubahan prompt berikutnya. #28b (1440p/2160p, unduh video asli memakai cache) hanya bila perlu. Kekurangan kecil yang dibiarkan: review #28 (`import threading` di tengah modul, kuota 5 GB auto-cleanup bisa menghapus cache yang sedang dipotong), review #40 (input baris sunting tetap menampilkan ketikan saat pratinjau gagal; batas 60 karakter UI dihitung unit UTF-16), `localStorage` lain di `App.tsx` tanpa try/catch. Setelah #22: #20/#21 bila ikut campaign brand (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu cukup data pilihan dari #35 (alat sudah siap). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
@@ -92,7 +92,7 @@ Preset lain: lihat `D:\Clipper\clipper app\foundation\06_SCORING_SYSTEM.md` §7�
 | 11 | Koreksi subtitle sebelum render                                                                                                                                                  | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `generate_ass_file` di `backend/video_engine.py` | Kata yang dikoreksi muncul benar di video hasil render         | DONE   |
 | 36a | Pratinjau subtitle asli di Clip Studio: tombol "Buat subtitle" menjalankan Whisper per kata pada segmen klip sebelum render (proses sama dengan render, dimajukan), kamus #11 diterapkan ke hasilnya, lalu subtitle karaoke tampil di pratinjau mengikuti gaya/font/posisi yang dipilih dan sinkron dengan pemutar pratinjau. Hasil disimpan sementara per klip; ditandai usang bila klip di-trim | Baru: endpoint pratranskripsi di backend (memakai `transcribe_clip_words` + segmen klip); `src/components/ClipStudioSection.tsx` (pratinjau); `src/locales/id.ts`, `src/locales/en.ts` | Kata yang akan dibakar ke video terlihat di pratinjau sebelum render, sama dengan hasil render | DONE |
 | 36b | Sunting subtitle per klip sebelum render: daftar kata/potongan dari #36a bisa diketik ulang, dihapus, dipecah, digabung (waktu kata dipertahankan); render memakai kata hasil suntingan tanpa menjalankan Whisper lagi | `src/components/ClipStudioSection.tsx`, `backend/schemas/render.py`, `backend/services/render_service.py` (pakai kata dari request bila ada) | Kata yang dikoreksi di pratinjau muncul persis sama di video hasil render, mode separate dan merged | DONE |
-| 22 | Posting kit (menyerap #19 dan #6): per klip MP4 + SRT + `metadata.json` (skor, prompt, versi prompt, model) + caption per platform, dibuat setelah klip dipilih                  | `backend/services/render_service.py`, `backend/routers/analyze.py`                                                    | Satu folder per klip siap unggah ke TikTok, Reels, Shorts, X   | TODO   |
+| 22 | Posting kit (menyerap #19 dan #6): per klip MP4 + SRT + `metadata.json` (skor, prompt, versi prompt, model) + caption per platform, dibuat setelah klip dipilih                  | `backend/services/render_service.py`, `backend/routers/analyze.py`                                                    | Satu folder per klip siap unggah ke TikTok, Reels, Shorts, X   | REVIEW |
 
 ### 🚦 Titik uji — 1 campaign nyata
 
@@ -260,6 +260,8 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-20 | 40 | REVIEW | Bahasa audio lewat helper `localStorage` ber-try/catch, smoke cek 12 fallback Whisper YouTube `[None, "en"]`, `editedWords` hanya ditulis setelah pratinjau sukses, kata > 60 ditolak di input sunting. Uji UI: 61 ditolak tanpa request, 60 diterima, pratinjau gagal = render memakai kata pratinjau terakhir. Smoke 22/22, build lulus, lint tidak bertambah, codemap lulus |
 | 2026-10-20 | 40 | REVIEW | Review sesi baru: PASS |
 | 2026-10-20 | 40 | DONE | Ditetapkan DONE oleh pemilik proyek |
+| 2026-10-20 | 22 | IN_PROGRESS | Dimulai atas izin pemilik (Fase 3 sebelum Fase 2 selesai, karena #2/#3 menunggu data produksi) |
+| 2026-10-20 | 22 | REVIEW | Posting kit per klip di `EXPORTS_DIR/kits/` (video.mp4 hardlink, SRT = baris karaoke, metadata.json dengan `prompt_version`, caption TikTok/Reels/Shorts/X dari saran Gemini tanpa panggilan baru), ikut ZIP, kit gagal tidak menggagalkan klip. URL/kredit palsu untuk upload dari riwayat disaring. Smoke 23/23, build lulus, lint tidak bertambah, codemap lulus, uji browser render 1 klip |
 
 ***
 
