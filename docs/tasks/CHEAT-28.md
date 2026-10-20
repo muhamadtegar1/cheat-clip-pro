@@ -1,5 +1,5 @@
 # CHEAT-28: Unduhan HD YouTube lewat cache stream (versi kecil, 1080p)
-Status: REVIEW
+Status: DONE
 
 ## Riwayat
 - 2026-10-11: ditunda pemilik (SKIPPED). Kualitas dianggap cukup, draf lama dinilai riskan. Saran saat itu: versi kecil (cache 1080p, batas ukuran, saklar `.env`, timeout ketat, `yt-dlp-ejs` hanya bersama metode cache).

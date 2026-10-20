@@ -9,9 +9,9 @@
 
 ```text
 fase_aktif:      Fase 2 — Inti AI
-task_aktif:      28
-status:          28 REVIEW
-langkah_berikut: #28: /review 28 di sesi baru, pemilik menilai klip YouTube HD di UI, lalu /done 28. #28b (1440p/2160p, unduh video asli memakai cache) hanya bila perlu. Fase 2 tinggal #2/#3 (BLOCKED). Kekurangan kecil dari review #39 (perbaiki sekalian bila menyentuh area itu): `localStorage` bahasa audio tanpa try/catch, fallback Whisper YouTube dengan bahasa belum diuji smoke. Ditunda (keputusan pemilik 2026-10-19, belum perlu sekarang): task kecil toleransi/repeat penentu golden --compare, kerjakan sebelum perubahan prompt berikutnya. Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Kekurangan yang diketahui dari review #36b (dibiarkan, perbaiki sekalian bila menyentuh Clip Studio): suntingan subtitle dipakai render walau pratinjaunya gagal, dan batas 60 karakter per kata belum dicek di input sunting. Lalu #22 (perlu izin pemilik, aturan no. 6)
+task_aktif:      —
+status:          28 DONE
+langkah_berikut: #28 DONE (klip YouTube 1080p lewat cache); #28b (1440p/2160p, unduh video asli memakai cache) hanya bila perlu. Kekurangan kecil dari review #28 (dibiarkan): `import threading` di tengah modul, kuota 5 GB auto-cleanup bisa menghapus cache yang sedang dipotong (jatuh ke metode lama). Fase 2 tinggal #2/#3 (BLOCKED). Kekurangan kecil dari review #39 (perbaiki sekalian bila menyentuh area itu): `localStorage` bahasa audio tanpa try/catch, fallback Whisper YouTube dengan bahasa belum diuji smoke. Ditunda (keputusan pemilik 2026-10-19, belum perlu sekarang): task kecil toleransi/repeat penentu golden --compare, kerjakan sebelum perubahan prompt berikutnya. Kumpulkan data pilihan Pakai/Lewati (#35); setelah cukup rumuskan ulang #2/#3. Kekurangan yang diketahui dari review #36b (dibiarkan, perbaiki sekalian bila menyentuh Clip Studio): suntingan subtitle dipakai render walau pratinjaunya gagal, dan batas 60 karakter per kata belum dicek di input sunting. Lalu #22 (perlu izin pemilik, aturan no. 6)
 blocker:         #2/#3 BLOCKED menunggu cukup data pilihan dari #35 (alat sudah siap). Kuota gemini-3.8-flash 20 permintaan/hari per proyek Google (bukan per key); golden butuh key dari proyek yang kuotanya belum terpakai, jangan analisis di UI sebelum golden
 ```
 
@@ -53,7 +53,7 @@ Jalur lain: `REVIEW` → `FIX_REQUIRED` → `IN_PROGRESS` · `BLOCKED` (tulis al
 | 16 | Pisahkan output permanen dari cache. Render ke folder permanen (mis. `Videos/CheatClip`), cleanup hanya untuk `temp` | `backend/services/system_service.py` (`auto_cleanup_expired_files`), `backend/config.py`, `backend/services/render_service.py` | Klip berumur > 1 jam tetap ada setelah cleanup berjalan                                                               | DONE   |
 | 9  | Sumber sampai 2160p + bitrate AMF lebih tinggi                                                                       | `backend/video_engine.py` baris ±806, ±858, ±1055 (format yt-dlp) dan ±289 (AMF)                                               | Video 4K terunduh tinggi 2160 (cek ffprobe). Output tetap 1080×1920 dan lebih tajam. Fallback 720p/480p tidak berubah | DONE   |
 | 7  | Amankan API key + endpoint admin                                                                                     | `src/App.tsx` (±baris 2820), `backend/schemas/analyze.py`, `backend/routers/system.py` (`verify_admin_access`)                 | Key tidak ada di `localStorage`. Endpoint update/restart menolak request tanpa key admin                              | DONE   |
-| 28 | Unduhan HD YouTube: format HD (klien `android_vr`) ditolak 403 bila diambil ffmpeg (`--download-sections`, URL stream), jadi app hanya mendapat 360p (format 18). Riset: klien lain, `yt-dlp-ejs`, atau unduh native lalu potong lokal | `backend/video_engine.py` (`get_yt_dlp_base_cmd`, `download_clip_segment`, `download_full_raw_video`) | Segmen dari video YouTube 4K terunduh ≥ 1080p (cek ffprobe), waktu unduh wajar, fallback tetap ada | REVIEW |
+| 28 | Unduhan HD YouTube: format HD (klien `android_vr`) ditolak 403 bila diambil ffmpeg (`--download-sections`, URL stream), jadi app hanya mendapat 360p (format 18). Riset: klien lain, `yt-dlp-ejs`, atau unduh native lalu potong lokal | `backend/video_engine.py` (`get_yt_dlp_base_cmd`, `download_clip_segment`, `download_full_raw_video`) | Segmen dari video YouTube 4K terunduh ≥ 1080p (cek ffprobe), waktu unduh wajar, fallback tetap ada | DONE   |
 
 ***
 
@@ -254,6 +254,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-20 | 28 | IN_PROGRESS | Dibuka kembali atas keputusan pemilik sebelum produksi campaign. Riset ulang: `yt-dlp-ejs` + Node membuka format sampai 2160p (sesekali hanya 360p), unduhan native 1080p 10,5 menit 73 s. Kontrak ditulis ulang sebagai versi kecil #28a (cache stream 1080p, saklar `CHEAT_CLIP_YT_HD_CACHE`, metode lama tetap cadangan); 1440p/2160p dan unduh video asli jadi #28b. Kontrak disetujui pemilik |
 | 2026-10-20 | 28 | REVIEW | Cache stream HD YouTube (#28a): `yt-dlp-ejs` + Node, unduh native 1080p sekali per video ke `temp_clips/yt_cache/` lalu potong lokal; saklar `CHEAT_CLIP_YT_HD_CACHE`, batas 2 GB, coba ulang ekstraksi, metode lama tetap cadangan. Perluasan kontrak (disetujui pemilik): `get_yt_dlp_base_cmd(solve_js_challenges=False)` = `--no-js-runtimes` agar metode lama tidak macet di HD. Uji nyata: 1080p 3/3 (66-76 s klip pertama), pakai ulang 18,5 s, 2 permintaan = 1 unduhan, saklar 0 = 360p 20 s; uji UI pratinjau + render AMF 1080x1920 dari cache. Smoke 21/21, codemap lulus |
 | 2026-10-20 | 28 | REVIEW | Review sesi baru: PASS |
+| 2026-10-20 | 28 | DONE | Ditetapkan DONE oleh pemilik proyek |
 
 ***
 
