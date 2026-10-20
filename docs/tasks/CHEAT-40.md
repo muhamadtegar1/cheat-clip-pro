@@ -1,5 +1,5 @@
 # CHEAT-40: Perbaikan kecil sisa review #39 dan #36b
-Status: REVIEW
+Status: DONE
 
 ## Riwayat
 - 2026-10-20: dibuat dari catatan review #39 dan #36b yang tercatat di baton ("perbaiki sekalian bila menyentuh area itu"). Pemilik meminta dikerjakan sekarang sebagai satu task kecil.
