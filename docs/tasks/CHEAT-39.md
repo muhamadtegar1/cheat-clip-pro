@@ -1,5 +1,5 @@
 # CHEAT-39: Pilihan bahasa audio untuk transkripsi Whisper
-Status: REVIEW
+Status: DONE
 Risiko: sedang (menyentuh jalur Whisper analisis, pratinjau subtitle, dan render separate/merged; tidak menyentuh prompt Gemini)
 
 ## Tujuan
