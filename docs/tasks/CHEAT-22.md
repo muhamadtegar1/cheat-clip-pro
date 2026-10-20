@@ -99,5 +99,14 @@ CATATAN:
 - Uji browser: backend sempat restart karena `smoke_test.py` disimpan saat render berjalan (jebakan no. 4); render diulang dan berhasil.
 
 ## Review (sesi baru)
-VERDICT: PASS | FIX_REQUIRED
+VERDICT: PASS
 ALASAN:
+- Lingkup: commit `d986eea` hanya menyentuh file di Area (posting_kit.py baru, render_service.py, schemas/render.py, schemas/analyze.py, routers/analyze.py, types.ts, App.tsx, ClipStudioSection.tsx, id.ts/en.ts, smoke_test.py, codemap, CLAUDE.md, kontrak). `routers/render.py` tidak diubah. Teks prompt, `ViralClipGemini`, `VideoAnalysis`, dan pasca-proses tidak berubah: diff `analyze.py` hanya `import hashlib`, `_compute_prompt_version`/`PROMPT_VERSION`, dan argumen `prompt_version=` di dua `AnalyzeResponse`.
+- Folder kit 7 file, `video.mp4` = MP4 render, SRT = baris karaoke, metadata, ZIP, retry, kit gagal: dibuktikan smoke test yang saya jalankan sendiri, `23/23 cek lulus. SMOKE TEST LULUS` dengan `[PASS] posting kit per klip (#22)` (termasuk log `Posting kit klip 1 gagal ditulis: smoke22: disk penuh` lalu klip tetap selesai). Setelah run, `~/CheatClip/kits` tidak ada.
+- SRT: `build_srt` memakai `build_subtitle_events(words, text_case="original", word_replacements=...)` atas `words_used`, yang diisi dari `words` yang sama dengan masukan `generate_ass_file` (pratinjau #36b atau Whisper) hanya bila `caption_style != "none"` (`render_service.py` L278-279). Subtitle mati = SRT tidak ditulis dan SRT lama dihapus saat retry.
+- Galat kit: blok `try/except` terpisah setelah MP4 valid (`render_service.py` L331-352), hanya mengisi `kit_error`; status `completed` tidak disentuh.
+- ZIP: file kit ditambahkan di `kits/<NN>_<judul>/` dengan `video.mp4` dilewati (`render_service.py` L405-412); nama folder memakai prefiks NN sehingga tidak bentrok.
+- Batas caption: uji mandiri `build_platform_captions` dengan caption 10.000 karakter + 9 hashtag, channel 500 karakter, judul 240 karakter, klip tanpa caption, dan caption hanya hashtag: semua platform di bawah `max_chars`, jumlah hashtag <= `max_hashtags`, judul Shorts <= 100, tidak ada yang kosong. Kredit untuk upload (`Local Upload`, URL `watch?v=upload_x`) kosong, bukan kredit palsu.
+- `npm run build` exit 0. Lint (HEAD sebelum task vs sesudah, error/warning): App.tsx 23/4 = 23/4, ClipStudioSection.tsx 30/2 = 30/2, types.ts/id.ts/en.ts 0/0. `check_codemap.py`: `SEMUA CEK LULUS` (293 simbol). String `postingKitSaved` ada di id.ts dan en.ts.
+- Catatan kecil (tidak memblokir): (a) fallback ZIP on-the-fly di `routers/render.py` belum membawa folder kit (sudah dicatat implementer, di luar area); (b) bila retry suatu klip gagal setelah sebelumnya sukses, `kit_dir` lama tetap ada di status klip, tetapi ZIP hanya memuat klip `completed` sehingga tidak berdampak; (c) `prompt_version` berubah setiap `analyze.py` berubah, bukan hanya teks prompt (disebut di kontrak).
+- Perlu dicek pemilik: caption terasa layak diunggah, nilai `PLATFORM_RULES` (TikTok/Reels 2200/5, Shorts 5000/3 judul 100, X 280/2) sesuai aturan platform terbaru, panel Clip Studio menampilkan baris folder kit, dan alur unggah manual dari folder kit nyaman.

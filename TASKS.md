@@ -262,6 +262,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-20 | 40 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-20 | 22 | IN_PROGRESS | Dimulai atas izin pemilik (Fase 3 sebelum Fase 2 selesai, karena #2/#3 menunggu data produksi) |
 | 2026-10-20 | 22 | REVIEW | Posting kit per klip di `EXPORTS_DIR/kits/` (video.mp4 hardlink, SRT = baris karaoke, metadata.json dengan `prompt_version`, caption TikTok/Reels/Shorts/X dari saran Gemini tanpa panggilan baru), ikut ZIP, kit gagal tidak menggagalkan klip. URL/kredit palsu untuk upload dari riwayat disaring. Smoke 23/23, build lulus, lint tidak bertambah, codemap lulus, uji browser render 1 klip |
+| 2026-10-20 | 22 | REVIEW | Review sesi baru: PASS |
 
 ***
 
