@@ -4888,6 +4888,13 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                   </div>
                 </div>
 
+                {/* Task #22: folder posting kit (MP4, SRT, metadata, caption per platform) */}
+                {batchProgress.kit_dir && (
+                  <p style={{ margin: '0.4rem 0 0.1rem', fontSize: '0.72rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                    {t.studio.postingKitSaved(batchProgress.kit_dir)}
+                  </p>
+                )}
+
                 {/* Overall Batch Error Notice if all clips failed */}
                 {batchProgress.overall_status === 'error' && (
                   <div style={{

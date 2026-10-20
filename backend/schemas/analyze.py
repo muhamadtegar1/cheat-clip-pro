@@ -91,3 +91,4 @@ class AnalyzeResponse(BaseModel):
     model: Optional[str] = None
     video_url: Optional[str] = None
     source_type: Optional[str] = "youtube"
+    prompt_version: Optional[str] = Field(None, description="Task #22: hash pendek kode prompt analisis (metadata posting kit)")

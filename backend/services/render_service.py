@@ -20,6 +20,7 @@ from backend.config import (
     transcribe_clip_words,
 )
 from backend.schemas.render import RenderBatchRequest, RenderSettingsModel
+from backend.services.posting_kit import KITS_DIRNAME, write_clip_kit
 from backend.video_engine import build_subtitle_events
 
 RENDER_BATCHES: Dict[str, Dict[str, Any]] = {}
@@ -126,7 +127,9 @@ async def render_single_batch_clip(
     target_url: str,
     transcript: Optional[List[Dict[str, Any]]] = None,
     total_clips: int = 1,
-    cookies_content: Optional[str] = None
+    cookies_content: Optional[str] = None,
+    video_id: str = "",
+    kit_meta: Optional[Dict[str, Any]] = None
 ):
     batch = RENDER_BATCHES.get(batch_id)
     if not batch:
@@ -141,6 +144,7 @@ async def render_single_batch_clip(
     raw_path = None
     ass_path = None
     title_overlay_path = None
+    words_used: Optional[List[Dict[str, Any]]] = None  # Task #22: kata subtitle yang dipakai render (untuk SRT kit)
 
     try:
         # 1. Download
@@ -271,6 +275,8 @@ async def render_single_batch_clip(
                 title_text_case=settings.title_text_case or settings.text_case or "uppercase",
                 word_replacements=settings.subtitle_replacements
             )
+            if settings.caption_style != "none":
+                words_used = words
 
         # 3. Render Final Vertical MP4
         clip_status["status"] = "rendering"
@@ -321,6 +327,29 @@ async def render_single_batch_clip(
         clip_status["progress_percent"] = 100
         clip_status["download_url"] = f"/api/download-rendered/{out_filename}"
         clip_status["output_path"] = out_path
+
+        # Task #22: posting kit; galat kit tidak menggagalkan klip
+        clip_status["kit_dir"] = None
+        clip_status["kit_error"] = None
+        try:
+            kit_dir = await asyncio.to_thread(
+                write_clip_kit,
+                batch_id=batch_id,
+                idx=idx,
+                clip=clip,
+                display_title=display_title or base_title,
+                mp4_path=out_path,
+                words=words_used,
+                settings=settings,
+                video_id=video_id,
+                source_url=target_url,
+                kit_meta=kit_meta,
+            )
+            clip_status["kit_dir"] = str(kit_dir)
+            batch["kit_dir"] = str(kit_dir.parent)
+        except Exception as kit_err:
+            logger.warning(f"Posting kit klip {idx + 1} gagal ditulis: {kit_err}")
+            clip_status["kit_error"] = str(kit_err)
 
     except Exception as e:
         logger.error(f"Error rendering clip {idx} in batch {batch_id}: {e}")
@@ -373,6 +402,14 @@ def update_batch_summary_and_zip(batch_id: str, settings: RenderSettingsModel):
                         title_counts[formatted_name] = count + 1
                         arc_name = f"{formatted_name}.mp4" if count == 0 else f"{formatted_name} ({count}).mp4"
                         zipf.write(fpath, arcname=arc_name)
+                    # Task #22: file posting kit tanpa video.mp4 (MP4 sudah ada di atas)
+                    kit_dir = c.get("kit_dir")
+                    if kit_dir and os.path.isdir(kit_dir):
+                        kit_name = os.path.basename(kit_dir)
+                        for entry in sorted(os.listdir(kit_dir)):
+                            entry_path = os.path.join(kit_dir, entry)
+                            if entry != "video.mp4" and os.path.isfile(entry_path):
+                                zipf.write(entry_path, arcname=f"{KITS_DIRNAME}/{kit_name}/{entry}")
             batch["zip_url"] = f"/api/download-batch-zip/{batch_id}"
         else:
             batch["zip_url"] = None
@@ -694,7 +731,9 @@ async def process_batch_rendering(batch_id: str, request: RenderBatchRequest):
                     target_url=target_url,
                     transcript=request.transcript,
                     total_clips=len(clips),
-                    cookies_content=cookies_content
+                    cookies_content=cookies_content,
+                    video_id=request.video_id,
+                    kit_meta=request.kit_meta.model_dump() if request.kit_meta else None
                 )
                 batch["current_clip_index"] = idx + 1
 
@@ -751,7 +790,9 @@ async def process_batch_retry(batch_id: str, clip_indices: List[int]):
                         target_url=target_url,
                         transcript=request.transcript,
                         total_clips=len(clips),
-                        cookies_content=cookies_content
+                        cookies_content=cookies_content,
+                        video_id=request.video_id,
+                        kit_meta=request.kit_meta.model_dump() if request.kit_meta else None
                     )
 
         update_batch_summary_and_zip(batch_id, settings)

@@ -532,6 +532,14 @@ export default function App() {
             compilation_title: settings.compilationTitle || null,
           },
           transcript: result.transcript,
+          // Task #22: metadata posting kit
+          kit_meta: {
+            source_title: result.title,
+            channel: result.channel,
+            model: result.model,
+            prompt_version: result.prompt_version,
+            custom_prompt: customPrompt.trim() || undefined,
+          },
         }),
       });
 

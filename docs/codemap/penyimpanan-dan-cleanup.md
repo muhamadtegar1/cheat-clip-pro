@@ -15,6 +15,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | `backend/temp_clips/yt_cache/` | cache stream HD YouTube 1080p per video (#28, [[unduhan-raw]]), ±250-450 MB per video. mtime disegarkan tiap dipakai | Ya (TTL 1 jam sejak terakhir dipakai + kuota) |
 | `backend/temp/` | file sementara lain | Ya |
 | `EXPORTS_DIR` (default `~/CheatClip`) | MP4 hasil render, unduhan raw | **Tidak** (permanen, tanpa kuota) |
+| `EXPORTS_DIR/kits/` | Posting kit per klip (#22): `video.mp4` hardlink ke MP4 render, SRT, `metadata.json`, caption per platform. Lihat [[render-server]] | **Tidak** (permanen) |
 | `EXPORTS_DIR/data/` | `clip_choices.json` pilihan Pakai/Lewati pemilik (#35, [[pilihan-klip]]) | **Tidak** (permanen) |
 | `backend/exports/` | fallback `EXPORTS_DIR` bila folder default gagal dibuat | Tidak |
 | `backend/fonts/` | font bawaan + font upload | Tidak (dilindungi) |
@@ -36,7 +37,7 @@ File kerja (cache) dibersihkan otomatis. **Hasil render disimpan permanen** di `
 | `backend/routers/system.py` | `api_trigger_auto_cleanup` | L213-222 | `POST /api/auto-cleanup` manual |
 | `backend/video_engine.py` | konstanta folder | L21-26 | Definisi path. `EXPORTS_DIR` dari env `CHEAT_CLIP_EXPORTS_DIR`, default `~/CheatClip` (L23) |
 | `backend/video_engine.py` | pembuatan folder | L152-162 | `mkdir` saat impor. Gagal membuat `EXPORTS_DIR` → fallback `backend/exports` + log peringatan |
-| `src/App.tsx` | `executeGlobalClearTemp` | L671-692 | Tombol Clear Temp di header |
+| `src/App.tsx` | `executeGlobalClearTemp` | L679-700 | Tombol Clear Temp di header |
 
 ## Input / output
 - Input: variabel `.env` `CHEAT_CLIP_EXPORTS_DIR`, `TEMP_MAX_AGE_SECONDS`, `TEMP_STORAGE_QUOTA_GB`, `CLEANUP_INTERVAL_SECONDS`.

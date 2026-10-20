@@ -71,6 +71,7 @@ export interface ClipChoiceRecord {
 export interface AnalyzeResponse {
   video_id: string;
   title: string;
+  channel?: string;
   duration: number;
   heatmap: HeatmapPoint[];
   summary: string;
@@ -79,6 +80,7 @@ export interface AnalyzeResponse {
   model?: string;
   video_url?: string;
   source_type?: 'youtube' | 'upload' | 'gdrive';
+  prompt_version?: string; // Task #22: hash kode prompt analisis, untuk metadata posting kit
 }
 
 export type AspectRatioOption = '9:16' | '1:1' | '4:3' | '16:9' | '16:9_landscape';
@@ -254,5 +256,6 @@ export interface BatchRenderProgress {
   zip_url?: string;
   error_message?: string;
   warning_message?: string;
+  kit_dir?: string; // Task #22: folder posting kit batch di EXPORTS_DIR
   clips: RenderClipStatus[];
 }

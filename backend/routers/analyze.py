@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -238,6 +239,22 @@ def parse_lenient_json_analysis(raw_text: str, channel: str = "", lang_code: str
         logger.warning(f"Lenient regex parsing error: {e}")
 
     return None
+
+
+def _compute_prompt_version() -> Optional[str]:
+    """Task #22: hash pendek kode prompt (analyze.py + schemas/analyze.py), line ending dinormalisasi.
+    Berubah setiap kali kode analisis berubah; dicatat di metadata posting kit."""
+    try:
+        root = Path(__file__).resolve().parent.parent
+        digest = hashlib.sha256()
+        for rel in ("routers/analyze.py", "schemas/analyze.py"):
+            digest.update((root / rel).read_bytes().replace(b"\r\n", b"\n"))
+        return digest.hexdigest()[:12]
+    except OSError:
+        return None
+
+
+PROMPT_VERSION = _compute_prompt_version()
 
 
 router = APIRouter(tags=["Analyze"])
@@ -961,7 +978,8 @@ async def analyze_video(request: AnalyzeRequest):
                 heatmap=mock_heatmap,
                 summary="Mock analysis: this video explains how CHEAT CLIP PRO works. #aitools #videoediting #productivity",
                 clips=mock_clips,
-                model="Mock Gemini"
+                model="Mock Gemini",
+                prompt_version=PROMPT_VERSION
             )
             yield _sse({
                 "step": 4,
@@ -1625,7 +1643,8 @@ async def analyze_video(request: AnalyzeRequest):
             transcript=response_transcript,
             model=successful_model or requested_model,
             video_url=video_url,
-            source_type=source_type
+            source_type=source_type,
+            prompt_version=PROMPT_VERSION
         )
 
         yield _sse({"done": True, "result": final_result.model_dump()})

@@ -22,6 +22,8 @@ Cek yang dijalankan:
   10. Bahasa audio Whisper (task #39): Otomatis identik dengan sebelumnya, bahasa dipilih sampai ke Whisper di analisis/pratinjau/render, 422.
   11. Cache HD YouTube (task #28): yt-dlp dipalsukan, saklar, coba ulang, batas ukuran, <720p ditolak, satu unduhan, potong lokal dari cache.
   12. Fallback Whisper YouTube (task #40): caption gagal, audio palsu, bahasa audio sampai ke Whisper ([None, 'en']).
+  13. Posting kit (task #22): folder kit per klip (MP4, SRT = baris karaoke, metadata.json, caption per platform), ZIP,
+      retry, kit gagal tidak menggagalkan klip, prompt_version di respons analisis. Folder kit di EXPORTS_DIR sementara.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -1387,6 +1389,194 @@ def run_yt_whisper_language_check(analyze_mod, client, audio_file: Path) -> None
         restore_gemini(analyze_mod, gemini)
 
 
+def run_posting_kit_check(client, analyze_mod, render_service, video_name: str, srt: str) -> None:
+    """Task #22: posting kit per klip. Encode dipalsukan (salin segmen mentah), kata subtitle dari request
+    (tanpa Whisper), kit ditulis ke EXPORTS_DIR sementara milik smoke test (dialihkan di main)."""
+    name = "posting kit per klip (#22)"
+    import zipfile
+    from backend.services import posting_kit
+    from backend.video_engine import build_subtitle_events
+
+    problems = []
+    batch_ids = []
+    originals = (render_service.render_clip_to_mp4, render_service.transcribe_clip_words, render_service.write_clip_kit)
+
+    def fake_render(video_path=None, output_mp4_path=None, **kwargs):
+        shutil.copy2(video_path, output_mp4_path)
+
+    def no_whisper(*args, **kwargs):
+        raise RuntimeError("smoke22: Whisper tidak boleh dipanggil")
+
+    def broken_kit(**kwargs):
+        raise OSError("smoke22: disk penuh")
+
+    def srt_cues(text: str):
+        cues = []
+        for block in text.strip().split("\n\n"):
+            lines = block.splitlines()
+            a, b = lines[1].split(" --> ")
+            cues.append((a, b, " ".join(lines[2:])))
+        return cues
+
+    reps = [{"from": "yutub", "to": "YouTube"}]
+    words = [{"word": w, "start": st, "end": en, "group": g} for w, st, en, g in [
+        ("Halo", 0.2, 0.5, 0), ("yutub", 0.6, 0.9, 0), ("ini", 1.0, 1.2, 1), ("kit", 1.25, 1.7, 1), ("posting.", 1.8, 2.3, 2)]]
+    scores = {"prompt_match": 80, "hook": 90, "retention": 70, "clarity": 75, "emotional_pull": 60, "payoff": 85,
+              "editability": 70}
+    long_caption = ("Kenapa editor profesional selalu memotong jeda di awal klip? " * 12).strip() + " #Editing #Shorts"
+    clip_a = {"title": "Smoke 22: judul/klip?", "title_suggestion": "Smoke 22 Kit", "start_time": 5.0, "end_time": 15.0,
+              "hook_time": 6.0, "virality_score": 79, "score_label": "fair", "scores": scores,
+              "score_reason": "Alasan uji.", "needs_context": False, "key_quotes": ["halo youtube"],
+              "transcript": "halo youtube ini kit posting", "caption_suggestion": long_caption,
+              "hashtag_suggestion": "#Editing #ClipTips #Podcast #Viral #Creator #Growth #Tips", "subtitle_words": words}
+    clip_b = {"title": "Smoke 22 tanpa skor", "start_time": 20.0, "end_time": 26.0}
+    kit_meta = {"source_title": "Video Uji", "channel": "Kanal Uji", "model": "gemini-smoke", "prompt_version": "abc123",
+                "custom_prompt": "fokus editing"}
+    settings = {"caption_style": "viral_pop", "text_case": "uppercase", "subtitle_replacements": reps,
+                "title_position": "none", "enable_face_tracking": False, "hardware_accel": "cpu"}
+    base = {"video_url": f"/api/video/{video_name}", "video_id": Path(video_name).stem}
+
+    def render(clips, extra_settings=None, meta=None):
+        body = {**base, "clips": clips, "settings": {**settings, **(extra_settings or {})}}
+        if meta:
+            body["kit_meta"] = meta
+        r = client.post("/api/render-batch", json=body)
+        if r.status_code != 200:
+            raise RuntimeError(f"render-batch HTTP {r.status_code}: {r.text[:120]}")
+        batch_ids.append(r.json()["batch_id"])
+        return render_service.RENDER_BATCHES.get(batch_ids[-1]) or {}
+
+    try:
+        render_service.render_clip_to_mp4 = fake_render
+        render_service.transcribe_clip_words = no_whisper
+
+        # 1. Klip lengkap: skor, caption panjang, kata suntingan + kamus, kit_meta
+        batch = render([clip_a], meta=kit_meta)
+        st = (batch.get("clips") or [{}])[0]
+        kit_dir = Path(st.get("kit_dir") or "")
+        if st.get("status") != "completed" or not kit_dir.is_dir():
+            raise RuntimeError(f"klip A {st.get('status')}: {st.get('error_message') or st.get('kit_error')}")
+        if kit_dir.parent != posting_kit.kit_batch_dir(batch_ids[-1]) or not kit_dir.name.startswith("01_"):
+            problems.append(f"lokasi kit {kit_dir}")
+        if any(ch in kit_dir.name for ch in ":/?"):
+            problems.append(f"nama folder tidak aman: {kit_dir.name}")
+        if batch.get("kit_dir") != str(kit_dir.parent):
+            problems.append("kit_dir batch tidak diisi")
+        want_files = {"video.mp4", "subtitles.srt", "metadata.json", "caption_tiktok.txt", "caption_reels.txt",
+                      "caption_shorts.txt", "caption_x.txt"}
+        got_files = {p.name for p in kit_dir.iterdir()}
+        if got_files != want_files:
+            problems.append(f"isi kit {sorted(got_files)}")
+        if (kit_dir / "video.mp4").read_bytes() != Path(st["output_path"]).read_bytes():
+            problems.append("video.mp4 berbeda dari MP4 hasil render")
+        # SRT = potongan karaoke video (event per kata digabung per potongan), huruf asli
+        chunks = []
+        for ev in build_subtitle_events(words, "uppercase", reps):
+            if chunks and chunks[-1][0] == ev["indices"]:
+                chunks[-1][2] = ev["end"]
+            else:
+                chunks.append([ev["indices"], ev["start"], ev["end"], " ".join(ev["words"])])
+        cues = srt_cues((kit_dir / "subtitles.srt").read_text(encoding="utf-8"))
+        if [c[2].upper() for c in cues] != [c[3] for c in chunks]:
+            problems.append(f"teks SRT {[c[2] for c in cues]} != baris video {[c[3] for c in chunks]}")
+        elif [(c[0], c[1]) for c in cues] != [(posting_kit._fmt_srt_time(c[1]), posting_kit._fmt_srt_time(c[2])) for c in chunks]:
+            problems.append("waktu SRT tidak sama dengan potongan karaoke")
+        elif cues[0][2] != "Halo YouTube":
+            problems.append(f"SRT tidak memakai huruf asli/kamus: {cues[0][2]!r}")
+        meta = json.loads((kit_dir / "metadata.json").read_text(encoding="utf-8"))
+        checks = {
+            "scores": meta["scoring"]["scores"] == scores and meta["scoring"]["virality_score"] == 79,
+            "analysis": meta["analysis"] == {"model": "gemini-smoke", "prompt_version": "abc123", "custom_prompt": "fokus editing"},
+            "clip": (meta["clip"]["start_time"], meta["clip"]["end_time"], meta["clip"]["number"]) == (5.0, 15.0, 1),
+            "source": meta["source"]["channel"] == "Kanal Uji" and meta["source"]["url"] is None,
+            "files": set(meta["files"]) == want_files and meta["render"]["subtitle_cues"] == len(cues),
+        }
+        problems += [f"metadata {k} salah" for k, ok in checks.items() if not ok]
+        for platform, rule in posting_kit.PLATFORM_RULES.items():
+            text = (kit_dir / rule["file"]).read_text(encoding="utf-8").strip()
+            body_text = text.split("\n\n", 1)[1] if platform == "shorts" else text
+            n_tags = len([t for t in body_text.split() if t.startswith("#")])
+            if len(body_text) > rule["max_chars"] or n_tags > rule["max_hashtags"] or "Source: Kanal Uji" not in text:
+                problems.append(f"caption {platform}: {len(body_text)} karakter, {n_tags} hashtag")
+            if platform == "shorts" and len(text.split("\n", 1)[0]) > rule["title_max_chars"]:
+                problems.append("judul shorts terlalu panjang")
+        # ZIP: MP4 seperti sebelumnya + file kit tanpa video.mp4
+        with zipfile.ZipFile(Path(render_service.TEMP_DIR) / f"cheat_clip_pro_{batch_ids[-1]}.zip") as zf:
+            names = zf.namelist()
+        kit_names = sorted(n for n in names if n.startswith("kits/"))
+        if len([n for n in names if n.endswith(".mp4")]) != 1 or any(n.endswith("video.mp4") for n in names) \
+                or kit_names != sorted(f"kits/{kit_dir.name}/{f}" for f in want_files - {"video.mp4"}):
+            problems.append(f"isi ZIP {names}")
+        # 2. Retry menulis ulang kit
+        (kit_dir / "caption_x.txt").unlink()
+        r = client.post(f"/api/render-batch/{batch_ids[-1]}/retry", json={"clip_indices": [0]})
+        if r.status_code != 200 or not (kit_dir / "caption_x.txt").exists():
+            problems.append(f"retry tidak menulis ulang kit (HTTP {r.status_code})")
+
+        # 3. Klip tanpa skor/caption, tanpa kit_meta, subtitle mati: kit tetap ada tanpa SRT
+        batch = render([clip_b], {"caption_style": "none"})
+        st = (batch.get("clips") or [{}])[0]
+        kit_b = Path(st.get("kit_dir") or "")
+        if st.get("status") != "completed" or not kit_b.is_dir():
+            problems.append(f"klip B {st.get('status')}: {st.get('kit_error')}")
+        else:
+            meta_b = json.loads((kit_b / "metadata.json").read_text(encoding="utf-8"))
+            if (kit_b / "subtitles.srt").exists() or meta_b["scoring"]["scores"] is not None \
+                    or meta_b["analysis"]["model"] is not None:
+                problems.append("klip B: SRT ada atau field tidak null")
+            if "Smoke 22 tanpa skor" not in (kit_b / "caption_tiktok.txt").read_text(encoding="utf-8"):
+                problems.append("klip B: caption kosong (judul tidak dipakai)")
+
+        # 4. Kit gagal ditulis: klip tetap completed, kit_error terisi
+        render_service.write_clip_kit = broken_kit
+        batch = render([clip_b], {"caption_style": "none"})
+        render_service.write_clip_kit = originals[2]
+        st = (batch.get("clips") or [{}])[0]
+        if st.get("status") != "completed" or "disk penuh" not in (st.get("kit_error") or ""):
+            problems.append(f"kit gagal: status {st.get('status')}, kit_error {st.get('kit_error')!r}")
+
+        # 5. Unit: kredit dengan URL publik, X dipotong tanpa membuang kredit/hashtag
+        credit = posting_kit.credit_line("Kanal", "Judul", "https://www.youtube.com/watch?v=abc")
+        caps = posting_kit.build_platform_captions(clip_a, "Judul", credit)
+        if credit != "Source: Kanal https://www.youtube.com/watch?v=abc" or len(caps["x"].strip()) > 280 \
+                or credit not in caps["x"] or "#editing" not in caps["x"]:
+            problems.append(f"caption X/kredit: {caps['x']!r}")
+        if posting_kit.credit_line("Kanal", None, "/api/video/upload_x.mp4") != "Source: Kanal":
+            problems.append("kredit upload memuat path lokal")
+        # Upload dimuat dari riwayat: frontend mengirim URL watch buatan; channel placeholder bukan kredit
+        if posting_kit.public_source_url("https://www.youtube.com/watch?v=upload_x", "upload_x") is not None \
+                or posting_kit.public_source_url("https://www.youtube.com/watch?v=abc", "abc") is None \
+                or posting_kit.credit_line("Local Upload", "upload_x", None) != "" \
+                or posting_kit.credit_line("", "Judul Video", None) != "Source: Judul Video":
+            problems.append("URL/kredit sumber upload tidak disaring")
+
+        # 6. prompt_version di respons analisis (mock dan jalur Gemini)
+        base_an = {"url": video_name, "duration": "15s", "subtitles": srt, "subtitles_filename": "smoke.srt"}
+        mock_done = [e for e in read_sse_events(client, {**base_an, "api_key": "mock"}) if e.get("done")]
+        gem = patch_gemini(analyze_mod, "scored")
+        try:
+            real_done = [e for e in read_sse_events(client, {**base_an, "api_key": "smoke-fake-key"}) if e.get("done")]
+        finally:
+            restore_gemini(analyze_mod, gem)
+        pv = analyze_mod.PROMPT_VERSION
+        if not pv or not mock_done or not real_done or mock_done[-1]["result"].get("prompt_version") != pv \
+                or real_done[-1]["result"].get("prompt_version") != pv:
+            problems.append(f"prompt_version tidak ada di respons analisis ({pv!r})")
+    except Exception as e:
+        problems.append(repr(e))
+    finally:
+        (render_service.render_clip_to_mp4, render_service.transcribe_clip_words, render_service.write_clip_kit) = originals
+        for bid in batch_ids:
+            for p in list(Path(render_service.TEMP_DIR).glob(f"*{bid}*")) + list(Path(render_service.EXPORTS_DIR).glob(f"*{bid}*")):
+                p.unlink(missing_ok=True)
+            render_service.RENDER_BATCHES.pop(bid, None)
+            render_service.BATCH_REQUESTS.pop(bid, None)
+    report(name, not problems, "; ".join(problems) or
+           "folder kit 7 file, video.mp4 = MP4 render, SRT = baris karaoke (huruf asli, kamus), metadata, batas caption, "
+           "ZIP tanpa MP4 ganda, retry menulis ulang, tanpa skor/kit_meta/subtitle, kit gagal = klip tetap selesai, "
+           "prompt_version di respons mock dan Gemini")
+
+
 def run_yt_hd_cache_check(work_dir: Path) -> None:
     """Task #28: cache stream HD YouTube tanpa jaringan (yt-dlp dipalsukan): ID video, saklar, coba ulang,
     batas ukuran, tinggi < 720 ditolak, satu unduhan untuk dua permintaan bersamaan, cache dipakai ulang
@@ -1588,6 +1778,10 @@ def main() -> int:
     video_name = f"upload_smoke_{uuid.uuid4().hex[:8]}.mp4"
     video_path = config.UPLOADS_DIR / video_name
     batch_id = None
+    # Task #22: semua posting kit dari smoke test ditulis ke folder sementara, bukan ~/CheatClip/kits
+    from backend.services import posting_kit
+    original_kit_root = posting_kit.EXPORTS_DIR
+    posting_kit.EXPORTS_DIR = work_dir / "exports"
     try:
         try:
             make_synthetic_video(work_dir / video_name)
@@ -1617,7 +1811,9 @@ def main() -> int:
         run_audio_language_check(client, analyze_mod, render_service, video_name, work_dir / video_name)
         run_yt_hd_cache_check(work_dir)
         run_yt_whisper_language_check(analyze_mod, client, work_dir / video_name)
+        run_posting_kit_check(client, analyze_mod, render_service, video_name, build_srt())
     finally:
+        posting_kit.EXPORTS_DIR = original_kit_root
         if args.keep:
             print(f"--keep: file disimpan ({video_path}, batch {batch_id})")
         else:

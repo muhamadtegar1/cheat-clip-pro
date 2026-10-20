@@ -10,12 +10,12 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | cabang Google Drive | L307-346 | Unduh file Drive dengan progres lewat antrean SSE |
-| `backend/routers/analyze.py` | deteksi upload | L347-354 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
-| `backend/routers/analyze.py` | cabang upload lokal | L356-545 | Probe metadata, transkrip via subtitle manual atau Whisper |
-| `backend/routers/analyze.py` | heatmap akustik (upload) | L407-449 | Heatmap dari energi audio karena tidak ada data retensi; `heatmap_source = "audio"` (#32) agar prompt menyebutnya energi audio, bukan minat penonton |
-| `backend/routers/analyze.py` | cabang YouTube: metadata | L546-608 | `extract_video_id`, `fetch_video_metadata`, mock fallback; `heatmap_source = "viewer"` (#32) |
-| `backend/routers/analyze.py` | cabang YouTube: heatmap | L609-636 | Langkah 2, kurva retensi dari metadata |
+| `backend/routers/analyze.py` | cabang Google Drive | L324-363 | Unduh file Drive dengan progres lewat antrean SSE |
+| `backend/routers/analyze.py` | deteksi upload | L364-371 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
+| `backend/routers/analyze.py` | cabang upload lokal | L373-562 | Probe metadata, transkrip via subtitle manual atau Whisper |
+| `backend/routers/analyze.py` | heatmap akustik (upload) | L424-466 | Heatmap dari energi audio karena tidak ada data retensi; `heatmap_source = "audio"` (#32) agar prompt menyebutnya energi audio, bukan minat penonton |
+| `backend/routers/analyze.py` | cabang YouTube: metadata | L563-625 | `extract_video_id`, `fetch_video_metadata`, mock fallback; `heatmap_source = "viewer"` (#32) |
+| `backend/routers/analyze.py` | cabang YouTube: heatmap | L626-653 | Langkah 2, kurva retensi dari metadata |
 | `backend/services/youtube_service.py` | `fetch_video_metadata` | L218-274 | yt-dlp JSON: judul, channel, durasi, heatmap |
 | `backend/services/youtube_service.py` | `get_youtube_oembed_title` | L166-215 | Fallback judul via oEmbed |
 | `backend/services/gdrive_service.py` | `is_google_drive_url` | L14-19 | Deteksi link Drive |
@@ -32,7 +32,7 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 | `backend/utils/text.py` | `extract_video_id` | L116-134 | ID YouTube dari URL |
 | `backend/utils/text.py` | `is_safe_remote_url` | L414-452 | Validasi URL remote (anti SSRF) |
 | `src/utils/audioExtractor.ts` | `extractAudioFromVideoClient` | L104-136 | Ekstrak audio di browser sebelum upload |
-| `src/App.tsx` | upload di `handleAnalyze` | L1435-1488 | Mengirim audio WAV + resolusi ke `/api/upload-video` |
+| `src/App.tsx` | upload di `handleAnalyze` | L1443-1496 | Mengirim audio WAV + resolusi ke `/api/upload-video` |
 
 ## Input / output
 - Input: `AnalyzeRequest.url` (URL YouTube, URL Drive, atau nama file upload), `cookies`, `proxy`.

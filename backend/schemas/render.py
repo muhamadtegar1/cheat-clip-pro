@@ -75,6 +75,14 @@ class RenderSettingsModel(BaseModel):
     render_mode: Optional[str] = "separate"  # "separate" | "merged"
     compilation_title: Optional[str] = None
 
+# Task #22: data hasil analisis untuk metadata posting kit (semua opsional, request lama tetap valid)
+class KitMeta(BaseModel):
+    source_title: Optional[str] = None
+    channel: Optional[str] = None
+    model: Optional[str] = None
+    prompt_version: Optional[str] = None
+    custom_prompt: Optional[str] = None
+
 class RenderBatchRequest(BaseModel):
     video_url: str
     video_id: str
@@ -82,6 +90,7 @@ class RenderBatchRequest(BaseModel):
     settings: RenderSettingsModel
     transcript: Optional[List[Dict[str, Any]]] = None
     cookies: Optional[str] = None
+    kit_meta: Optional[KitMeta] = None
 
 # Task #36a: subtitle asli (Whisper) untuk pratinjau Clip Studio sebelum render
 class PreviewSubtitlesRequest(BaseModel):

@@ -26,7 +26,7 @@ Browser (React, Vite :5173)                Backend (FastAPI, uvicorn :8000)
 - [[sumber-video]]: deteksi sumber YouTube / Google Drive / upload, metadata, heatmap
 - [[transkrip]]: rantai fallback transkrip 7 tier, Supadata, Whisper, subtitle manual
 - [[analisis-ai]]: pipeline `POST /api/analyze`, prompt Gemini, parsing, pasca-proses klip
-- [[render-server]]: batch render, antrean, encoder, filtergraph FFmpeg, ZIP
+- [[render-server]]: batch render, antrean, encoder, filtergraph FFmpeg, ZIP, posting kit per klip (#22)
 - [[subtitle-dan-judul]]: transkripsi kata per kata, file `.ass` karaoke, overlay judul, font, watermark
 - [[face-tracking]]: deteksi wajah pembicara dan saliency untuk crop vertikal
 - [[unduhan-raw]]: unduh segmen/video asli lewat yt-dlp, format kualitas
