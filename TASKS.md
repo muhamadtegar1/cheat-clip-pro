@@ -258,6 +258,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-20 | 28 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-20 | 40 | IN_PROGRESS | Dibuat atas permintaan pemilik dari catatan review #39 dan #36b (perbaikan kecil, tanpa izin fase) |
 | 2026-10-20 | 40 | REVIEW | Bahasa audio lewat helper `localStorage` ber-try/catch, smoke cek 12 fallback Whisper YouTube `[None, "en"]`, `editedWords` hanya ditulis setelah pratinjau sukses, kata > 60 ditolak di input sunting. Uji UI: 61 ditolak tanpa request, 60 diterima, pratinjau gagal = render memakai kata pratinjau terakhir. Smoke 22/22, build lulus, lint tidak bertambah, codemap lulus |
+| 2026-10-20 | 40 | REVIEW | Review sesi baru: PASS |
 
 ***
 
