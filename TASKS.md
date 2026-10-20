@@ -253,6 +253,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-20 | 39 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-10-20 | 28 | IN_PROGRESS | Dibuka kembali atas keputusan pemilik sebelum produksi campaign. Riset ulang: `yt-dlp-ejs` + Node membuka format sampai 2160p (sesekali hanya 360p), unduhan native 1080p 10,5 menit 73 s. Kontrak ditulis ulang sebagai versi kecil #28a (cache stream 1080p, saklar `CHEAT_CLIP_YT_HD_CACHE`, metode lama tetap cadangan); 1440p/2160p dan unduh video asli jadi #28b. Kontrak disetujui pemilik |
 | 2026-10-20 | 28 | REVIEW | Cache stream HD YouTube (#28a): `yt-dlp-ejs` + Node, unduh native 1080p sekali per video ke `temp_clips/yt_cache/` lalu potong lokal; saklar `CHEAT_CLIP_YT_HD_CACHE`, batas 2 GB, coba ulang ekstraksi, metode lama tetap cadangan. Perluasan kontrak (disetujui pemilik): `get_yt_dlp_base_cmd(solve_js_challenges=False)` = `--no-js-runtimes` agar metode lama tidak macet di HD. Uji nyata: 1080p 3/3 (66-76 s klip pertama), pakai ulang 18,5 s, 2 permintaan = 1 unduhan, saklar 0 = 360p 20 s; uji UI pratinjau + render AMF 1080x1920 dari cache. Smoke 21/21, codemap lulus |
+| 2026-10-20 | 28 | REVIEW | Review sesi baru: PASS |
 
 ***
 

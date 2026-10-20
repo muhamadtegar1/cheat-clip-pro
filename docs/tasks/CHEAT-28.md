@@ -109,5 +109,14 @@ CATATAN:
 - YouTube bisa berubah lagi; bila klip kembali 360p, log `[YT HD cache] ... kembali ke metode lama: <alasan>` menjelaskan sebabnya. Pembaruan manual tercatat di `CLAUDE.md`.
 
 ## Review (sesi baru)
-VERDICT: PASS | FIX_REQUIRED
+VERDICT: PASS
 ALASAN:
+- Lingkup: commit `02392d2` hanya mengubah `CLAUDE.md`, `backend/requirements.txt`, `backend/video_engine.py`, `scripts/smoke_test.py`, `docs/codemap/*`, dan kontrak. Semua di Area yang boleh disentuh. Di `video_engine.py` hanya ada 1 baris lama yang dihapus (`if shutil.which("deno")` menjadi `elif`); sisanya tambahan: parameter `solve_js_challenges` (L430, L452-458), blok cache L750-949, sisipan L1052-1059 setelah guard upload/Drive. Metode 1-4, string format 720p/480p, perintah potong lokal, `download_full_raw_video`, `extract_clip_frame` tidak berubah. Di `smoke_test.py` tidak ada baris lama yang dihapus.
+- `requirements.txt` memuat `yt-dlp-ejs>=0.8.0`; `pip show` = 0.8.0, `pip install -r backend/requirements.txt --dry-run` tanpa error.
+- Uji nyata reviewer (`aqz-KE-bpKQ`, cache dihapus dulu): segmen menit 5, 30 s lewat `download_clip_segment` = h264 1080, durasi 30,02 s, total 80,9 s (unduhan 275 MB 52 s, format `299+258`, sumber cache h264 1080). Dua segmen bersamaan (menit 9 dan 1:40, 20 s) = keduanya log `Memakai cache ... (tanpa unduh ulang)`, 1080p, 20,02 s, 15,8/18,8 s. Saklar `CHEAT_CLIP_YT_HD_CACHE=0` = tanpa log cache, metode lama 360p, 20,0 s dalam 12,4 s (tidak macet). Reviewer hanya menjalankan 1 unduhan pertama (bukan 3 kali); keandalan 3/3 dan uji gagal nyata (ID salah, batas kecil) diambil dari laporan implementer, sementara jalurnya dibuktikan smoke test.
+- `get_yt_dlp_base_cmd()` default = `['--no-js-runtimes']`, `solve_js_challenges=True` = `--js-runtimes`; hanya `get_youtube_hd_cache` yang memakai `True` (grep).
+- Cache di `TEMP_DIR/yt_cache/`; pencarian sumber lokal `download_clip_segment` hanya `iterdir()` level atas (L993-998) jadi tidak terdeteksi; auto-cleanup TTL memakai `rglob` (`system_service.py` L188) jadi ikut dibersihkan. File uji reviewer dan cache sudah dihapus.
+- Smoke test: `21/21 cek lulus. SMOKE TEST LULUS` termasuk `[PASS] cache HD YouTube (#28)`. `check_codemap.py`: `SEMUA CEK LULUS` (284 simbol). Codemap `unduhan-raw.md`, `penyimpanan-dan-cleanup.md`, `arsitektur-backend.md` dan rentang bergeser diperbarui. `src/` tidak berubah, `npm run build` tidak wajib.
+- Render AMF 1080x1920 dari segmen HD: dari laporan implementer (tidak diulang reviewer); jalurnya tidak berubah karena render hanya menerima file segmen.
+- Catatan kecil, tidak memblokir: `import threading` di tengah modul (L755); lock per video ditahan selama unduhan (sampai timeout 300-1800 s), jadi klip lain dari video sama menunggu, sesuai desain; kuota 5 GB auto-cleanup (hapus terlama) secara teori bisa menghapus cache yang sedang dipotong bila temp penuh, potong gagal lalu jatuh ke metode lama.
+- Perlu dicek pemilik: klip YouTube di UI terlihat HD (penilaian visual), dan gambar pembanding `tests/hd28/`.
