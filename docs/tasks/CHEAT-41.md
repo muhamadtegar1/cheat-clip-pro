@@ -1,5 +1,5 @@
 # CHEAT-41: Sesuaikan durasi klip sebelum render
-Status: REVIEW
+Status: DONE
 
 ## Riwayat
 - 2026-10-21: draf dibuat. Permintaan pemilik: klip kadang mulai di tempat yang salah dan berakhir menggantung; pemilik ingin menambah/mengurangi durasi klip secara manual sebelum render. Izin aturan no. 6 (Fase 3) dari pemilik, tercatat di Log.
