@@ -3,6 +3,7 @@ Status: REVIEW
 
 ## Riwayat
 - 2026-10-21: draf dibuat. Permintaan pemilik: klip kadang mulai di tempat yang salah dan berakhir menggantung; pemilik ingin menambah/mengurangi durasi klip secara manual sebelum render. Izin aturan no. 6 (Fase 3) dari pemilik, tercatat di Log.
+- 2026-10-21: setelah review sesi baru PASS, pemilik menemukan pratinjau Clip Studio terus berjalan sampai akhir rentang lama ("0:50 / 0:48"). Pemilik menyetujui perbaikannya masuk #41: area player pratinjau dan satu kriteria ditambahkan, status kembali ke REVIEW.
 
 ## Tujuan
 Pemilik bisa membuka trimmer dari tombol "Sesuaikan durasi" di kartu klip dan di Clip Studio, menggeser awal/akhir klip (termasuk ±1 detik dan klik kalimat transkrip), menekan "Terapkan" tanpa mengunduh klip mentah, lalu merender klip dengan rentang baru tanpa klip hilang dari pilihan render.
@@ -27,6 +28,7 @@ Pemilik bisa membuka trimmer dari tombol "Sesuaikan durasi" di kartu klip dan di
   - props (L63-80, L312-330): callback baru opsional untuk membuka trimmer.
   - daftar klip terpilih (L4003-4070): tombol "Sesuaikan durasi" per klip.
   - `customClipTitles` (L348): pindahkan judul kustom ke kunci rentang baru saat klip disesuaikan.
+  - player pratinjau (tambahan 2026-10-21 atas persetujuan pemilik, setelah review PASS): `initPreviewPlayer` (`onStateChange`) dan `startTracking` (±L764-890) membaca awal/akhir klip dan status Loop dari ref yang selalu terbaru, agar pratinjau berhenti/mengulang di akhir rentang baru setelah Terapkan.
 - `src/locales/id.ts`, `src/locales/en.ts`: blok `trimmer`, `results`, `studio` untuk string baru.
 - `docs/codemap/clip-studio.md`, `frontend-app.md`, `index.md` bila perlu, `TASKS.md`, kontrak ini.
 
@@ -50,6 +52,7 @@ Pemilik bisa membuka trimmer dari tombol "Sesuaikan durasi" di kartu klip dan di
 - [x] Trimmer punya tombol −1 dan +1 detik untuk awal dan akhir (selain tombol ±5/15/30 yang sudah ada).
 - [x] Klip yang sudah ditandai untuk render tetap tertanda dan tetap ada di daftar klip terpilih Clip Studio setelah rentangnya diubah, termasuk setelah tanda dibaca ulang dari `localStorage`; judul kustom Clip Studio untuk klip itu ikut pindah.
 - [x] Render `separate` 1 klip setelah "Terapkan" menghasilkan MP4 dengan rentang baru (`metadata.json` kit: `start_time`/`end_time` sama dengan rentang baru; durasi MP4 sesuai), dan pratinjau subtitle tidak memakai kata dari rentang lama.
+- [x] Pratinjau Clip Studio untuk klip yang rentangnya diubah berhenti atau mengulang di akhir rentang baru (bukan akhir lama), termasuk bila video sedang diputar saat Terapkan; tombol Loop mati/hidup langsung berlaku.
 - [x] String baru ada di `id.ts` dan `en.ts`.
 - [x] `npm run build` lulus, lint tidak menambah masalah di file yang disentuh, smoke test lulus, `check_codemap.py` lulus.
 
@@ -81,8 +84,10 @@ CATATAN:
 - Saat uji, folder `D:\CheatClip\kits` dan MP4 lama di `D:\CheatClip` sudah tidak berisi kit Casita/MP4 sebelumnya (sebelum render uji); hanya file uji sendiri yang dihapus.
 - Perlu dicek pemilik: alur memperbaiki awal yang salah dan akhir yang menggantung pada video campaign nyata.
 - Perbaikan setelah review subagent (FIX_REQUIRED, 2026-10-21): "Unduh raw" lalu "Terapkan" di modal yang sama memakai `trimmerClip` basi (rentang lama), sehingga Terapkan ditolak dengan pesan duplikat keliru atau melapor sukses tanpa mengubah klip. Sekarang `App.tsx` menyimpan versi klip yang sudah diterapkan di `trimmerAppliedRef` (dikosongkan oleh `openTrimmer` saat modal dibuka) dan `handleApplyAdjustedClipToResults` mengembalikan `false` bila klip asal tidak ada di `result`. Uji browser ulang: 11-22 → +1 awal → Unduh (12-22 diterapkan, file raw terunduh) → −1 akhir → Terapkan = 12-21, toast sukses, tanda `{"12_21":true}`; buka lagi → +1 awal → Unduh → Terapkan tanpa ubah = 13-21, tanpa toast duplikat. Build lulus, lint `App.tsx` 23/4 sama, `check_codemap.py` lulus. File uji (raw MP4 di `D:\CheatClip` dan `Downloads`, upload, `localStorage`) dihapus.
+- Perbaikan pratinjau setelah review PASS (2026-10-21, area ditambah atas persetujuan pemilik): interval `startTracking` dan `onStateChange` YouTube di `ClipStudioSection.tsx` memegang `currentPreviewClip`/`isLooping` dari saat dibuat, jadi setelah Terapkan pratinjau baru berhenti/mengulang di akhir lama (YouTube: sampai klip lain dipilih; upload: selama video masih diputar). Sekarang keduanya membaca `previewBoundsRef` (L705-708, diperbarui efek saat awal/akhir/klip/Loop berubah). Efek samping yang diinginkan: tombol Loop langsung berlaku di player YouTube (sebelumnya baru setelah player dibuat ulang). Test: `npm run build` lulus, lint `ClipStudioSection.tsx` 30/2 sama, `check_codemap.py` lulus (296 simbol), smoke test lulus. Browser bawaan (video upload sintetis 60 s, hasil `mock` di riwayat): klip 11-22 diputar, selagi berjalan akhir diubah ke 16 lewat trimmer Clip Studio, Terapkan: 10 detik pemantauan maksimum `currentTime` 16,08 s dan video mengulang ke 11; Loop dimatikan: video berhenti di 16,16 s. Jalur YouTube tidak bisa diuji di sini (butuh hasil analisis YouTube), logikanya sama (ref yang sama). `localStorage` uji dihapus. Perlu dicek pemilik: pratinjau klip YouTube setelah Terapkan.
 
 ## Review (sesi baru)
+Catatan: verdict di bawah dibuat sebelum perbaikan pratinjau di atas; perbaikan itu perlu `/review 41` ulang.
 VERDICT: PASS
 ALASAN:
 - Lingkup: commit `5a6b402` dan `722b38d` hanya mengubah `src/App.tsx`, `src/components/ClipStudioSection.tsx`, `src/components/ClipTrimmerModal.tsx`, `src/locales/id.ts`, `src/locales/en.ts`, catatan `docs/codemap/` dan kontrak ini (`git show --stat`). Backend dan `smoke_test.py` tidak disentuh. Tidak ada format ulang atau refactor di luar kontrak.

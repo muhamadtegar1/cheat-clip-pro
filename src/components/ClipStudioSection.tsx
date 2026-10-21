@@ -700,6 +700,12 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   const activeSubtitleEventIndex = previewSubtitleEvents ? findActiveSubtitleEvent(previewSubtitleEvents, currentTime - clipStart) : -1;
   const clipEnd = currentPreviewClip ? currentPreviewClip.end_time : 60;
   const clipDuration = Math.max(1, clipEnd - clipStart);
+  // Task #41: batas klip dan Loop terbaru untuk interval pemantau dan handler YouTube, yang dibuat sekali
+  // per pemutaran/inisialisasi dan tidak boleh memakai rentang lama setelah klip disesuaikan di trimmer
+  const previewBoundsRef = useRef({ start: clipStart, end: clipEnd, hasClip: Boolean(currentPreviewClip), isLooping });
+  useEffect(() => {
+    previewBoundsRef.current = { start: clipStart, end: clipEnd, hasClip: Boolean(currentPreviewClip), isLooping };
+  }, [clipStart, clipEnd, currentPreviewClip, isLooping]);
 
   // Fetch face/object detection coordinates
   useEffect(() => {
@@ -825,9 +831,10 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
               } else {
                 setIsPlaying(false);
                 stopTracking();
-                if (event.data === 0 && isLooping && currentPreviewClip) {
+                const bounds = previewBoundsRef.current;
+                if (event.data === 0 && bounds.isLooping && bounds.hasClip) {
                   try {
-                    previewPlayerRef.current.seekTo(clipStart, true);
+                    previewPlayerRef.current.seekTo(bounds.start, true);
                     previewPlayerRef.current.playVideo();
                   } catch (e) {}
                 }
@@ -856,11 +863,12 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           const iframe = document.getElementById('studio-yt-iframe-slot');
           if (iframe && iframe.parentElement) {
             const t = previewPlayerRef.current.getCurrentTime();
+            const bounds = previewBoundsRef.current;
             if (typeof t === 'number' && !isNaN(t)) {
               setCurrentTime(t);
-              if (currentPreviewClip && t >= currentPreviewClip.end_time) {
-                if (isLooping) {
-                  previewPlayerRef.current.seekTo(currentPreviewClip.start_time, true);
+              if (bounds.hasClip && t >= bounds.end) {
+                if (bounds.isLooping) {
+                  previewPlayerRef.current.seekTo(bounds.start, true);
                 } else {
                   previewPlayerRef.current.pauseVideo();
                 }
@@ -869,15 +877,16 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
           }
         } else if (directVideoRef.current) {
           const t = directVideoRef.current.currentTime;
+          const bounds = previewBoundsRef.current;
           if (typeof t === 'number' && !isNaN(t)) {
             setCurrentTime(t);
             if (ambientVideoRef.current && Math.abs(ambientVideoRef.current.currentTime - t) > 0.3) {
               ambientVideoRef.current.currentTime = t;
             }
-            if (currentPreviewClip && t >= currentPreviewClip.end_time) {
-              if (isLooping) {
-                directVideoRef.current.currentTime = currentPreviewClip.start_time;
-                if (ambientVideoRef.current) ambientVideoRef.current.currentTime = currentPreviewClip.start_time;
+            if (bounds.hasClip && t >= bounds.end) {
+              if (bounds.isLooping) {
+                directVideoRef.current.currentTime = bounds.start;
+                if (ambientVideoRef.current) ambientVideoRef.current.currentTime = bounds.start;
               } else {
                 directVideoRef.current.pause();
                 if (ambientVideoRef.current) ambientVideoRef.current.pause();
