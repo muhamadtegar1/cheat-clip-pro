@@ -272,6 +272,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-21 | 41 | REVIEW | Perbaikan temuan reviewer subagent: Terapkan setelah Unduh raw di modal yang sama memakai rentang terakhir (`trimmerAppliedRef`), tidak lagi pesan duplikat keliru atau sukses palsu. Uji browser ulang lulus |
 | 2026-10-21 | 41 | REVIEW | Review sesi baru: PASS |
 | 2026-10-21 | 41 | REVIEW | Temuan pemilik: pratinjau Clip Studio berjalan sampai akhir rentang lama setelah Terapkan. Area player pratinjau ditambah ke kontrak atas persetujuan pemilik; pemantau waktu dan handler YouTube membaca `previewBoundsRef`. Build, lint sama, smoke, codemap lulus; uji browser: ulang di 16,08 s, Loop mati berhenti di 16,16 s. Perlu `/review 41` ulang |
+| 2026-10-21 | 41 | REVIEW | Review sesi baru (ulang, perbaikan pratinjau): PASS |
 
 ***
 
