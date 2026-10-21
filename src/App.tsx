@@ -87,6 +87,13 @@ export default function App() {
     error?: string;
   }>>({});
   const [trimmerClip, setTrimmerClip] = useState<ViralClip | null>(null);
+  // Task #41: versi klip yang sekarang ada di result untuk trimmer yang sedang terbuka. Unduh raw menerapkan
+  // rentang tanpa menutup modal, jadi Terapkan sesudahnya harus mencari klip dari rentang terakhir, bukan trimmerClip.
+  const trimmerAppliedRef = useRef<ViralClip | null>(null);
+  const openTrimmer = (clip: ViralClip) => {
+    trimmerAppliedRef.current = null;
+    setTrimmerClip(clip);
+  };
   // Task #41: perubahan rentang terakhir dari trimmer (kunci start_end lama -> baru) untuk state per klip di Clip Studio
   const [clipRangeChange, setClipRangeChange] = useState<{ fromKey: string; toKey: string } | null>(null);
 
@@ -1889,11 +1896,15 @@ export default function App() {
     }
   };
 
-  // Task #41: kembalikan false bila rentang baru bentrok dengan klip lain (klip tidak diubah)
+  // Task #41: kembalikan false bila klip asal tidak ada lagi di result atau rentang baru bentrok dengan klip lain (klip tidak diubah)
   const handleApplyAdjustedClipToResults = (adjustedClip: ViralClip): boolean => {
-    if (result && result.clips && trimmerClip) {
-      const fromKey = `${trimmerClip.start_time}_${trimmerClip.end_time}`;
+    const sourceClip = trimmerAppliedRef.current ?? trimmerClip;
+    if (result && result.clips && sourceClip) {
+      const fromKey = `${sourceClip.start_time}_${sourceClip.end_time}`;
       const toKey = `${adjustedClip.start_time}_${adjustedClip.end_time}`;
+      if (!result.clips.some(c => `${c.start_time}_${c.end_time}` === fromKey)) {
+        return false;
+      }
       if (fromKey !== toKey && result.clips.some(c => `${c.start_time}_${c.end_time}` === toKey)) {
         setToastMessage(t.results.adjustDurationDuplicate);
         return false;
@@ -1910,7 +1921,7 @@ export default function App() {
           } catch { /* tanda tetap di state sesi ini */ }
         }
         setClipRangeChange({ fromKey, toKey });
-        if (activeClip && activeClip.start_time === trimmerClip.start_time && activeClip.end_time === trimmerClip.end_time) {
+        if (activeClip && activeClip.start_time === sourceClip.start_time && activeClip.end_time === sourceClip.end_time) {
           setActiveClip(adjustedClip);
         }
       }
@@ -1919,12 +1930,13 @@ export default function App() {
         return {
           ...prev,
           clips: prev.clips.map(c =>
-            (c.start_time === trimmerClip.start_time && c.end_time === trimmerClip.end_time)
+            (c.start_time === sourceClip.start_time && c.end_time === sourceClip.end_time)
               ? adjustedClip
               : c
           )
         };
       });
+      trimmerAppliedRef.current = adjustedClip;
       return true;
     }
     return false;
@@ -4830,7 +4842,7 @@ Transcript:
                           style={{ width: 'auto', padding: '0.4rem 0.85rem', fontSize: '0.78rem', borderRadius: '8px', whiteSpace: 'nowrap', cursor: 'pointer', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.35)', color: '#c4b5fd', fontWeight: 600 }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTrimmerClip(clip);
+                            openTrimmer(clip);
                           }}
                           title={t.results.adjustDurationTooltip}
                         >
@@ -4872,7 +4884,7 @@ Transcript:
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setTrimmerClip(clip);
+                                openTrimmer(clip);
                               }}
                               title={t.results.downloadRawClipTooltip}
                             >
@@ -4988,7 +5000,7 @@ Transcript:
           transcript={result.transcript}
           audioLanguage={audioLanguage}
           onAudioLanguageChange={setAudioLanguage}
-          onAdjustClip={setTrimmerClip}
+          onAdjustClip={openTrimmer}
           clipRangeChange={clipRangeChange}
         />
       )}

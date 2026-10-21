@@ -80,6 +80,7 @@ CATATAN:
 - Console menampilkan peringatan React `src=""` kosong saat uji; tidak ditelusuri apakah sudah ada sebelum task ini.
 - Saat uji, folder `D:\CheatClip\kits` dan MP4 lama di `D:\CheatClip` sudah tidak berisi kit Casita/MP4 sebelumnya (sebelum render uji); hanya file uji sendiri yang dihapus.
 - Perlu dicek pemilik: alur memperbaiki awal yang salah dan akhir yang menggantung pada video campaign nyata.
+- Perbaikan setelah review subagent (FIX_REQUIRED, 2026-10-21): "Unduh raw" lalu "Terapkan" di modal yang sama memakai `trimmerClip` basi (rentang lama), sehingga Terapkan ditolak dengan pesan duplikat keliru atau melapor sukses tanpa mengubah klip. Sekarang `App.tsx` menyimpan versi klip yang sudah diterapkan di `trimmerAppliedRef` (dikosongkan oleh `openTrimmer` saat modal dibuka) dan `handleApplyAdjustedClipToResults` mengembalikan `false` bila klip asal tidak ada di `result`. Uji browser ulang: 11-22 → +1 awal → Unduh (12-22 diterapkan, file raw terunduh) → −1 akhir → Terapkan = 12-21, toast sukses, tanda `{"12_21":true}`; buka lagi → +1 awal → Unduh → Terapkan tanpa ubah = 13-21, tanpa toast duplikat. Build lulus, lint `App.tsx` 23/4 sama, `check_codemap.py` lulus. File uji (raw MP4 di `D:\CheatClip` dan `Downloads`, upload, `localStorage`) dihapus.
 
 ## Review (sesi baru)
 VERDICT: PASS | FIX_REQUIRED

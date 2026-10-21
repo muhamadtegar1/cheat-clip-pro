@@ -36,7 +36,7 @@ Task #35. Pemilik menandai tiap klip "Pakai" atau "Lewati" (plus alasan singkat 
 | `src/utils/clipChoices.ts` | `useClipChoices` | L68-152 | Hook: muat pilihan per video (`GET`), `save` (`PUT`), `clear` (`DELETE`), status per klip |
 | `src/utils/clipChoices.ts` | `downloadClipChoicesExport` | L155-173 | Unduh ekspor JSON/CSV lewat blob; `false` bila gagal |
 | `src/components/ClipChoiceControls.tsx` | `ClipChoiceControls` | L34-103 | Tombol Pakai/Lewati (klik pilihan aktif = batal), input alasan (simpan saat blur/Enter), status simpan |
-| `src/App.tsx` | `handleExportChoices` | L2322-2326 | Tombol "Pilihan CSV/JSON" di toolbar hasil + toast |
+| `src/App.tsx` | `handleExportChoices` | L2334-2338 | Tombol "Pilihan CSV/JSON" di toolbar hasil + toast |
 
 ## Input / output
 - Input: klik di kartu klip; data klip dari `result` yang sedang tampil (frontend menghitung `rank`, `tier`, `heatmap_avg`).
