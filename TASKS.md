@@ -271,6 +271,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-21 | 41 | REVIEW | Tombol Sesuaikan Durasi di kartu klip dan Clip Studio membuka trimmer; Terapkan tanpa unduh raw, tombol ±1 s, tanda render dan judul kustom ikut rentang baru, rentang kembar ditolak. Build lulus, lint tidak bertambah, smoke 23/23, codemap lulus, uji browser: render 12-21 s = MP4 9,03 s |
 | 2026-10-21 | 41 | REVIEW | Perbaikan temuan reviewer subagent: Terapkan setelah Unduh raw di modal yang sama memakai rentang terakhir (`trimmerAppliedRef`), tidak lagi pesan duplikat keliru atau sukses palsu. Uji browser ulang lulus |
 | 2026-10-21 | 41 | REVIEW | Review sesi baru: PASS |
+| 2026-10-21 | 41 | REVIEW | Temuan pemilik: pratinjau Clip Studio berjalan sampai akhir rentang lama setelah Terapkan. Area player pratinjau ditambah ke kontrak atas persetujuan pemilik; pemantau waktu dan handler YouTube membaca `previewBoundsRef`. Build, lint sama, smoke, codemap lulus; uji browser: ulang di 16,08 s, Loop mati berhenti di 16,16 s. Perlu `/review 41` ulang |
 
 ***
 
