@@ -13,6 +13,8 @@ interface ClipTrimmerModalProps {
   transcript?: TranscriptLine[];
   onClose: () => void;
   onDownload: (adjustedClip: ViralClip) => Promise<void> | void;
+  // Task #41: terapkan rentang/judul baru ke hasil analisis tanpa unduh raw
+  onApply?: (adjustedClip: ViralClip) => void;
 }
 
 const formatSeconds = (sec: number): string => {
@@ -56,6 +58,7 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
   transcript = [],
   onClose,
   onDownload,
+  onApply,
 }) => {
   const { t } = useLanguage();
 
@@ -1298,8 +1301,15 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                   <button type="button" disabled={isDownloading} onClick={() => nudgeStart(-5)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
                     -5s
                   </button>
+                  {/* Task #41: geser halus 1 detik */}
+                  <button type="button" disabled={isDownloading} onClick={() => nudgeStart(-1)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
+                    -1s
+                  </button>
                   <button type="button" disabled={isDownloading} onClick={() => { setAdjustedStart(origStart); seekToTime(origStart, false); }} style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#facc15', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                     {t.trimmer.resetToAiStart}
+                  </button>
+                  <button type="button" disabled={isDownloading} onClick={() => nudgeStart(+1)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
+                    +1s
                   </button>
                   <button type="button" disabled={isDownloading} onClick={() => nudgeStart(+5)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
                     +5s
@@ -1350,8 +1360,14 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
                   <button type="button" disabled={isDownloading} onClick={() => nudgeEnd(-5)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
                     -5s
                   </button>
+                  <button type="button" disabled={isDownloading} onClick={() => nudgeEnd(-1)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
+                    -1s
+                  </button>
                   <button type="button" disabled={isDownloading} onClick={() => { setAdjustedEnd(origEnd); seekToTime(origEnd, false); }} style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#facc15', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                     {t.trimmer.resetToAiEnd}
+                  </button>
+                  <button type="button" disabled={isDownloading} onClick={() => nudgeEnd(+1)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
+                    +1s
                   </button>
                   <button type="button" disabled={isDownloading} onClick={() => nudgeEnd(+5)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '5px', padding: '0.2rem 0.45rem', fontSize: '0.7rem', cursor: isDownloading ? 'not-allowed' : 'pointer' }}>
                     +5s
@@ -1551,6 +1567,31 @@ export const ClipTrimmerModal: React.FC<ClipTrimmerModalProps> = ({
             >
               {t.trimmer.closeBtn}
             </button>
+
+            {/* Task #41: terapkan rentang ke hasil analisis tanpa unduh raw */}
+            {onApply && (
+              <button
+                type="button"
+                onClick={() => onApply(getAdjustedClip())}
+                disabled={isDownloading}
+                title={t.trimmer.applyTooltip}
+                style={{
+                  padding: '0.5rem 1.3rem',
+                  fontSize: '0.84rem',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: isDownloading ? 'none' : '0 4px 16px rgba(139, 92, 246, 0.4)',
+                  opacity: isDownloading ? 0.55 : 1,
+                  cursor: isDownloading ? 'not-allowed' : 'pointer',
+                  transition: 'var(--transition-smooth)'
+                }}
+              >
+                {t.trimmer.applyBtn(formatSeconds(adjustedStart), formatSeconds(adjustedEnd))}
+              </button>
+            )}
 
             <button
               type="button"

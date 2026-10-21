@@ -79,6 +79,10 @@ interface ClipStudioSectionProps {
   /** Task #39: bahasa audio Whisper (state di App, sama dengan form analisis) */
   audioLanguage?: AudioLanguage;
   onAudioLanguageChange?: (value: AudioLanguage) => void;
+  /** Task #41: buka trimmer App untuk menggeser awal/akhir klip sebelum render */
+  onAdjustClip?: (clip: ViralClip) => void;
+  /** Task #41: perubahan rentang terakhir (kunci start_end lama -> baru), untuk memindahkan judul kustom */
+  clipRangeChange?: { fromKey: string; toKey: string } | null;
 }
 
 function getFriendlyErrorMessage(rawMsg: string): string {
@@ -326,6 +330,8 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   transcript,
   audioLanguage = 'auto',
   onAudioLanguageChange,
+  onAdjustClip,
+  clipRangeChange = null,
 }) => {
   const { t } = useLanguage();
   // Directly reflect marked clips (supports selecting 0 clips)
@@ -346,6 +352,19 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
   });
   const activeSubtitleReplacements = useMemo(() => sanitizeSubtitleReplacements(subtitleReplacements), [subtitleReplacements]);
   const [customClipTitles, setCustomClipTitles] = useState<Record<string, string>>({});
+  // Task #41: judul kustom ikut pindah saat rentang klip diubah di trimmer (pola "sesuaikan state saat prop berubah", tanpa efek)
+  const [seenClipRangeChange, setSeenClipRangeChange] = useState(clipRangeChange);
+  if (clipRangeChange !== seenClipRangeChange) {
+    setSeenClipRangeChange(clipRangeChange);
+    if (clipRangeChange && customClipTitles[clipRangeChange.fromKey] !== undefined) {
+      const { fromKey, toKey } = clipRangeChange;
+      setCustomClipTitles(prev => {
+        const next = { ...prev, [toKey]: prev[fromKey] };
+        delete next[fromKey];
+        return next;
+      });
+    }
+  }
   const [titlePosition, setTitlePosition] = useState<TitlePosition>(() => getSavedStudioPreferences().titlePosition ?? DEFAULT_STUDIO_PREFS.titlePosition);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(() => getSavedStudioPreferences().captionStyle ?? DEFAULT_STUDIO_PREFS.captionStyle);
   const [lastActiveCaptionStyle, setLastActiveCaptionStyle] = useState<CaptionStyle>(() => {
@@ -4061,6 +4080,32 @@ export const ClipStudioSection: React.FC<ClipStudioSectionProps> = ({
                         {(clip.end_time - clip.start_time).toFixed(0)}s) · Score: {clip.virality_score}%
                       </span>
                     </div>
+                    {/* Task #41: geser awal/akhir klip lewat trimmer di App */}
+                    {onAdjustClip && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdjustClip(clip);
+                        }}
+                        title={t.results.adjustDurationTooltip}
+                        style={{
+                          marginLeft: 'auto',
+                          flexShrink: 0,
+                          background: 'rgba(139, 92, 246, 0.12)',
+                          border: '1px solid rgba(139, 92, 246, 0.35)',
+                          color: '#c4b5fd',
+                          borderRadius: '6px',
+                          padding: '0.2rem 0.5rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {t.studio.adjustDuration}
+                      </button>
+                    )}
                   </div>
                 );
               })}

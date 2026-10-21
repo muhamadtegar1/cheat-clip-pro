@@ -87,6 +87,8 @@ export default function App() {
     error?: string;
   }>>({});
   const [trimmerClip, setTrimmerClip] = useState<ViralClip | null>(null);
+  // Task #41: perubahan rentang terakhir dari trimmer (kunci start_end lama -> baru) untuk state per klip di Clip Studio
+  const [clipRangeChange, setClipRangeChange] = useState<{ fromKey: string; toKey: string } | null>(null);
 
   // AI model selection and custom focus prompt states
   const [selectedModel, setSelectedModel] = useState<string>(() => {
@@ -1887,8 +1889,31 @@ export default function App() {
     }
   };
 
-  const handleApplyAdjustedClipToResults = (adjustedClip: ViralClip) => {
+  // Task #41: kembalikan false bila rentang baru bentrok dengan klip lain (klip tidak diubah)
+  const handleApplyAdjustedClipToResults = (adjustedClip: ViralClip): boolean => {
     if (result && result.clips && trimmerClip) {
+      const fromKey = `${trimmerClip.start_time}_${trimmerClip.end_time}`;
+      const toKey = `${adjustedClip.start_time}_${adjustedClip.end_time}`;
+      if (fromKey !== toKey && result.clips.some(c => `${c.start_time}_${c.end_time}` === toKey)) {
+        setToastMessage(t.results.adjustDurationDuplicate);
+        return false;
+      }
+      if (fromKey !== toKey) {
+        // Tanda klip untuk render (kunci = rentang) ikut pindah. localStorage ditulis sebelum setResult
+        // karena efek sinkronisasi markedClips membaca ulang localStorage setiap result berubah.
+        if (markedClips[fromKey]) {
+          const updatedMarks: Record<string, boolean> = { ...markedClips, [toKey]: true };
+          delete updatedMarks[fromKey];
+          setMarkedClips(updatedMarks);
+          try {
+            localStorage.setItem(`marked_clips_${result.video_id}`, JSON.stringify(updatedMarks));
+          } catch { /* tanda tetap di state sesi ini */ }
+        }
+        setClipRangeChange({ fromKey, toKey });
+        if (activeClip && activeClip.start_time === trimmerClip.start_time && activeClip.end_time === trimmerClip.end_time) {
+          setActiveClip(adjustedClip);
+        }
+      }
       setResult(prev => {
         if (!prev) return prev;
         return {
@@ -1900,7 +1925,9 @@ export default function App() {
           )
         };
       });
+      return true;
     }
+    return false;
   };
 
   const handleDownloadRawClip = async (clip: ViralClip, e?: React.MouseEvent) => {
@@ -4796,6 +4823,20 @@ Transcript:
                           {t.results.previewClip}
                         </button>
 
+                        {/* Task #41: buka trimmer untuk menggeser awal/akhir sebelum render */}
+                        <button
+                          type="button"
+                          className="form-input"
+                          style={{ width: 'auto', padding: '0.4rem 0.85rem', fontSize: '0.78rem', borderRadius: '8px', whiteSpace: 'nowrap', cursor: 'pointer', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.35)', color: '#c4b5fd', fontWeight: 600 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTrimmerClip(clip);
+                          }}
+                          title={t.results.adjustDurationTooltip}
+                        >
+                          {t.results.adjustDuration}
+                        </button>
+
                         {(() => {
                           const clipKey = `${clip.start_time}_${clip.end_time}`;
                           const clipDlState = clipDownloadStates[clipKey];
@@ -4947,6 +4988,8 @@ Transcript:
           transcript={result.transcript}
           audioLanguage={audioLanguage}
           onAudioLanguageChange={setAudioLanguage}
+          onAdjustClip={setTrimmerClip}
+          clipRangeChange={clipRangeChange}
         />
       )}
 
@@ -4977,6 +5020,16 @@ Transcript:
         onDownload={async (adjustedClip) => {
           handleApplyAdjustedClipToResults(adjustedClip);
           await handleDownloadRawClip(adjustedClip);
+        }}
+        onApply={(adjustedClip) => {
+          // Task #41: terapkan tanpa unduh raw, lalu tutup trimmer
+          if (handleApplyAdjustedClipToResults(adjustedClip)) {
+            setToastMessage(t.results.adjustDurationApplied(
+              formatSeconds(adjustedClip.start_time),
+              formatSeconds(adjustedClip.end_time)
+            ));
+            setTrimmerClip(null);
+          }
         }}
       />
 

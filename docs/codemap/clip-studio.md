@@ -10,42 +10,46 @@ Panel pengaturan render di bawah hasil analisis (`ClipStudioSection`, ±4800 bar
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `src/components/ClipStudioSection.tsx` | `ClipStudioSection` | L312-5224 | Komponen utama |
-| `src/components/ClipStudioSection.tsx` | `STUDIO_PREFS_KEY` | L220 | Key `localStorage` preferensi (`cheat_clip_studio_preferences`) |
-| `src/components/ClipStudioSection.tsx` | `DEFAULT_STUDIO_PREFS` | L256-288 | Nilai default semua pengaturan |
-| `src/components/ClipStudioSection.tsx` | `getSavedStudioPreferences` | L301-310 | Baca preferensi tersimpan |
-| `src/components/ClipStudioSection.tsx` | simpan preferensi | L1571-1641 | `useEffect` yang menulis preferensi tiap ada perubahan |
-| `src/components/ClipStudioSection.tsx` | `handleLaunch` | L1686-1763 | Susun objek `RenderSettings` dan panggil `onStartRender`. #39: `audioLanguage` (L1731); kata pratinjau diambil dengan kunci bahasa (L1692). #36b: klip dengan pratinjau subtitle membawa `subtitle_words` (`editedWords ?? whisperWords`, L1693) |
-| `src/components/ClipStudioSection.tsx` | `handleResetToDefaults` | L1644-1684 | Reset semua pengaturan |
-| `src/components/ClipStudioSection.tsx` | `formatTitleSmart` | L1338-1398 | Format judul untuk pratinjau (meniru `wrap_title_smart`) |
-| `src/components/ClipStudioSection.tsx` | `getDefaultPositions` | L1408-1454 | Posisi default judul/subtitle per rasio |
-| `src/components/ClipStudioSection.tsx` | `initPreviewPlayer` | L745-830 | Player pratinjau |
-| `src/components/ClipStudioSection.tsx` | `fetchHardwareSupport` | L444-454 | `GET /api/hardware-accel` |
-| `src/components/ClipStudioSection.tsx` | `handleUploadFont` | L489-519 | Upload font kustom |
-| `src/components/ClipStudioSection.tsx` | `uploadBgmFile` | L1063-1088 | Upload BGM |
-| `src/components/ClipStudioSection.tsx` | `uploadHookSfxFile` | L1144-1168 | Upload SFX hook |
-| `src/components/ClipStudioSection.tsx` | `uploadWatermarkFile` | L1205-1234 | Upload watermark |
-| `src/components/ClipStudioSection.tsx` | `getFriendlyErrorMessage` | L84-112 | Pesan error render yang ramah |
-| `src/components/ClipStudioSection.tsx` | JSX kontrol: rasio + face | L1846-1984 | Kanvas, background, centering |
-| `src/components/ClipStudioSection.tsx` | JSX kontrol: judul/hook | L2069-2478 | Banner judul, prefix/suffix |
-| `src/components/ClipStudioSection.tsx` | JSX kontrol: subtitle | L2479-3062 | Gaya, font, posisi subtitle, pilihan bahasa audio (#39, L2967-2991, state milik `App`), kamus koreksi kata (#11, L2993-3058, hanya saat subtitle aktif) |
-| `src/components/ClipStudioSection.tsx` | `sanitizeSubtitleReplacements` | L294-299 | #11: baris kamus yang dikirim ke render (trim, `from` satu kata 1-40, `to` maks 60, maks 100; batas di `SUBTITLE_REPLACEMENT_LIMITS` L291 sama dengan backend) |
-| `src/components/ClipStudioSection.tsx` | state kamus koreksi | L342-347 | #11: `subtitleReplacements` (preferensi studio) + `activeSubtitleReplacements` yang dikirim di `handleLaunch` |
-| `src/components/ClipStudioSection.tsx` | JSX kontrol: audio + watermark | L3063-3684 | BGM, SFX, voice boost, watermark |
-| `src/components/ClipStudioSection.tsx` | JSX kontrol: encoder + nama file + mode | L3685-4002 | Akselerasi hardware, nama file, separate/merged |
-| `src/components/ClipStudioSection.tsx` | JSX daftar klip terpilih | L4003-4070 | Checklist klip |
-| `src/components/ClipStudioSection.tsx` | JSX pratinjau | L4071-5104 | Kolom kanan, pratinjau 9:16. Overlay subtitle L4305-4401: event asli #36a (L4342-4355) atau contoh gaya; kartu "Subtitle asli (pratinjau)" L4526-4655 (tombol, status, daftar potongan yang bisa diklik untuk seek; #36b: tombol Sunting/Selesai, input per baris dengan pecah/gabung/hapus, peringatan > 22 karakter, tombol kembalikan ke hasil Whisper) |
-| `src/components/ClipStudioSection.tsx` | state pratinjau subtitle | L562-681 | #36a: `subtitlePreviews` per kunci `start_end_bahasa` (`subtitlePreviewKey`, bahasa #39 ikut kunci; klip yang di-trim = kunci baru), `requestSubtitlePreview(clip, force)` (`force` saat hasil sudah ada = tombol "Buat ulang" menjalankan Whisper lagi; `.then/.catch`, bukan try/catch, agar React Compiler tetap menganalisis komponen), hitung ulang otomatis saat kamus #11/`text_case` berubah (`subtitleSignature`), `activeSubtitleEventIndex` dari `currentTime - clipStart`. Tipe `SubtitlePreviewEntry` L52-61. #36b (L615-679): `requestSubtitlePreview(clip, {force, words, edited})` (`words` diisi = backend tanpa Whisper; hitung ulang kamus/`text_case` juga mengirim kata yang ada), `whisperWords`/`whisperSource`/`editedWords` per klip, `subtitleEditMode`, `subtitleLines` dari `linesFromPreview`, aksi ketik ulang/pecah (posisi kursor di `subtitleCursorRef`)/gabung/hapus/kembalikan, `generateSubtitlePreview` (konfirmasi bila ada suntingan). #40: `editedWords` baru ditulis saat pratinjau sukses (`editedUpdate`), jadi pratinjau gagal tidak mengubah kata yang dipakai render; `rejectTooLongWord` + `subtitleEditError` menolak kata > 60 karakter di input sunting (blur/Enter: input kembali ke teks lama; pecah/gabung dengan ketikan tertunda dibatalkan), pesan `subtitlePreviewWordTooLong` di panel sunting |
+| `src/components/ClipStudioSection.tsx` | `ClipStudioSection` | L316-5269 | Komponen utama |
+| `src/components/ClipStudioSection.tsx` | `STUDIO_PREFS_KEY` | L224 | Key `localStorage` preferensi (`cheat_clip_studio_preferences`) |
+| `src/components/ClipStudioSection.tsx` | `DEFAULT_STUDIO_PREFS` | L260-292 | Nilai default semua pengaturan |
+| `src/components/ClipStudioSection.tsx` | `getSavedStudioPreferences` | L305-314 | Baca preferensi tersimpan |
+| `src/components/ClipStudioSection.tsx` | simpan preferensi | L1590-1660 | `useEffect` yang menulis preferensi tiap ada perubahan |
+| `src/components/ClipStudioSection.tsx` | `handleLaunch` | L1705-1782 | Susun objek `RenderSettings` dan panggil `onStartRender`. #39: `audioLanguage` (L1750); kata pratinjau diambil dengan kunci bahasa (L1711). #36b: klip dengan pratinjau subtitle membawa `subtitle_words` (`editedWords ?? whisperWords`, L1712) |
+| `src/components/ClipStudioSection.tsx` | `handleResetToDefaults` | L1663-1703 | Reset semua pengaturan |
+| `src/components/ClipStudioSection.tsx` | `formatTitleSmart` | L1357-1417 | Format judul untuk pratinjau (meniru `wrap_title_smart`) |
+| `src/components/ClipStudioSection.tsx` | `getDefaultPositions` | L1427-1473 | Posisi default judul/subtitle per rasio |
+| `src/components/ClipStudioSection.tsx` | `initPreviewPlayer` | L764-849 | Player pratinjau |
+| `src/components/ClipStudioSection.tsx` | `fetchHardwareSupport` | L463-473 | `GET /api/hardware-accel` |
+| `src/components/ClipStudioSection.tsx` | `handleUploadFont` | L508-538 | Upload font kustom |
+| `src/components/ClipStudioSection.tsx` | `uploadBgmFile` | L1082-1107 | Upload BGM |
+| `src/components/ClipStudioSection.tsx` | `uploadHookSfxFile` | L1163-1187 | Upload SFX hook |
+| `src/components/ClipStudioSection.tsx` | `uploadWatermarkFile` | L1224-1253 | Upload watermark |
+| `src/components/ClipStudioSection.tsx` | `getFriendlyErrorMessage` | L88-116 | Pesan error render yang ramah |
+| `src/components/ClipStudioSection.tsx` | JSX kontrol: rasio + face | L1865-2003 | Kanvas, background, centering |
+| `src/components/ClipStudioSection.tsx` | JSX kontrol: judul/hook | L2088-2497 | Banner judul, prefix/suffix |
+| `src/components/ClipStudioSection.tsx` | JSX kontrol: subtitle | L2498-3081 | Gaya, font, posisi subtitle, pilihan bahasa audio (#39, L2986-3010, state milik `App`), kamus koreksi kata (#11, L3012-3077, hanya saat subtitle aktif) |
+| `src/components/ClipStudioSection.tsx` | `sanitizeSubtitleReplacements` | L298-303 | #11: baris kamus yang dikirim ke render (trim, `from` satu kata 1-40, `to` maks 60, maks 100; batas di `SUBTITLE_REPLACEMENT_LIMITS` L295 sama dengan backend) |
+| `src/components/ClipStudioSection.tsx` | state kamus koreksi | L348-353 | #11: `subtitleReplacements` (preferensi studio) + `activeSubtitleReplacements` yang dikirim di `handleLaunch` |
+| `src/components/ClipStudioSection.tsx` | JSX kontrol: audio + watermark | L3082-3703 | BGM, SFX, voice boost, watermark |
+| `src/components/ClipStudioSection.tsx` | JSX kontrol: encoder + nama file + mode | L3704-4021 | Akselerasi hardware, nama file, separate/merged |
+| `src/components/ClipStudioSection.tsx` | JSX daftar klip terpilih | L4022-4115 | Checklist klip |
+| `src/components/ClipStudioSection.tsx` | JSX pratinjau | L4116-5149 | Kolom kanan, pratinjau 9:16. Overlay subtitle L4350-4446: event asli #36a (L4387-4400) atau contoh gaya; kartu "Subtitle asli (pratinjau)" L4571-4700 (tombol, status, daftar potongan yang bisa diklik untuk seek; #36b: tombol Sunting/Selesai, input per baris dengan pecah/gabung/hapus, peringatan > 22 karakter, tombol kembalikan ke hasil Whisper) |
+| `src/components/ClipStudioSection.tsx` | state pratinjau subtitle | L581-700 | #36a: `subtitlePreviews` per kunci `start_end_bahasa` (`subtitlePreviewKey`, bahasa #39 ikut kunci; klip yang di-trim = kunci baru), `requestSubtitlePreview(clip, force)` (`force` saat hasil sudah ada = tombol "Buat ulang" menjalankan Whisper lagi; `.then/.catch`, bukan try/catch, agar React Compiler tetap menganalisis komponen), hitung ulang otomatis saat kamus #11/`text_case` berubah (`subtitleSignature`), `activeSubtitleEventIndex` dari `currentTime - clipStart`. Tipe `SubtitlePreviewEntry` L52-61. #36b (L634-698): `requestSubtitlePreview(clip, {force, words, edited})` (`words` diisi = backend tanpa Whisper; hitung ulang kamus/`text_case` juga mengirim kata yang ada), `whisperWords`/`whisperSource`/`editedWords` per klip, `subtitleEditMode`, `subtitleLines` dari `linesFromPreview`, aksi ketik ulang/pecah (posisi kursor di `subtitleCursorRef`)/gabung/hapus/kembalikan, `generateSubtitlePreview` (konfirmasi bila ada suntingan). #40: `editedWords` baru ditulis saat pratinjau sukses (`editedUpdate`), jadi pratinjau gagal tidak mengubah kata yang dipakai render; `rejectTooLongWord` + `subtitleEditError` menolak kata > 60 karakter di input sunting (blur/Enter: input kembali ke teks lama; pecah/gabung dengan ketikan tertunda dibatalkan), pesan `subtitlePreviewWordTooLong` di panel sunting |
 | `src/utils/subtitlePreview.ts` | `fetchSubtitlePreview` | L74-103 | #36a: `POST /api/preview-subtitles`; #39: `audio_language` (L89, tidak dikirim bila `auto`), helper `AUDIO_LANGUAGE_OPTIONS`, `parseAudioLanguage`, `audioLanguageParam`, `subtitlePreviewKey` (L14-40); juga `SUBTITLE_HIGHLIGHT_COLORS` (L59, sama dengan `highlight_color` di `generate_ass_file`), `findActiveSubtitleEvent` (L106), `groupSubtitleChunks` (L114). #36b: fungsi murni sunting `linesFromPreview` (L155), `linesToWords` (L168), `retypeLine` (L177: jumlah kata sama = waktu dipertahankan, beda = rentang baris dibagi rata), `wordsBeforeCursor` (L193), `splitLine` (L197), `mergeLines` (L207), `SUBTITLE_LINE_MAX_CHARS` (L144). #40: `readStoredAudioLanguage`/`storeAudioLanguage` (L20-34, `localStorage` dibungkus try/catch di tingkat modul), `SUBTITLE_WORD_MAX_CHARS` (L147, sama dengan `render_service.SUBTITLE_WORD_MAX_CHARS`), `findTooLongWord` (L149) |
-| `src/components/ClipStudioSection.tsx` | JSX footer + progres batch | L5105-5167 | Tombol render, progres inline |
-| `src/components/ClipStudioSection.tsx` | folder posting kit | L4891-4896 | #22: baris `postingKitSaved(batchProgress.kit_dir)` di bawah tombol ZIP, tampil bila backend mengisi `kit_dir` |
-| `src/components/ClipTrimmerModal.tsx` | `ClipTrimmerModal` | L49-1601 | Atur ulang start/end klip dengan konteks ±120 s |
-| `src/components/ClipTrimmerModal.tsx` | `handlePointerDown` | L426-532 | Drag handle start/end/playhead |
-| `src/components/ClipTrimmerModal.tsx` | `getAdjustedClip` | L560-569 | Klip hasil trim (dikirim ke `handleApplyAdjustedClipToResults`) |
+| `src/components/ClipStudioSection.tsx` | JSX footer + progres batch | L5150-5212 | Tombol render, progres inline |
+| `src/components/ClipStudioSection.tsx` | folder posting kit | L4936-4941 | #22: baris `postingKitSaved(batchProgress.kit_dir)` di bawah tombol ZIP, tampil bila backend mengisi `kit_dir` |
+| `src/components/ClipTrimmerModal.tsx` | `ClipTrimmerModal` | L51-1642 | Atur ulang start/end klip dengan konteks ±120 s |
+| `src/components/ClipTrimmerModal.tsx` | `handlePointerDown` | L429-535 | Drag handle start/end/playhead |
+| `src/components/ClipTrimmerModal.tsx` | `getAdjustedClip` | L563-572 | Klip hasil trim (dikirim ke `handleApplyAdjustedClipToResults`) |
+| `src/components/ClipTrimmerModal.tsx` | `nudgeStart`/`nudgeEnd` | L538-549 | Geser awal/akhir (jarak minimal 3 s); tombol ±1 (#41), ±5, ±15, ±30 di L1295-1381 |
+| `src/components/ClipTrimmerModal.tsx` | tombol Terapkan | L1571-1595 | #41: prop opsional `onApply` (L17) = terapkan rentang ke hasil tanpa unduh raw; tombol unduh raw tetap memanggil `onDownload` |
+| `src/components/ClipStudioSection.tsx` | judul kustom ikut rentang baru | L354-367 | #41: `customClipTitles` dipindah dari kunci lama ke baru saat prop `clipRangeChange` berubah (pola sesuaikan state saat render, tanpa efek) |
+| `src/components/ClipStudioSection.tsx` | tombol Sesuaikan durasi | L4083-4108 | #41: per klip di daftar klip terpilih, memanggil prop `onAdjustClip` (membuka trimmer milik `App`) |
 | `src/components/HeatmapTimeline.tsx` | `HeatmapTimeline` | L13-318 | Grafik retensi SVG, klik untuk seek |
 
 ## Input / output
-- Input: `result.clips`, `markedClips`, `videoId`, `batchProgress`, `transcript` (#36a, fallback pratinjau subtitle), `audioLanguage` + `onAudioLanguageChange` (#39, satu state dengan form analisis) (props dari `App`).
+- Input: `result.clips`, `markedClips`, `videoId`, `batchProgress`, `transcript` (#36a, fallback pratinjau subtitle), `audioLanguage` + `onAudioLanguageChange` (#39, satu state dengan form analisis), `onAdjustClip` + `clipRangeChange` (#41) (props dari `App`).
 - Output: objek `RenderSettings` (lihat `src/types.ts`) yang dipetakan ke `RenderSettingsModel` di [[render-server]].
 
 ## Risiko
@@ -54,6 +58,7 @@ Panel pengaturan render di bawah hasil analisis (`ClipStudioSection`, ±4800 bar
 - Pratinjau memakai skala `320/1080` atau `320/1920` (asumsi kanvas tetap, lihat [[render-server]]).
 - Pilihan encoder `browser_wasm` mengalihkan ke [[render-browser]] dengan fitur jauh lebih sedikit.
 - `ClipStudioModal.tsx` adalah versi lama yang tidak dipakai. Edit `ClipStudioSection.tsx`.
+- State per klip memakai kunci rentang `start_end` (tanda render, judul kustom, pratinjau subtitle, unduhan raw, pilihan Pakai/Lewati di backend). Trimmer #41 hanya memindahkan tanda render dan judul kustom; pratinjau/suntingan subtitle dan pilihan Pakai/Lewati tidak disalin ke rentang baru (subtitle harus dibuat ulang karena waktunya berubah). Rentang hasil trim tidak disimpan ke cache riwayat analisis: setelah muat ulang/riwayat, kembali ke rentang AI. Kolom judul di trimmer menampilkan `title_suggestion`, bukan judul kustom Clip Studio (judul kustom tetap menang saat render).
 
 ## Terkait
 [[index]] · [[frontend-app]] · [[render-server]] · [[render-browser]] · [[subtitle-dan-judul]] · [[face-tracking]]

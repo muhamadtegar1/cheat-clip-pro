@@ -34,8 +34,8 @@ Dua kebutuhan: (1) segmen klip mentah untuk render ([[render-server]], [[render-
 | `backend/routers/downloads.py` | `get_raw_download_status` | L64-68 | `GET /api/download-raw-status/{job_id}` |
 | `backend/routers/downloads.py` | `handle_download_raw_clip` | L72-111 | `POST /api/download-raw-clip` |
 | `backend/routers/downloads.py` | `get_raw_clip_download_status` | L115-119 | `GET /api/download-raw-clip-status/{job_id}` |
-| `src/App.tsx` | `handleDownloadRawVideo` | L1790-1888 | Tombol unduh video asli |
-| `src/App.tsx` | `handleDownloadRawClip` | L1906-1993 | Tombol unduh segmen asli |
+| `src/App.tsx` | `handleDownloadRawVideo` | L1792-1890 | Tombol unduh video asli |
+| `src/App.tsx` | `handleDownloadRawClip` | L1933-2020 | Tombol unduh segmen asli |
 
 ## Input / output
 - Input: URL YouTube atau `/api/video/{id}`, `start_time`, `end_time`, `cookies_content` (dari `localStorage` browser).
