@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
 from typing import List, Optional
 
@@ -29,7 +30,10 @@ from backend.schemas.analyze import (
     ViralClip,
 )
 from backend.services.ai_service import (
-    KNOWN_FLASH_MODELS,
+    GEMINI_BUSY_MAX_ATTEMPTS,
+    GEMINI_BUSY_RETRY_DELAYS,
+    build_model_fallback_chain,
+    gemini_retry_after_seconds,
     get_flash_models_for_key,
     list_available_gemini_models,
 )
@@ -1169,17 +1173,11 @@ async def analyze_video(request: AnalyzeRequest):
         # Discover all available Flash models for the user's API key
         discovered_flash = await asyncio.to_thread(get_flash_models_for_key, client)
         
-        # Build models_to_try (capped at top 4 to prevent prolonged delays):
-        models_to_try = [requested_model]
-        for fm in discovered_flash:
-            if fm not in models_to_try:
-                models_to_try.append(fm)
-        for km in KNOWN_FLASH_MODELS:
-            if km not in models_to_try:
-                models_to_try.append(km)
-
-        models_to_try = models_to_try[:4]
-        logger.info(f"Flash fallback chain prepared: {models_to_try}")
+        # Task #42: model diminta, lalu Flash stabil generasi lain, lalu Flash lain (maks 4).
+        # strict_model = hanya model diminta (skor tetap sebanding antar analisis).
+        strict_model = bool(getattr(request, 'strict_model', False))
+        models_to_try = build_model_fallback_chain(requested_model, discovered_flash, strict_model)
+        logger.info(f"Flash fallback chain prepared (strict={strict_model}): {models_to_try}")
 
         response = None
         last_error = None
@@ -1189,12 +1187,15 @@ async def analyze_video(request: AnalyzeRequest):
 
         for idx, model_name in enumerate(models_to_try):
             next_model_hint = models_to_try[idx + 1] if idx + 1 < len(models_to_try) else None
-            MAX_RETRIES = 1
+            # Task #42: 503/500 dicoba ulang pada model yang sama dengan jeda bertahap + acak (Retry-After bila ada).
+            # 429, 404, timeout, dan error lain langsung ke model berikut.
+            MAX_RETRIES = max(1, int(GEMINI_BUSY_MAX_ATTEMPTS))
             MODEL_TIMEOUT_SEC = 120.0  # 120s best-practice timeout for comprehensive video analysis
+            retry_wait = 0.0
             
             for attempt in range(MAX_RETRIES):
                 if attempt > 0:
-                    wait = 2
+                    wait = max(0, int(round(retry_wait)))
                     yield _sse({
                         "step": 4,
                         "step_progress": 25,
@@ -1204,7 +1205,8 @@ async def analyze_video(request: AnalyzeRequest):
                         "model": model_name,
                         "message": f"{model_name} is busy — waiting {wait}s before retry {attempt + 1}/{MAX_RETRIES}..."
                     })
-                    await asyncio.sleep(wait)
+                    if retry_wait > 0:
+                        await asyncio.sleep(retry_wait)
                 
                 yield _sse({
                     "step": 4,
@@ -1360,6 +1362,14 @@ async def analyze_video(request: AnalyzeRequest):
                     is_server_busy = any(x in err_str for x in ('503', 'unavailable', 'overloaded', '500', 'internal'))
                     if not is_server_busy:
                         break
+
+                    retry_after = gemini_retry_after_seconds(e)
+                    if retry_after is not None:
+                        retry_wait = retry_after
+                    else:
+                        delays = tuple(GEMINI_BUSY_RETRY_DELAYS) or (0.0,)
+                        base_delay = float(delays[min(attempt, len(delays) - 1)])
+                        retry_wait = base_delay * random.uniform(0.75, 1.25)
             
             if analysis_data is not None and response is not None:
                 break
@@ -1367,7 +1377,8 @@ async def analyze_video(request: AnalyzeRequest):
             if next_model_hint is not None:
                 err_summary = "quota reached" if any(x in str(last_error).lower() for x in ('429', 'quota', 'rate limit')) else \
                               "not available or deprecated" if "404" in str(last_error) else \
-                              "temporarily busy"
+                              "timed out" if isinstance(last_error, TimeoutError) else \
+                              f"still busy after {MAX_RETRIES} attempts"
                 yield _sse({
                     "step": 4,
                     "step_progress": 35,
@@ -1383,14 +1394,16 @@ async def analyze_video(request: AnalyzeRequest):
             error_to_report = encountered_quota_error or last_error
             if error_to_report is not None:
                 err_str = str(error_to_report).lower()
+                strict_note = f" Only-selected-model mode is on, so no other model was tried ({requested_model})." if strict_model else ""
                 if any(x in err_str for x in ('429', 'quota', 'resource exhausted', 'rate limit')):
                     yield _sse({
-                        "error": "Quota limit reached across all available Gemini Flash models for this API key. Free keys have a request limit per minute. Please change your API key, generate a fresh free key at aistudio.google.com, or wait 30–60 seconds before trying again.",
+                        "error": "Quota limit reached across all available Gemini Flash models for this API key. Free keys have a request limit per minute. Please change your API key, generate a fresh free key at aistudio.google.com, or wait 30–60 seconds before trying again." + strict_note,
                         "status": 429
                     })
-                elif any(x in err_str for x in ('503', 'unavailable', 'overloaded')):
+                elif any(x in err_str for x in ('503', 'unavailable', 'overloaded', '500', 'internal')):
+                    # Task #42: 503/500 = server Google penuh, bukan masalah key. Tidak menyarankan ganti key.
                     yield _sse({
-                        "error": "Google Gemini servers are currently experiencing high demand across all Flash models. Please change to a different Gemini API key or wait a few moments and try again.",
+                        "error": f"Google Gemini servers are overloaded right now (503/500 server error, retried up to {MAX_RETRIES}x per model on {', '.join(models_to_try)}). This is a temporary problem on Google's side, not your API key: wait 1-5 minutes and try again." + strict_note,
                         "status": 503
                     })
                 elif any(x in err_str for x in ('401', '403', 'api_key', 'invalid', 'permission')):
@@ -1642,6 +1655,8 @@ async def analyze_video(request: AnalyzeRequest):
             clips=final_clips,
             transcript=response_transcript,
             model=successful_model or requested_model,
+            requested_model=requested_model,
+            model_fallback=bool(successful_model and successful_model != requested_model),
             video_url=video_url,
             source_type=source_type,
             prompt_version=PROMPT_VERSION

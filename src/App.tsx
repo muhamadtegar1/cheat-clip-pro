@@ -107,6 +107,14 @@ export default function App() {
     }
     return saved || 'gemini-2.5-flash';
   });
+  // Task #42: hanya model pilihan (tanpa turun ke model cadangan) agar skor tetap sebanding
+  const [strictModel, setStrictModel] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('cheat_clip_strict_model') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [customPrompt, setCustomPrompt] = useState<string>('');
@@ -1592,6 +1600,7 @@ export default function App() {
           url: targetAnalyzeUrl,
           duration: durationPref,
           model: selectedModel,
+          strict_model: strictModel,
           custom_prompt: customPrompt.trim() || undefined,
           range_start: rangeStartSecs,
           range_end: rangeEndSecs,
@@ -3059,8 +3068,29 @@ Transcript:
                     </>
                   )}
                 </select>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: loading ? 'default' : 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={strictModel}
+                    disabled={loading}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setStrictModel(next);
+                      try {
+                        localStorage.setItem('cheat_clip_strict_model', next ? '1' : '0');
+                      } catch {
+                        // Penyimpanan diblokir: pilihan tetap berlaku untuk sesi ini
+                      }
+                    }}
+                    style={{ marginTop: '0.15rem', cursor: 'inherit' }}
+                  />
+                  <span>
+                    <strong>{t.form.strictModelLabel}</strong>{' '}
+                    <span style={{ color: 'var(--text-muted)' }}>{t.form.strictModelDesc}</span>
+                  </span>
+                </label>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '0.2rem' }}>
-                  💡 <strong>{t.form.resilienceTip}</strong> {t.form.resilienceDesc}
+                  💡 <strong>{t.form.resilienceTip}</strong> {strictModel ? t.form.resilienceDescStrict : t.form.resilienceDesc}
                 </span>
               </div>
             </div>
@@ -4455,6 +4485,14 @@ Transcript:
                   <strong style={{ color: 'var(--primary)', fontWeight: 600 }}>
                     {result.model || selectedModel}
                   </strong>
+                  {result.model_fallback && (
+                    <span
+                      title={t.results.fallbackModelTooltip.replace('{model}', result.requested_model || '')}
+                      style={{ padding: '0.1rem 0.45rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)' }}
+                    >
+                      {t.results.fallbackModelBadge.replace('{model}', result.requested_model || '')}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <span style={{ fontSize: '1rem' }}>🎬</span>

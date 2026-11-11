@@ -61,7 +61,10 @@ export const id: Translations = {
     aiModelLabel: "Pilihan Model AI",
     fetchingModels: "Mengambil daftar model...",
     resilienceTip: "Ketahanan Kuota Gratis:",
-    resilienceDesc: "Jika model mencapai batas kuota atau error, Cheat Clip Pro secara dinamis mencoba seluruh model Flash baru maupun lama (3.x, 2.5, 2.0, 1.5) dari API key Anda hingga klip berhasil ditemukan!",
+    resilienceDesc: "Bila server Google sibuk (503), model yang sama dicoba ulang sampai 3 kali dengan jeda. Bila kuota habis (429) atau model tetap gagal, Cheat Clip Pro pindah ke model cadangan (gemini-2.5-flash lebih dulu, lalu Flash lain, maks 4 model). Hasil dari model cadangan diberi lencana.",
+    resilienceDescStrict: "Mode hanya model pilihan aktif: bila server Google sibuk (503), model ini dicoba ulang sampai 3 kali dengan jeda, tetapi tidak pernah pindah ke model lain.",
+    strictModelLabel: "Hanya model pilihan",
+    strictModelDesc: "(tanpa model cadangan, agar skor antar analisis tetap sebanding)",
 
     // Customization
     clipCustomizationTitle: "Kustomisasi Klip",
@@ -194,6 +197,8 @@ export const id: Translations = {
     recommendedClips: "Rekomendasi Klip Viral",
     sortLabel: (sortName: string) => `URUT: ${sortName}`,
     aiModelBadge: "Model AI:",
+    fallbackModelBadge: "cadangan, diminta {model}",
+    fallbackModelTooltip: "Model {model} gagal (sibuk atau kuota habis), hasil ini dari model cadangan. Skor dari model berbeda tidak sepenuhnya sebanding.",
     generatedClipsBadge: "Klip Dihasilkan:",
     markedClipsBadge: "Klip Ditandai:",
     searchPlaceholder: "🔍 Cari klip atau transkrip...",

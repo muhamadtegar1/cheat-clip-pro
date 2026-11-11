@@ -59,7 +59,10 @@ export const en = {
     aiModelLabel: "AI Model Selection",
     fetchingModels: "Fetching available...",
     resilienceTip: "Free Tier Resilience:",
-    resilienceDesc: "If a model encounters quota limits or errors, Cheat Clip Pro automatically tries all newer and older Flash models (3.x, 2.5, 2.0, 1.5) fetched from your API key until clips are successfully found!",
+    resilienceDesc: "When Google's servers are busy (503), the same model is retried up to 3 times with a delay. On quota limits (429) or if the model keeps failing, Cheat Clip Pro switches to a fallback model (gemini-2.5-flash first, then other Flash models, max 4). Results from a fallback model get a badge.",
+    resilienceDescStrict: "Only-selected-model mode is on: when Google's servers are busy (503), this model is retried up to 3 times with a delay, but never switches to another model.",
+    strictModelLabel: "Only the selected model",
+    strictModelDesc: "(no fallback models, so scores stay comparable across analyses)",
 
     // Customization
     clipCustomizationTitle: "Clip Customization",
@@ -192,6 +195,8 @@ export const en = {
     recommendedClips: "Recommended Clips",
     sortLabel: (sortName: string) => `SORT: ${sortName}`,
     aiModelBadge: "AI Model:",
+    fallbackModelBadge: "fallback, requested {model}",
+    fallbackModelTooltip: "Model {model} failed (busy or out of quota), so this result comes from a fallback model. Scores from different models are not fully comparable.",
     generatedClipsBadge: "Generated Clips:",
     markedClipsBadge: "Marked Clips:",
     searchPlaceholder: "🔍 Search clips or transcripts...",

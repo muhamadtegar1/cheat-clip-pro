@@ -70,6 +70,49 @@ def get_flash_models_for_key(client: genai.Client) -> List[str]:
     return ordered[:4]
 
 
+# Task #42: model cadangan pertama = Flash stabil generasi lain (bukan Flash preview bertetangga yang
+# kemungkinan berbagi kapasitas server dengan model yang diminta).
+STABLE_FALLBACK_MODEL = 'gemini-2.5-flash'
+MAX_MODELS_IN_CHAIN = 4
+
+# Task #42: coba ulang 503/500 pada model yang sama. Jeda dasar sebelum percobaan ke-2, ke-3 (detik), diacak ±25%.
+# Smoke test me-nol-kan konstanta ini lewat modul.
+GEMINI_BUSY_RETRY_DELAYS = (3.0, 8.0, 20.0)
+GEMINI_BUSY_MAX_ATTEMPTS = 3
+GEMINI_RETRY_AFTER_CAP = 30.0
+
+
+def build_model_fallback_chain(requested: str, discovered: List[str], strict: bool = False) -> List[str]:
+    """Task #42: urutan model untuk analisis. Model diminta lebih dulu; `strict` = hanya model itu.
+    Lalu `STABLE_FALLBACK_MODEL` (bila bukan yang diminta), lalu Flash lain dari `discovered` dan
+    `KNOWN_FLASH_MODELS` dengan urutan semula. Maksimal `MAX_MODELS_IN_CHAIN`."""
+    chain = [requested]
+    if strict:
+        return chain
+    for name in [STABLE_FALLBACK_MODEL, *discovered, *KNOWN_FLASH_MODELS]:
+        if name and name not in chain:
+            chain.append(name)
+    return chain[:MAX_MODELS_IN_CHAIN]
+
+
+def gemini_retry_after_seconds(error: Exception) -> Optional[float]:
+    """Task #42: nilai header `Retry-After` (detik) dari error Gemini bila ada, dibatasi `GEMINI_RETRY_AFTER_CAP`."""
+    response = getattr(error, 'response', None)
+    headers = getattr(response, 'headers', None)
+    if not headers:
+        return None
+    try:
+        value = headers.get('retry-after') or headers.get('Retry-After')
+        if value is None:
+            return None
+        seconds = float(value)
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if seconds < 0:
+        return None
+    return min(seconds, GEMINI_RETRY_AFTER_CAP)
+
+
 def list_available_gemini_models(api_key: str = "") -> List[str]:
     """Fetches list of available Gemini models using the user's API key, prioritizing Flash models (newest first)."""
     default_models = [

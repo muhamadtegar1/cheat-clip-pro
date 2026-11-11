@@ -24,6 +24,9 @@ Cek yang dijalankan:
   12. Fallback Whisper YouTube (task #40): caption gagal, audio palsu, bahasa audio sampai ke Whisper ([None, 'en']).
   13. Posting kit (task #22): folder kit per klip (MP4, SRT = baris karaoke, metadata.json, caption per platform), ZIP,
       retry, kit gagal tidak menggagalkan klip, prompt_version di respons analisis. Folder kit di EXPORTS_DIR sementara.
+  14. Gemini tahan server sibuk (task #42): klien palsu per model. 503 sementara pulih di model yang sama, 503 terus
+      berakhir status 503 tanpa saran ganti key, 429 langsung pindah model, model cadangan ditandai `model_fallback`,
+      `strict_model` tidak memakai model lain, urutan `build_model_fallback_chain`, Retry-After. Jeda retry di-nol-kan.
 
 Skrip tidak mengimpor `backend.main`, jadi daemon auto-cleanup tidak berjalan.
 Semua file yang dibuat skrip ini dihapus di akhir (kecuali dengan --keep).
@@ -172,9 +175,21 @@ class FakeGeminiClient:
         self.mode = mode
         self.models = SimpleNamespace(generate_content=self.generate_content)
 
+    # Task #42: mode 'scripted' = aksi per model ('503', '429', 'ok') dibaca berurutan; `script_default` bila habis.
+    script = {}
+    script_default = "ok"
+
     def generate_content(self, model=None, contents=None, config=None):
         FakeGeminiClient.calls.append(model)
         FakeGeminiClient.prompts.append(str(contents))
+        if self.mode == "scripted":
+            queue = FakeGeminiClient.script.get(model) or []
+            action = queue.pop(0) if queue else FakeGeminiClient.script_default
+            if action == "503":
+                raise Exception("503 UNAVAILABLE. The model is overloaded. Please try again later. (smoke test)")
+            if action == "429":
+                raise Exception("429 RESOURCE_EXHAUSTED. Quota exceeded for this API key (smoke test).")
+            return SimpleNamespace(parsed=None, text=SCORED_JSON)
         if self.mode == "rate_limit":
             raise Exception("429 RESOURCE_EXHAUSTED. Quota exceeded for this API key (smoke test).")
         if self.mode == "out_of_range":
@@ -197,6 +212,114 @@ def patch_gemini(analyze_mod, mode: str):
 
 def restore_gemini(analyze_mod, original) -> None:
     analyze_mod.genai, analyze_mod.get_flash_models_for_key = original
+
+
+def run_model_resilience_checks(client, analyze_mod, base: dict) -> None:
+    """Task #42: retry 503 di model yang sama, 429 pindah model, lencana model cadangan, strict_model."""
+    from backend.services.ai_service import build_model_fallback_chain, gemini_retry_after_seconds
+
+    # Urutan rantai: model diminta, lalu gemini-2.5-flash, lalu Flash lain; strict = hanya model diminta.
+    flash = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"]
+    chain = build_model_fallback_chain("gemini-3.8-flash", flash)
+    chain_25 = build_model_fallback_chain("gemini-2.5-flash", flash)
+    ok = (chain == ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-3.7-flash", "gemini-3.6-flash"]
+          and chain_25 == ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"]
+          and build_model_fallback_chain("gemini-3.8-flash", flash, strict=True) == ["gemini-3.8-flash"])
+    report("analyze #42 urutan model cadangan", ok, f"{chain} | {chain_25}")
+
+    # Retry-After dari header error, dibatasi 30 s
+    def err_with(headers):
+        e = Exception("503 UNAVAILABLE")
+        e.response = SimpleNamespace(headers=headers)
+        return e
+    vals = [gemini_retry_after_seconds(err_with({"retry-after": "5"})),
+            gemini_retry_after_seconds(err_with({"retry-after": "120"})),
+            gemini_retry_after_seconds(err_with({"retry-after": "Wed, 21 Oct"})),
+            gemini_retry_after_seconds(Exception("503"))]
+    report("analyze #42 Retry-After", vals == [5.0, 30.0, None, None], str(vals))
+
+    requested = "gemini-3.8-flash"
+    payload = {**base, "api_key": "smoke-fake-key", "model": requested}
+    original = patch_gemini(analyze_mod, "scripted")
+    original_delays = analyze_mod.GEMINI_BUSY_RETRY_DELAYS
+    analyze_mod.GEMINI_BUSY_RETRY_DELAYS = (0.0, 0.0, 0.0)
+
+    def run(script: dict, default: str, extra: dict = None):
+        FakeGeminiClient.calls = []
+        FakeGeminiClient.script = {k: list(v) for k, v in script.items()}
+        FakeGeminiClient.script_default = default
+        events = read_sse_events(client, {**payload, **(extra or {})})
+        done = [e for e in events if e.get("done")]
+        errors = [e for e in events if e.get("error")]
+        stages = [e.get("stage") for e in events]
+        return done, errors, stages, list(FakeGeminiClient.calls)
+
+    try:
+        # 503 sementara (2x) lalu sukses: model yang sama, tanpa fallback, tanpa lencana
+        name = "analyze #42 503 sementara pulih di model yang sama"
+        try:
+            done, errors, stages, calls = run({requested: ["503", "503"]}, "ok")
+            res = done[-1]["result"] if done else {}
+            ok = (bool(done) and not errors and calls == [requested] * 3
+                  and stages.count("Transient Retry") == 2 and "Flash Fallback" not in stages
+                  and res.get("model") == requested and res.get("model_fallback") is False
+                  and res.get("requested_model") == requested)
+            report(name, ok, f"panggilan {calls}, model {res.get('model')}, fallback {res.get('model_fallback')}")
+        except Exception as e:
+            report(name, False, repr(e))
+
+        # 503 terus-menerus: tiap model maks 3x, status 503, tanpa saran ganti key
+        name = "analyze #42 503 terus -> pesan 503 jujur"
+        try:
+            done, errors, stages, calls = run({}, "503")
+            msg = errors[-1].get("error", "") if errors else ""
+            per_model = {m: calls.count(m) for m in dict.fromkeys(calls)}
+            ok = (not done and bool(errors) and errors[-1].get("status") == 503
+                  and len(per_model) == 4 and all(n == 3 for n in per_model.values())
+                  and "change" not in msg.lower() and "not your api key" in msg.lower())
+            report(name, ok, f"status {errors[-1].get('status') if errors else None}, per model {per_model}")
+        except Exception as e:
+            report(name, False, repr(e))
+
+        # 429 di semua model: 1 panggilan per model, pesan kuota
+        name = "analyze #42 429 langsung pindah model"
+        try:
+            done, errors, stages, calls = run({}, "429")
+            ok = (not done and bool(errors) and errors[-1].get("status") == 429
+                  and len(calls) == 4 and len(set(calls)) == 4 and "Transient Retry" not in stages)
+            report(name, ok, f"status {errors[-1].get('status') if errors else None}, panggilan {calls}")
+        except Exception as e:
+            report(name, False, repr(e))
+
+        # 429 di model diminta lalu sukses di cadangan: model_fallback true
+        name = "analyze #42 hasil model cadangan ditandai"
+        try:
+            done, errors, stages, calls = run({requested: ["429"]}, "ok")
+            res = done[-1]["result"] if done else {}
+            ok = (bool(done) and calls == [requested, "gemini-2.5-flash"]
+                  and res.get("model") == "gemini-2.5-flash" and res.get("model_fallback") is True
+                  and res.get("requested_model") == requested)
+            report(name, ok, f"panggilan {calls}, model {res.get('model')}, fallback {res.get('model_fallback')}")
+        except Exception as e:
+            report(name, False, repr(e))
+
+        # strict_model: 503 dan 429 tidak pernah memakai model lain
+        name = "analyze #42 strict_model tanpa model lain"
+        try:
+            done_b, errors_b, _, calls_b = run({}, "503", {"strict_model": True})
+            done_q, errors_q, _, calls_q = run({}, "429", {"strict_model": True})
+            ok = (not done_b and not done_q and calls_b == [requested] * 3 and calls_q == [requested]
+                  and bool(errors_b) and errors_b[-1].get("status") == 503
+                  and bool(errors_q) and errors_q[-1].get("status") == 429
+                  and "only-selected-model" in errors_b[-1].get("error", "").lower())
+            report(name, ok, f"503: {calls_b}, 429: {calls_q}")
+        except Exception as e:
+            report(name, False, repr(e))
+    finally:
+        analyze_mod.GEMINI_BUSY_RETRY_DELAYS = original_delays
+        FakeGeminiClient.script = {}
+        FakeGeminiClient.script_default = "ok"
+        restore_gemini(analyze_mod, original)
 
 
 def check_clips(result: dict, max_end: float) -> str:
@@ -241,6 +364,9 @@ def run_analyze_checks(client, analyze_mod, video_name: str, srt: str) -> None:
         report("analyze RATE_LIMIT -> 429", False, repr(e))
     finally:
         restore_gemini(analyze_mod, original)
+
+    # 2b. Task #42: ketahanan server sibuk
+    run_model_resilience_checks(client, analyze_mod, base)
 
     # 3b. Guardrail membuang semua klip -> fallback heatmap (task #12)
     original = patch_gemini(analyze_mod, "out_of_range")
