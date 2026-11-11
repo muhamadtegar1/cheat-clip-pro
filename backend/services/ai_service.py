@@ -77,7 +77,7 @@ MAX_MODELS_IN_CHAIN = 4
 
 # Task #42: coba ulang 503/500 pada model yang sama. Jeda dasar sebelum percobaan ke-2, ke-3 (detik), diacak ±25%.
 # Smoke test me-nol-kan konstanta ini lewat modul.
-GEMINI_BUSY_RETRY_DELAYS = (3.0, 8.0, 20.0)
+GEMINI_BUSY_RETRY_DELAYS = (3.0, 8.0)
 GEMINI_BUSY_MAX_ATTEMPTS = 3
 GEMINI_RETRY_AFTER_CAP = 30.0
 

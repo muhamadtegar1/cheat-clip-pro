@@ -311,7 +311,8 @@ def run_model_resilience_checks(client, analyze_mod, base: dict) -> None:
             ok = (not done_b and not done_q and calls_b == [requested] * 3 and calls_q == [requested]
                   and bool(errors_b) and errors_b[-1].get("status") == 503
                   and bool(errors_q) and errors_q[-1].get("status") == 429
-                  and "only-selected-model" in errors_b[-1].get("error", "").lower())
+                  and "only-selected-model" in errors_b[-1].get("error", "").lower()
+                  and "across all" not in errors_q[-1].get("error", "").lower())
             report(name, ok, f"503: {calls_b}, 429: {calls_q}")
         except Exception as e:
             report(name, False, repr(e))

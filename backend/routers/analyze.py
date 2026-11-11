@@ -1378,7 +1378,8 @@ async def analyze_video(request: AnalyzeRequest):
                 err_summary = "quota reached" if any(x in str(last_error).lower() for x in ('429', 'quota', 'rate limit')) else \
                               "not available or deprecated" if "404" in str(last_error) else \
                               "timed out" if isinstance(last_error, TimeoutError) else \
-                              f"still busy after {MAX_RETRIES} attempts"
+                              f"still busy after {MAX_RETRIES} attempts" if any(x in str(last_error).lower() for x in ('503', 'unavailable', 'overloaded', '500', 'internal')) else \
+                              "failed"
                 yield _sse({
                     "step": 4,
                     "step_progress": 35,
@@ -1397,7 +1398,11 @@ async def analyze_video(request: AnalyzeRequest):
                 strict_note = f" Only-selected-model mode is on, so no other model was tried ({requested_model})." if strict_model else ""
                 if any(x in err_str for x in ('429', 'quota', 'resource exhausted', 'rate limit')):
                     yield _sse({
-                        "error": "Quota limit reached across all available Gemini Flash models for this API key. Free keys have a request limit per minute. Please change your API key, generate a fresh free key at aistudio.google.com, or wait 30–60 seconds before trying again." + strict_note,
+                        "error": (
+                            f"Quota limit reached for {requested_model} on this API key. Only-selected-model mode is on, so no other model was tried. Free keys have a request limit per minute: wait 30–60 seconds, turn off only-selected-model mode, or use a key from another Google project."
+                            if strict_model else
+                            "Quota limit reached across all available Gemini Flash models for this API key. Free keys have a request limit per minute. Please change your API key, generate a fresh free key at aistudio.google.com, or wait 30–60 seconds before trying again."
+                        ),
                         "status": 429
                     })
                 elif any(x in err_str for x in ('503', 'unavailable', 'overloaded', '500', 'internal')):

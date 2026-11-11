@@ -61,6 +61,7 @@ CATATAN:
 - `PROMPT_VERSION` (#22) berubah karena isi `routers/analyze.py` berubah; teks prompt tidak berubah.
 - Hasil di cache riwayat lama tidak punya `model_fallback`, jadi tampil tanpa lencana.
 - Worktree memakai `node_modules` checkout utama lewat junction (di-ignore git) agar build dan `check_codemap.py` jalan.
+- Perbaikan temuan minor reviewer `/tutup` (PASS): (1) event "Flash Fallback" menyebut "still busy after N attempts" hanya untuk 503/500, error lain "failed"; (2) `GEMINI_BUSY_RETRY_DELAYS` jadi (3, 8) karena maks 3 percobaan hanya memakai 2 jeda (20 s tidak pernah terpakai); (3) pesan 429 mode `strict_model` menyebut model diminta saja, bukan "across all available models" (cek smoke ditambah). Smoke 30/30, codemap lulus setelah perbaikan.
 
 ## Review (sesi baru)
 VERDICT: PASS | FIX_REQUIRED
