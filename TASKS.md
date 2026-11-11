@@ -277,6 +277,7 @@ Auto-posting ke platform · posting massal konten identik ke banyak akun · auto
 | 2026-10-21 | 41 | DONE | Ditetapkan DONE oleh pemilik proyek |
 | 2026-11-11 | 42 | TODO | Ditambahkan atas permintaan pemilik: analisis Gemini gagal 503 "high demand" dan model terus turun; retry dengan jeda, urutan cadangan, mode tanpa turun model, lencana model cadangan, pesan error jujur |
 | 2026-11-11 | 42 | REVIEW | 503/500 dicoba ulang di model yang sama (maks 3x, jeda 3/8/20 s acak, Retry-After maks 30 s); 429/404/timeout langsung pindah. Rantai: model diminta → `gemini-2.5-flash` → Flash lain (maks 4). Kotak centang "Hanya model pilihan" (`strict_model`), lencana model cadangan (`model_fallback`, `requested_model`), pesan 503 tanpa saran ganti key. Smoke 30/30 (7 cek baru), build, codemap lulus, lint tanpa masalah baru. Prompt tidak berubah (`PROMPT_VERSION` berubah karena isi file). Belum diuji di browser |
+| 2026-11-11 | 42 | REVIEW | Subagent reviewer `/tutup`: PASS dengan 3 temuan minor, diperbaiki: teks "Flash Fallback" untuk error non-503 = "failed", jeda retry (3, 8) s, pesan 429 mode hanya model pilihan tidak lagi "across all models". Smoke 30/30, codemap lulus |
 
 ***
 
