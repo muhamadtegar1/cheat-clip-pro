@@ -4,17 +4,25 @@ Auto-clipper: video panjang (YouTube, Google Drive, upload) → Gemini memilih m
 
 Repo ini fork dari `galihjuansaputra/cheat-clip-pro` (MIT).
 - Remote: `origin` = `muhamadtegar1/cheat-clip-pro` (fork), `upstream` = repo asli (hanya tarik manual).
-- Branch kerja: `custom`. Jangan commit ke `master`.
+- Branch produksi: `custom` (task dikerjakan di branch sendiri, lihat "Branch dan lingkungan dev"). Jangan commit ke `master`.
 
 ## Alur task (skill di `.claude/skills/`)
 | Perintah | Siapa | Isi |
 | --- | --- | --- |
 | `/mulai <ID>` | pemilik | Baca baton + codemap, tulis draf kontrak, **berhenti** menunggu persetujuan, lalu implementasi |
-| `/tutup` | pemilik | Cek lingkup, build/smoke test/cek codemap, laporan, status REVIEW, commit + push, subagent `reviewer` |
+| `/tutup` | pemilik | Cek lingkup, build/smoke test/cek codemap, laporan, status REVIEW, commit + push branch task, subagent `reviewer` |
 | `/review <ID>` | pemilik, di sesi baru | Review independen dari kontrak + diff commit `<ID>:` + test sendiri, tulis verdict |
-| `/done <ID>` | pemilik | Tandai DONE, perbarui baton dan log, commit + push |
+| `/done <ID>` | pemilik | Tandai DONE, perbarui baton dan log, commit, merge branch task ke `custom`, push |
 
 Blok Baton dicetak otomatis di awal sesi oleh hook `SessionStart` (`.claude/settings.json` → `scripts/baton.js`). Semua skill memakai `disable-model-invocation: true`, jadi hanya bisa dipanggil pemilik. Pesan commit task selalu diawali `<ID>:` karena reviewer mencari commit dengan pola itu.
+
+## Branch dan lingkungan dev
+- `custom` = produksi stabil. Checkout utama (`D:\Projects\cheat-clip-pro`, branch `custom`) adalah app yang dipakai pemilik setiap hari dengan data di `D:\CheatClip`. Task tidak dikerjakan di sana.
+- Satu task = satu worktree + satu branch dari `custom`. Sesi Claude Code baru otomatis membuat worktree (`.claude/worktrees/<nama>`) dan branch; `/mulai` berhenti bila dijalankan di checkout utama dan mencatat branch di kontrak (`Branch:`).
+- `/tutup` push branch task (`git push -u origin HEAD`), bukan `custom`. `/done` commit DONE di branch task lalu merge `--no-ff` ke `custom` di checkout utama (app produksi yang sedang jalan akan reload). Worktree tidak dihapus otomatis.
+- Mencoba hasil task: tutup app produksi, lalu dari folder worktree jalankan `powershell -File scripts\dev_worktree.ps1` (`-Siapkan` hanya menyiapkan, `-Force` menulis ulang `.env`). Skrip membuat junction `node_modules` dan `venv` ke checkout utama, menulis `backend\.env` worktree (key Gemini disalin, `CHEAT_CLIP_EXPORTS_DIR=D:\CheatClip-dev`), dan menolak jalan bila port 8000 terpakai.
+- Data dev ada di `D:\CheatClip-dev`, terpisah dari produksi. Jangan jalankan dev dan produksi bersamaan (keduanya memakai port 8000 dan 5173).
+- Menghapus worktree: lepas junction dulu (`cmd /c rmdir node_modules`, `cmd /c rmdir venv`) sebelum `git worktree remove`, agar isi milik checkout utama tidak ikut terhapus.
 
 ## Sebelum mengerjakan apa pun
 1. Baca blok **Baton** di `TASKS.md` (juga tampil di awal sesi): fase aktif, task aktif, langkah berikut, blocker.

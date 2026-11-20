@@ -37,7 +37,7 @@ Kalau ada yang gagal, berhenti di sini. Laporkan ke pemilik dan jangan set REVIE
 ## 5. Commit dan push
 1. `git status`, lalu stage file kode + kontrak + codemap satu per satu (jangan `git add .`). Commit: `<ID>: <judul singkat dari kontrak>`.
 2. Stage `TASKS.md` saja. Commit: `<ID>: TASKS.md status REVIEW`.
-3. `git push` ke `origin custom`. Kalau push meminta login, beri tahu pemilik dan tunggu.
+3. Push branch task (bukan `custom`): `git push -u origin HEAD`. Kalau push meminta login, beri tahu pemilik dan tunggu. `custom` hanya berubah lewat merge di `/done`.
 
 ## 6. Review oleh subagent
 Panggil subagent `reviewer` (Agent tool, `subagent_type: "reviewer"`) dengan prompt: "Review task <ID>. Kontrak: docs/tasks/CHEAT-<ID>.md. Commit task: yang pesannya diawali `<ID>:`." Subagent hanya bisa membaca dan menjalankan perintah, tidak bisa mengedit.
@@ -48,4 +48,4 @@ Setelah subagent selesai:
 - Kalau verdict `FIX_REQUIRED`, tanyakan apakah temuannya diperbaiki sekarang.
 
 ## 7. Ringkasan untuk pemilik
-Perintah yang dijalankan, file yang diubah, hasil tiap kriteria selesai, verdict subagent, dan apa yang perlu dicoba pemilik sebelum `/done <ID>`. Untuk task berisiko tinggi (#7, #12, #16), ingatkan bahwa `/review <ID>` wajib dijalankan di sesi baru.
+Perintah yang dijalankan, file yang diubah, hasil tiap kriteria selesai, verdict subagent, dan apa yang perlu dicoba pemilik sebelum `/done <ID>`. Cara mencoba: tutup app produksi dulu, lalu dari folder worktree task jalankan `powershell -File scripts\dev_worktree.ps1` (data dev masuk `D:\CheatClip-dev`, bukan data produksi). Sebutkan path worktree-nya. Untuk task berisiko tinggi (#7, #12, #16), ingatkan bahwa `/review <ID>` wajib dijalankan di sesi baru.

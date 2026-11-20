@@ -9,6 +9,12 @@ disable-model-invocation: true
 
 Task yang diminta: **$ARGUMENTS**. Kalau kosong, pakai `langkah_berikut` dari baton dan sebutkan ID yang dipilih.
 
+## Tahap 0: Pastikan berjalan di worktree task
+Checkout utama (`custom`) adalah app produksi yang dipakai pemilik setiap hari; task tidak dikerjakan di sana.
+1. Bandingkan `git rev-parse --show-toplevel` dengan baris pertama `git worktree list` (checkout utama). Kalau sama, **berhenti**: minta pemilik membuka sesi Claude Code baru untuk task ini (sesi baru otomatis membuat worktree dan branch), lalu menjalankan `/mulai $ARGUMENTS` di sana.
+2. Cek branch berasal dari `custom`: `git merge-base --is-ancestor custom HEAD`. Kalau gagal (branch dibuat dari commit lain, mis. `master`) dan branch belum punya commit sendiri, majukan dengan `git merge --ff-only custom`. Kalau tidak bisa fast-forward, berhenti dan laporkan.
+3. Catat nama branch (`git rev-parse --abbrev-ref HEAD`) di kontrak, baris `Branch: <nama>` tepat di bawah `Status:`. `/tutup` dan `/done` memakai branch ini.
+
 ## Tahap 1: Persiapan (tanpa mengubah kode)
 1. Baca `CLAUDE.md` dan blok **Baton** + baris task `$ARGUMENTS` di `TASKS.md`.
 2. Cek aturan kerja no. 6: kalau task berasal dari fase setelah `fase_aktif`, atau ada task lain berstatus `IN_PROGRESS`/`REVIEW`, sebutkan dan tanyakan apakah tetap lanjut.
@@ -17,9 +23,9 @@ Task yang diminta: **$ARGUMENTS**. Kalau kosong, pakai `langkah_berikut` dari ba
 5. Buka `docs/codemap/index.md` dan catatan fitur yang relevan. Ambil file, fungsi, dan rentang baris dari sana. Verifikasi rentangnya dengan membaca kodenya.
 
 ## Tahap 2: Kontrak
-- Kalau `docs/tasks/CHEAT-$ARGUMENTS.md` **sudah ada**: baca, ringkas isinya ke pemilik, lalu lanjut ke Tahap 3 hanya bila statusnya sudah disetujui (`IN_PROGRESS`) atau pemilik bilang lanjut.
+- Kalau `docs/tasks/CHEAT-$ARGUMENTS.md` **sudah ada**: baca, tambahkan atau perbarui baris `Branch:` bila belum sesuai, ringkas isinya ke pemilik, lalu lanjut ke Tahap 3 hanya bila statusnya sudah disetujui (`IN_PROGRESS`) atau pemilik bilang lanjut.
 - Kalau **belum ada**: salin `docs/tasks/_TEMPLATE.md` menjadi `docs/tasks/CHEAT-$ARGUMENTS.md`, hapus komentar `<!-- -->` dan blok prompt review di bawah garis `---`, lalu isi:
-  - Judul: `# CHEAT-$ARGUMENTS: <judul singkat>`, `Status: TODO`
+  - Judul: `# CHEAT-$ARGUMENTS: <judul singkat>`, `Status: TODO`, `Branch: <nama branch dari Tahap 0>`
   - Tujuan (satu kalimat), Area yang boleh disentuh (file + fungsi + rentang baris dari codemap), Di luar scope, Keputusan yang boleh diambil AI, Kriteria selesai (ya/tidak, diambil dari kolom "Selesai jika" di TASKS.md lalu dipertajam), Cara menguji.
   - Biarkan bagian Laporan implementer dan Review kosong.
 
