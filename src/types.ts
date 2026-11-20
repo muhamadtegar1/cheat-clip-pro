@@ -81,6 +81,8 @@ export interface AnalyzeResponse {
   video_url?: string;
   source_type?: 'youtube' | 'upload' | 'gdrive';
   prompt_version?: string; // Task #22: hash kode prompt analisis, untuk metadata posting kit
+  requested_model?: string; // Task #42: model yang diminta
+  model_fallback?: boolean; // Task #42: true bila hasil dari model cadangan
 }
 
 export type AspectRatioOption = '9:16' | '1:1' | '4:3' | '16:9' | '16:9_landscape';

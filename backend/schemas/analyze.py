@@ -67,6 +67,7 @@ class AnalyzeRequest(BaseModel):
     proxy: Optional[str] = Field(None, description="Optional custom proxy URL")
     cookies: Optional[str] = Field(None, description="Optional user YouTube cookies from browser LocalStorage")
     audio_language: AudioLanguage = Field(None, description="Task #39: Whisper audio language code (None/'auto' = detect)")
+    strict_model: bool = Field(False, description="Task #42: only use the requested model, never fall back to another model")
 
 class HeatmapPoint(BaseModel):
     start_time: float
@@ -92,3 +93,5 @@ class AnalyzeResponse(BaseModel):
     video_url: Optional[str] = None
     source_type: Optional[str] = "youtube"
     prompt_version: Optional[str] = Field(None, description="Task #22: hash pendek kode prompt analisis (metadata posting kit)")
+    requested_model: Optional[str] = Field(None, description="Task #42: model yang diminta pengguna")
+    model_fallback: bool = Field(False, description="Task #42: True bila hasil berasal dari model cadangan, bukan model yang diminta")

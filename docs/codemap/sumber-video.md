@@ -10,12 +10,12 @@ Langkah 1 dan 2 dari `POST /api/analyze`: menentukan jenis sumber dari `request.
 
 | File | Simbol | Baris | Peran |
 | --- | --- | --- | --- |
-| `backend/routers/analyze.py` | cabang Google Drive | L324-363 | Unduh file Drive dengan progres lewat antrean SSE |
-| `backend/routers/analyze.py` | deteksi upload | L364-371 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
-| `backend/routers/analyze.py` | cabang upload lokal | L373-562 | Probe metadata, transkrip via subtitle manual atau Whisper |
-| `backend/routers/analyze.py` | heatmap akustik (upload) | L424-466 | Heatmap dari energi audio karena tidak ada data retensi; `heatmap_source = "audio"` (#32) agar prompt menyebutnya energi audio, bukan minat penonton |
-| `backend/routers/analyze.py` | cabang YouTube: metadata | L563-625 | `extract_video_id`, `fetch_video_metadata`, mock fallback; `heatmap_source = "viewer"` (#32) |
-| `backend/routers/analyze.py` | cabang YouTube: heatmap | L626-653 | Langkah 2, kurva retensi dari metadata |
+| `backend/routers/analyze.py` | cabang Google Drive | L328-367 | Unduh file Drive dengan progres lewat antrean SSE |
+| `backend/routers/analyze.py` | deteksi upload | L368-375 | `upload_*`, `/api/video/...`, `file://`, atau path yang ada di disk |
+| `backend/routers/analyze.py` | cabang upload lokal | L377-566 | Probe metadata, transkrip via subtitle manual atau Whisper |
+| `backend/routers/analyze.py` | heatmap akustik (upload) | L428-470 | Heatmap dari energi audio karena tidak ada data retensi; `heatmap_source = "audio"` (#32) agar prompt menyebutnya energi audio, bukan minat penonton |
+| `backend/routers/analyze.py` | cabang YouTube: metadata | L567-629 | `extract_video_id`, `fetch_video_metadata`, mock fallback; `heatmap_source = "viewer"` (#32) |
+| `backend/routers/analyze.py` | cabang YouTube: heatmap | L630-657 | Langkah 2, kurva retensi dari metadata |
 | `backend/services/youtube_service.py` | `fetch_video_metadata` | L218-274 | yt-dlp JSON: judul, channel, durasi, heatmap |
 | `backend/services/youtube_service.py` | `get_youtube_oembed_title` | L166-215 | Fallback judul via oEmbed |
 | `backend/services/gdrive_service.py` | `is_google_drive_url` | L14-19 | Deteksi link Drive |
