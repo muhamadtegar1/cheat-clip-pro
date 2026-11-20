@@ -1,5 +1,5 @@
 # CHEAT-42: Analisis Gemini tahan server sibuk
-Status: REVIEW
+Status: DONE
 
 ## Tujuan
 Gangguan 503/500 sesaat dari Gemini dipulihkan dengan coba ulang pada model yang sama sebelum pindah model, rantai cadangan tidak lagi berisi Flash preview bertetangga saja, pemilik bisa mengunci ke model pilihan, hasil dari model cadangan diberi lencana, dan pesan 503/429 jujur.
